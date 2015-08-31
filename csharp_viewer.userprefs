@@ -2,18 +2,20 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/Viewer.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="46" Column="42" />
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="33" Column="30" />
-      <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="117" Column="27" />
-      <File FileName="csharp_viewer/ImageTransform.cs" Line="43" Column="78" />
-      <File FileName="csharp_viewer/DimensionMapper.cs" Line="104" Column="4" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="589" Column="4" />
-      <File FileName="csharp_viewer/ArgumentIndex.cs" Line="274" Column="6" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="609" Column="4" />
+      <File FileName="csharp_viewer/ScriptingConsole.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Cinema.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="381" Column="89" />
+      <File FileName="csharp_viewer/ImageContextMenu.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ArgumentIndex.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Selection.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/XYTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ThetaPhiTransform.cs" Line="58" Column="42" />
-      <File FileName="csharp_viewer/AnimationTransform.cs" Line="35" Column="3" />
+      <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/AnimationTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Common.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLShader.cs" Line="151" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
