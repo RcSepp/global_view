@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProjectGuid>{AFA38473-2974-406B-955E-BB479C9115F3}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>csharp_viewer</RootNamespace>
+    <AssemblyName>csharp_viewer</AssemblyName>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ConsolePause>false</ConsolePause>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <ItemGroup>
+    <Compile Include="Viewer.cs" />
+    <Compile Include="Cinema.cs" />
+    <Compile Include="GLMesh.cs" />
+    <Compile Include="GLShader.cs" />
+    <Compile Include="ImageCloud.cs" />
+    <Compile Include="ImageTransform.cs" />
+    <Compile Include="ThetaPhiTransform.cs" />
+    <Compile Include="XYTransform.cs" />
+    <Compile Include="DataVisualization.cs" />
+    <Compile Include="ColorMapCreator.cs" />
+    <Compile Include="AnimationTransform.cs" />
+    <Compile Include="GLTexture1D.cs" />
+    <Compile Include="GLFont.cs" />
+    <Compile Include="ColorTableManager.cs" />
+    <Compile Include="InputDevices.cs" />
+    <Compile Include="ArgumentIndex.cs" />
+    <Compile Include="Common.cs" />
+    <Compile Include="TransformedImage.cs" />
+    <Compile Include="TranslationTransform.cs" />
+    <Compile Include="Selection.cs" />
+    <Compile Include="GLTextureStream.cs" />
+    <Compile Include="GLTexture2D.cs" />
+    <Compile Include="GLTexture.cs" />
+    <Compile Include="CoordinateSystem.cs" />
+    <Compile Include="DimensionMapper.cs" />
+    <Compile Include="ThetaPhiViewTransform.cs" />
+    <Compile Include="GraphTransform.cs" />
+    <Compile Include="WheelTransform.cs" />
+    <Compile Include="ImageContextMenu.cs" />
+    <Compile Include="ActionManager.cs" />
+    <Compile Include="DisableTransform.cs" />
+    <Compile Include="ScriptingConsole.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK">
+      <HintPath>..\..\..\opentk-2014-07-23\Binaries\OpenTK\Release\OpenTK.dll</HintPath>
+    </Reference>
+    <Reference Include="OpenTK.GLControl">
+      <HintPath>..\..\..\opentk-2014-07-23\Binaries\OpenTK\Release\OpenTK.GLControl.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Xml" />
+    <Reference Include="FastColoredTextBox">
+      <HintPath>lib\FastColoredTextBox.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+</Project>

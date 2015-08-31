@@ -1,0 +1,35 @@
+#vs
+
+attribute vec3 vpos, vnml;
+attribute vec2 vtexcoord;
+
+//varying vec3 pos, nml;
+varying vec2 uv;
+
+uniform mat4 World/*, WorldInvTrans, WorldViewProj*/;
+
+void main()
+{
+	gl_Position = World * vec4(vpos, 1.0);
+	uv = vtexcoord;
+}
+
+#fs
+
+varying vec2 uv;
+uniform sampler2D Texture;
+
+float ColorToValue(in vec3 color, float min, float scale)
+{
+	int valueI = int(color.r * 255.0) * 0x10000 + int(color.g * 255.0) * 0x100 + int(color.b * 255.0);
+	float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as "nothing"
+	return valueS * scale + min;
+	//return float(valueI) / float(0x1000000);
+}
+
+void main()
+{
+	float value = ColorToValue(texture2D(Texture, uv).rgb, 0.0, 1.0);
+	//float value = texture2D(Texture, uv).r;
+	gl_FragColor = vec4(value, value, value, 1.0);
+}

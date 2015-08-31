@@ -1,0 +1,8 @@
+uniform sampler2D Texture;
+uniform vec4 Color;
+
+
+vec4 shade(in vec2 uv)
+{
+	return vec4(Color.rgb * texture2D(Texture, uv).rgb, Color.a);
+}
