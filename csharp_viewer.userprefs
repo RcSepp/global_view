@@ -2,26 +2,29 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/Viewer.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="347" Column="22" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="236" Column="36" />
       <File FileName="csharp_viewer/DimensionMapper.cs" Line="142" Column="19" />
-      <File FileName="csharp_viewer/ActionManager.cs" Line="135" Column="19" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="1077" Column="30" />
+      <File FileName="csharp_viewer/ActionManager.cs" Line="377" Column="6" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="385" Column="4" />
+      <File FileName="csharp_viewer/ColorTableManager.cs" Line="174" Column="18" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="126" Column="19" />
       <File FileName="csharp_viewer/ArgumentIndex.cs" Line="318" Column="4" />
-      <File FileName="csharp_viewer/ScriptingConsole.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ScriptingConsole.cs" Line="105" Column="94" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="109" Column="24" />
       <File FileName="csharp_viewer/Cinema.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTextureStream.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ImageContextMenu.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Selection.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/AnimationTransform.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Common.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLShader.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
-    <BreakpointStore />
+    <BreakpointStore>
+      <Breakpoint file="/Users/sklaassen/Desktop/work/csharp_viewer/csharp_viewer/Viewer.cs" line="714" column="1" />
+      <Breakpoint file="/Users/sklaassen/Desktop/work/csharp_viewer/csharp_viewer/Viewer.cs" line="114" column="1" />
+      <Breakpoint file="/Users/sklaassen/Desktop/work/csharp_viewer/csharp_viewer/ActionManager.cs" line="78" column="1" />
+    </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />
 </Properties>

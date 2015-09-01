@@ -1,0 +1,16 @@
+Open the example database with the global view:
+	1) Open up a terminal
+	2) Navigate to the .../csharp_viewer/csharp_viewer/bin/Release/ directory
+	3) Execute "mono csharp_viewer.exe ../../../example/example_db/"
+
+Inside the global view application the basic controls are:
+	> Control camera with keys W, S, A, D, LShift & Space and using the mouse while holding the right mouse button
+	> Send commands to the application through the embedded terminal
+		-> for a list of commands type "help"
+
+Example command sequence:
+	"focus all" -> selects all images and centers the camera around them
+	"theta-phi $theta $phi" -> applies the theta-phi-transformation to the arguments labeled "theta" and "phi"
+	"focus" -> centers the camera around the selected images
+	"animate $theta" -> animates the "theta" argument (loops through angles of theta)
+	"exit" -> Closes the application

@@ -36,3 +36,15 @@ Exit
 load("/Users/sklaassen/Desktop/work/db/mpas/")
 unload
 help
+focus all
+theta-phi-view $theta $phi
+focus all
+theta-phi $theta $phi
+focus
+exit
+focus all
+theta-phi $theta
+theta-phi $theta $phi
+focus
+animate $theta
+exit

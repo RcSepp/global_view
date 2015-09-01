@@ -225,6 +225,19 @@ namespace csharp_viewer
 				}
 			});
 
+			ActionManager.CreateAction<int, int>("Apply theta-phi transform", "theta-phi %a %a", delegate(object[] parameters) {
+				int thetaidx = (int)parameters[0];
+				int phiidx = (int)parameters[1];
+				if(thetaidx < arguments.Length && phiidx < arguments.Length)
+				{
+					ImageTransform transform = new ThetaPhiTransform();
+					transform.SetArguments(arguments);
+					transform.SetIndex(0, thetaidx);
+					transform.SetIndex(1, phiidx);
+					OnTransformationAdded(transform);
+				}
+			});
+
 			ActionManager.CreateAction("Spread out all dimensions", "spread all", delegate(object[] parameters) {
 				WheelTransform transform = new WheelTransform();
 				transform.SetArguments(arguments);
