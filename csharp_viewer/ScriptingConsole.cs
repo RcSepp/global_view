@@ -55,6 +55,7 @@ namespace csharp_viewer
 		{
 			txt = new FastColoredTextBox();
 			txt.ReadOnly = false;
+			//txt.MouseWheel += MouseWheel;
 			txt.KeyDown += KeyDown;
 			txt.KeyPress += KeyPress;
 			//txt.TextChanged += TextChanged;
@@ -64,6 +65,11 @@ namespace csharp_viewer
 
 			return txt;
 		}
+
+
+		/*private void MouseWheel(object sender, MouseEventArgs e)
+		{
+		}*/
 
 		private void KeyDown(object sender, KeyEventArgs e)
 		{
@@ -166,36 +172,28 @@ namespace csharp_viewer
 					++txt.SelectionStart;
 				}
 				break;
+			}
 
-			case Keys.C: // Mac bugfix
-				if((e.Modifiers & Keys.Alt) != 0)
+			if((e.Modifiers & Keys.Alt) != 0)
+				switch(e.KeyCode)
 				{
+				case Keys.C: // Mac bugfix
 					txt.Copy();
 					e.Handled = true;
-				}
-				break;
-			case Keys.V: // Mac bugfix
-				if((e.Modifiers & Keys.Alt) != 0)
-				{
+					break;
+				case Keys.V: // Mac bugfix
 					txt.Paste();
 					e.Handled = true;
-				}
-				break;
-			case Keys.X: // Mac bugfix
-				if((e.Modifiers & Keys.Alt) != 0)
-				{
+					break;
+				case Keys.X: // Mac bugfix
 					txt.Cut();
 					e.Handled = true;
-				}
-				break;
-			case Keys.Z: // Mac bugfix
-				if((e.Modifiers & Keys.Alt) != 0)
-				{
+					break;
+				case Keys.Z: // Mac bugfix
 					txt.Undo();
 					e.Handled = true;
+					break;
 				}
-				break;
-			}
 		}
 		private void KeyPress(object sender, KeyPressEventArgs e)
 		{

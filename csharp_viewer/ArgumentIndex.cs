@@ -320,6 +320,15 @@ else
 		public void OnSelectionChanged(Selection _selection)
 		{
 		}
+
+		public void SelectAll()
+		{
+			for(int i = 0; i < arguments.Length; ++i)
+				for(int j = 0; j < arguments[i].values.Length; ++j)
+					selection[i].Add(j);
+			if(SelectionChanged != null)
+				SelectionChanged(selection);
+		}
 	}
 }
 

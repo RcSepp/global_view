@@ -1,4 +1,4 @@
-﻿//#define USE_DEPTH_SORTING
+﻿#define USE_DEPTH_SORTING
 
 using System;
 using System.Windows.Forms;
@@ -412,8 +412,14 @@ namespace csharp_viewer
 			arguments = null;
 			selection = null;
 			selectionAabb = null;
+			texstream.Free();
+			texstream = null;
 			sdrTextured = null;
-			colorTableMgr = null;
+			if(colorTableMgr != null)
+			{
+				colorTableMgr.Free();
+				colorTableMgr = null;
+			}
 			cmImage = null;
 		}
 
@@ -663,9 +669,7 @@ namespace csharp_viewer
 					float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;
 					if(dist >= Z_NEAR && dist <= Z_FAR)
 					{
-						dist = -dist;
-						/*while(renderlist.ContainsKey(dist))
-							dist += 1e-5f;*/
+						//dist = -dist;
 						renderlist.Add(dist, new TransformedImageAndMatrix(iter.Value, transform));
 					}
 #else
@@ -1074,7 +1078,7 @@ string foo = "";
 			return bmp;
 		}
 
-		private void FocusSelection()
+		public void FocusSelection()
 		{
 			// Focus selectionAabb
 			if(selectionAabb != null)

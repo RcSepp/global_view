@@ -31,7 +31,7 @@ namespace csharp_viewer
 		public static int IMAGE_DIV = 1;
 
 		GLControl glImageCloud;
-		bool glImageCloud_loaded = false;
+		bool glImageCloud_loaded = false, form_closing = false;
 		//ImageCloud imageCloud = new SimpleImageCloud();
 		//ImageCloud imageCloud = new ThetaPhiImageCloud();
 		ArgumentIndex argIndex = new ArgumentIndex();
@@ -56,7 +56,7 @@ namespace csharp_viewer
 
 		// Main database collections
 		Dictionary<int[], TransformedImage> images = new Dictionary<int[], TransformedImage>(new IntArrayEqualityComparer()); // A hashmap of images accessed by an index array (consisting of one index per dimension)
-		Mutex images_mutex = new Mutex();
+		public static Mutex images_mutex = new Mutex();
 		Cinema.CinemaArgument[] arguments; // An array of descriptors for each dimension
 		//HashSet<string> valueset = new HashSet<string>(); // A set of all value types appearing in the metadata of at least one image
 		Dictionary<string, HashSet<object>> valuerange = new Dictionary<string, HashSet<object>>(); // A set of all value types, containing a set of all possible values in the metadata all images
@@ -128,9 +128,13 @@ namespace csharp_viewer
 
 			// >>> Initialize Components
 
+			Rectangle screenbounds = Screen.PrimaryScreen.Bounds;
+
 			this.Text = "csharp_viewer";
-			this.ClientSize = new Size(1600, 1200);
+			this.StartPosition = FormStartPosition.Manual;
+			this.Bounds = new Rectangle(screenbounds.Left, screenbounds.Top + 22, screenbounds.Width * 2 / 3, screenbounds.Height - 200);
 			this.BackColor = Color.White;
+			this.FormClosing += form_Closing;
 
 			glImageCloud = new GLControl(new GraphicsMode(32, 24, 8, 1), 3, 2, GraphicsContextFlags.Default);
 			glImageCloud.Load += glImageCloud_Load;
@@ -168,7 +172,7 @@ namespace csharp_viewer
 			this.Controls.Add(ctrlConsole);*/
 			Form frmConsole = new Form();
 			frmConsole.StartPosition = FormStartPosition.Manual;
-			frmConsole.Bounds = new Rectangle(1700, 128, 800, 512);
+			frmConsole.Bounds = new Rectangle(this.Left + this.Width, this.Top, screenbounds.Width - this.Width, 512);
 			Control ctrlConsole = scrCle.Create();
 			ctrlConsole.Dock = DockStyle.Fill;
 			scrCle.MethodCall += actMgr.Invoke;
@@ -182,7 +186,57 @@ namespace csharp_viewer
 			dimMapper.TransformAdded += dimMapper_TransformAdded;
 			dimMapper.TransformRemoved += dimMapper_TransformRemoved;
 
-			//ActionManager.Do(UnloadDatabaseAction);
+
+
+
+
+			LoadDatabaseAction = ActionManager.CreateAction("Load database", "load", this, "LoadDatabase");
+			LoadDatabaseAction = ActionManager.CreateAction("Unload database", "unload", this, "UnloadDatabase");
+			ActionManager.CreateAction("Exit program", "exit", this, "Exit");
+
+			ActionManager.CreateAction("Select all", "all", argIndex, "SelectAll");
+			ActionManager.CreateAction("Focus selection", "focus", imageCloud, "FocusSelection");
+			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
+				argIndex.SelectAll();
+				imageCloud.FocusSelection();
+			});
+
+			ActionManager.CreateAction<int>("Animate %a of selection", "animate %a", delegate(object[] parameters) {
+				int argidx = (int)parameters[0];
+				if(argidx < arguments.Length)
+				{
+					ImageTransform transform = new AnimationTransform();
+					transform.SetArguments(arguments);
+					transform.SetIndex(0, argidx);
+					OnTransformationAdded(transform);
+				}
+			});
+
+			ActionManager.CreateAction<int, int>("Apply theta-phi-view transform", "theta-phi-view %a %a", delegate(object[] parameters) {
+				int thetaidx = (int)parameters[0];
+				int phiidx = (int)parameters[1];
+				if(thetaidx < arguments.Length && phiidx < arguments.Length)
+				{
+					ImageTransform transform = new ThetaPhiViewTransform();
+					transform.SetArguments(arguments);
+					transform.SetIndex(0, thetaidx);
+					transform.SetIndex(1, phiidx);
+					OnTransformationAdded(transform);
+				}
+			});
+
+			ActionManager.CreateAction("Spread out all dimensions", "spread all", delegate(object[] parameters) {
+				WheelTransform transform = new WheelTransform();
+				transform.SetArguments(arguments);
+				for(int i = 0; i < arguments.Length; ++i)
+					transform.SetIndex(i, i);
+				OnTransformationAdded(transform);
+			});
+		}
+
+		private void form_Closing(object sender, FormClosingEventArgs e)
+		{
+			form_closing = true;
 		}
 
 		private void LoadDatabase(string filename)
@@ -272,6 +326,8 @@ namespace csharp_viewer
 					selection[i].Add(Array.IndexOf(arguments[i].values, arguments[i].defaultValue));
 			}*/
 
+			images_mutex.WaitOne();
+
 			if(imageCloud != null)
 			{
 				// Get image size
@@ -324,6 +380,10 @@ namespace csharp_viewer
 
 			dimMapper.Load(arguments);
 
+			actMgr.Load(arguments);
+
+			images_mutex.ReleaseMutex();
+
 			/*// Load textures for all images in images
 			images_mutex.WaitOne();
 			foreach(TransformedImage img in images.Values)
@@ -334,7 +394,7 @@ namespace csharp_viewer
 			//ActionManager.Do(ClearTransformsAction);
 			//CallSelectionChangedHandlers(selection);
 
-			IndexProductSelection foo = new IndexProductSelection(arguments.Length, valuerange.Count, images);
+			/*IndexProductSelection foo = new IndexProductSelection(arguments.Length, valuerange.Count, images);
 			for(int i = 0; i < arguments.Length; ++i)
 				for(int j = 0; j < arguments[i].values.Length; ++j)
 					foo[i].Add(j);
@@ -348,7 +408,7 @@ namespace csharp_viewer
 			bar = new AnimationTransform();
 			bar.SetArguments(arguments); bar.SetIndex(0, 2);
 			imageCloud.AddTransform(bar);
-			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });
+			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });*/
 		}
 
 		private void SimulateInSituThread(object parameters)
@@ -462,11 +522,16 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void UnloadDatabase()
 		{
+			images_mutex.WaitOne();
+
 			imageCloud.Unload();
 			argIndex.Unload();
+			actMgr.Unload();
 
 			arguments = null;
 			images.Clear();
+
+			images_mutex.ReleaseMutex();
 
 			OnSelectionChanged(null);
 			ClearTransforms();
@@ -571,10 +636,15 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		}
 		private void OnTransformationAdded(ImageTransform newtransform)
 		{
+			if(selection == null)
+				return;
+
+			images_mutex.WaitOne();
 			imageCloud.AddTransform(newtransform);
 
 			foreach(KeyValuePair<int[], TransformedImage> selectedimage in selection)
 				selectedimage.Value.AddTransform(newtransform);
+			images_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to added transform)
 			CallSelectionChangedHandlers(selection);
@@ -593,6 +663,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void ClearTransforms()
 		{
+			images_mutex.WaitOne();
 			imageCloud.ClearTransforms();
 
 			foreach(TransformedImage image in images.Values)
@@ -600,6 +671,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				image.ClearTransforms();
 				image.skipPosAnimation();
 			}
+			images_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to removed transforms)
 			CallSelectionChangedHandlers(selection);
@@ -607,6 +679,13 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void glImageCloud_Load(object sender, EventArgs e)
 		{
+			Thread renderThread = new Thread(RenderThread);
+			renderThread.Priority = ThreadPriority.Lowest;
+			renderThread.Start();
+		}
+		private void RenderThread()
+		{
+			glImageCloud.MakeCurrent();
 			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
 			//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
 			GL.Viewport(glImageCloud.Size);
@@ -637,45 +716,37 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			timer.Start();
 
 			glImageCloud_loaded = true;
-			glImageCloud.Paint += glImageCloud_Paint;
-			Application.Idle += Application_Idle;
 
 			if(cmdline.Length == 1)
 				LoadDatabase(cmdline[0]);
-		}
 
-		private void glImageCloud_Paint(object sender, PaintEventArgs e)
-		{
-			Application_Idle(null, null);
-			glImageCloud.Invalidate();
-		}
-		private void Application_Idle(object sender, EventArgs e)
-		{
-			if (!glImageCloud_loaded || images_mutex.WaitOne(0) == false)
-				return;
+			while(!form_closing)
+			{
+				if (images_mutex.WaitOne(1) == false)
+					continue;
+				glImageCloud.MakeCurrent();
 
-			InputDevices.Update();
-			
-			//glImageCloud.MakeCurrent(); //TODO: Uncomment when using multiple GLControl's
+				InputDevices.Update();
 
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+				//glImageCloud.MakeCurrent(); //TODO: Uncomment when using multiple GLControl's
 
-			float dt = (float)timer.Elapsed.TotalSeconds;
-			timer.Restart();
+				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-			actMgr.Update(ref dt);
+				float dt = (float)timer.Elapsed.TotalSeconds;
+				timer.Restart();
 
-			//if(imageCloud != null)
-			imageCloud.Draw(dt);
-			images_mutex.ReleaseMutex();
+				actMgr.Update(ref dt);
 
-			argIndex.Draw(glImageCloud.PointToClient(Control.MousePosition), glImageCloud.Size);
+				//if(imageCloud != null)
+				imageCloud.Draw(dt);
+				images_mutex.ReleaseMutex();
 
-			glImageCloud.SwapBuffers();
+				argIndex.Draw(glImageCloud.PointToClient(Control.MousePosition), glImageCloud.Size);
 
-			actMgr.PostRender(glImageCloud);
+				glImageCloud.SwapBuffers();
 
-			//glImageCloud.Invalidate();
+				actMgr.PostRender(glImageCloud);
+			}
 		}
 
 		private bool mouseDownInsideArgIndex = false;

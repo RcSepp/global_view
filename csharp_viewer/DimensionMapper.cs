@@ -122,11 +122,11 @@ namespace csharp_viewer
 			cbAddTransform.Visible = false;
 			cmdAddTransform.Visible = true;
 
-			try{
-			ImageTransform transform = (ImageTransform)Activator.CreateInstance((Type)cbAddTransform.SelectedItem);
-			transform.SetArguments(arguments);
-			lbTransforms.SelectedIndex = lbTransforms.Items.Add(transform);
-			}catch(Exception ex){
+			try {
+				ImageTransform transform = (ImageTransform)Activator.CreateInstance((Type)cbAddTransform.SelectedItem);
+				transform.SetArguments(arguments);
+				lbTransforms.SelectedIndex = lbTransforms.Items.Add(transform);
+			} catch(Exception ex) {
 				MessageBox.Show(ex.ToString());
 			}
 		}

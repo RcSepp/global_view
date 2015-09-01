@@ -84,6 +84,7 @@ namespace csharp_viewer
 		private RingBuffer<Bitmap> imagebuffer;
 		private RingBuffer<int> texturebuffer;
 		private readonly int texwidth, texheight;
+		private readonly int[] textures;
 
 		private static int ceilBin(int v)
 		{
@@ -109,7 +110,7 @@ namespace csharp_viewer
 			texturebuffer = new RingBuffer<int>(numtextures, -1);
 			imagebuffer = new RingBuffer<Bitmap>(numtextures, null);
 
-			int[] textures = new int[numtextures];
+			textures = new int[numtextures];
 			GL.GenTextures(numtextures, textures);
 			foreach(int tex in textures)
 			{
@@ -121,6 +122,12 @@ namespace csharp_viewer
 				texturebuffer.Enqueue(null, tex);
 				imagebuffer.Enqueue(null, null);
 			}
+		}
+		public void Free()
+		{
+			GL.DeleteTextures(textures.Length, textures);
+			texturebuffer = null;
+			imagebuffer = null;
 		}
 			
 		public Texture CreateTexture(Bitmap bmp)

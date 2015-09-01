@@ -22,7 +22,7 @@ namespace csharp_viewer
 
 		public void LoadTexture(GLTextureStream texstream)
 		{
-			if(tex == null)
+			if(tex == null && texstream != null)
 				tex = texstream.CreateTexture(filename);
 			/*{
 				System.Drawing.Bitmap bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(filename);
@@ -109,7 +109,8 @@ namespace csharp_viewer
 					ComputeLocation();
 
 				transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-				transform *= Matrix4.CreateScale((float)tex.width / (float)tex.height, 1.0f, 1.0f);
+				if(tex != null)
+					transform *= Matrix4.CreateScale((float)tex.width / (float)tex.height, 1.0f, 1.0f);
 				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 				transform *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
 				transform *= Matrix4.CreateTranslation(animatedPos);
@@ -119,17 +120,21 @@ namespace csharp_viewer
 					transform *= freeview.viewprojmatrix;
 					return true;
 				}
-				else
+				else if(tex != null)
 				{
 					tex.Unload();
 					return false;
 				}
+				else
+					return false;
 			}
-			else
+			else if(tex != null)
 			{
 				tex.Unload();
 				return false;
 			}
+			else
+				return false;
 		}
 		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, ImageCloud.FreeView freeview, Matrix4 transform)
 		{

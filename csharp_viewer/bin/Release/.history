@@ -8,3 +8,31 @@ LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
 LoadDatabase("/Users/sklaassen/Desktop/work/db/mpas/")
 LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
 LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
+commands
+Exit()
+LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
+LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
+all
+FocusSelection
+LoadDatabase("/Users/sklaassen/Desktop/work/db/cieeaa_debug/")
+LoadDatabase("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+all
+LoadDatabase("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+all
+FocusSeeection
+FocusSelection
+animate
+command
+commands
+LoadDatabase("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+commands
+all
+FocusSeeection
+ection
+FocusSelection
+animate phi
+animate theta
+Exit
+load("/Users/sklaassen/Desktop/work/db/mpas/")
+unload
+help

@@ -103,6 +103,7 @@ namespace csharp_viewer
 		private ComboBox cbInnerColorTable, cbOuterColorTable;
 		private ColorTableSettingsChangedDelegate OnColorTableSettingsChanged;
 		private GLMesh meshLines, meshHistogram;
+		private bool settingsChanged = true;
 
 		private Action SetInnerColorTableAction, SetOuterColorTableAction, SetMinValueAction, SetMaxValueAction, ResetColorTableAction;
 
@@ -168,6 +169,12 @@ namespace csharp_viewer
 			//font = new GLTextFont("fntDefault.png", new Vector2(19.0f, 32.0f), meshquad);
 		}
 
+		public void Free()
+		{
+			cbInnerColorTable.Parent.Controls.Remove(cbInnerColorTable);
+			cbOuterColorTable.Parent.Controls.Remove(cbOuterColorTable);
+		}
+
 		public void SelectImage(HashSet<int>[] selection, Dictionary<int[], TransformedImage> images)
 		{
 			/*TransformedImage selection;
@@ -192,6 +199,33 @@ namespace csharp_viewer
 
 		public void Draw(Size backbufferSize)
 		{
+			if(settings.innerColorTable == null)
+				return;
+
+			if(settingsChanged)
+			{
+				settingsChanged = false;
+
+				colortableshader.Bind();
+
+				GL.ActiveTexture(TextureUnit.Texture0);
+				settings.innerColorTable.Bind();
+				GL.Uniform1(colortableshader.GetUniformLocation("InnerColorTable"), 0);
+
+				GL.Uniform1(colortableshader.GetUniformLocation("HasOuterColorTable"), (settings.hasOuterColorTable = (settings.outerColorTable != null)) ? 1 : 0);
+				if(settings.hasOuterColorTable)
+				{
+					GL.ActiveTexture(TextureUnit.Texture1);
+					settings.outerColorTable.Bind();
+					GL.Uniform1(colortableshader.GetUniformLocation("OuterColorTable"), 1);
+				}
+
+				GL.Uniform1(colortableshader.GetUniformLocation("MinValue"), settings.minValue);
+				GL.Uniform1(colortableshader.GetUniformLocation("MaxValue"), settings.maxValue);
+
+				OnColorTableSettingsChanged(settings);
+			}
+
 			if(settings.outerColorTable != null)
 			{
 				GL.ActiveTexture(TextureUnit.Texture1);
@@ -286,13 +320,7 @@ namespace csharp_viewer
 			settings.innerColorTable = ((NamedColorTable)((ComboBox)cbInnerColorTable).SelectedItem).tex;
 			settings.nanColor = ((NamedColorTable)((ComboBox)cbInnerColorTable).SelectedItem).nanColor;
 
-			colortableshader.Bind();
-			GL.ActiveTexture(TextureUnit.Texture0);
-			settings.innerColorTable.Bind();
-			GL.Uniform1(colortableshader.GetUniformLocation("InnerColorTable"), 0);
-
-			if(settings.outerColorTable != null || settings.hasOuterColorTable == false)
-				OnColorTableSettingsChanged(settings);
+			settingsChanged = true;
 		}
 		private void SetOuterColorTable(int index)
 		{
@@ -301,35 +329,23 @@ namespace csharp_viewer
 
 			settings.outerColorTable = ((NamedColorTable)((ComboBox)cbOuterColorTable).SelectedItem).tex;
 
-			colortableshader.Bind();
-			GL.Uniform1(colortableshader.GetUniformLocation("HasOuterColorTable"), (settings.hasOuterColorTable = (settings.outerColorTable != null)) ? 1 : 0);
-			if(settings.hasOuterColorTable)
-			{
-				GL.ActiveTexture(TextureUnit.Texture1);
-				settings.outerColorTable.Bind();
-				GL.Uniform1(colortableshader.GetUniformLocation("OuterColorTable"), 1);
-			}
-
-			if(settings.innerColorTable != null)
-				OnColorTableSettingsChanged(settings);
+			settingsChanged = true;
 		}
 		private void SetMinValue(float value)
 		{
-			colortableshader.Bind();
-			GL.Uniform1(colortableshader.GetUniformLocation("MinValue"), settings.minValue = value);
+			settings.minValue = value;
 			if(settings.minValue > settings.maxValue)
-				GL.Uniform1(colortableshader.GetUniformLocation("MaxValue"), settings.maxValue = value);
-			if(settings.innerColorTable != null)
-				OnColorTableSettingsChanged(settings);
+				settings.maxValue = value;
+
+			settingsChanged = true;
 		}
 		private void SetMaxValue(float value)
 		{
-			colortableshader.Bind();
-			GL.Uniform1(colortableshader.GetUniformLocation("MaxValue"), settings.maxValue = value);
+			settings.maxValue = value;
 			if(settings.maxValue < settings.minValue)
-				GL.Uniform1(colortableshader.GetUniformLocation("MinValue"), settings.minValue = value);
-			if(settings.innerColorTable != null)
-				OnColorTableSettingsChanged(settings);
+				settings.minValue = value;
+
+			settingsChanged = true;
 		}
 		private void ResetColorTable()
 		{

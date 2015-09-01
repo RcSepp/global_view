@@ -50,3 +50,288 @@ LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
 LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
 LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
 LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
+Exit
+Exit
+LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
+all
+focus
+LoadDatabase("/Users/sklaassen/Desktop/work/db/debug/")
+all
+focus
+Exit
+exit
+load("/Users/sklaassen/Desktop/work/db/debug/")
+focus all
+unload
+exit
+load("/Users/sklaassen/Desktop/work/db/debug/")
+focus all
+animate B
+help
+exit
+help
+load("/Users/sklaassen/Desktop/work/db/debug/")
+help
+animate A
+animate B
+load("/Users/sklaassen/Desktop/work/db/debug/")
+focus all
+animate B
+animate B
+load("/Users/sklaassen/Desktop/work/db/debug/")
+focus all
+animate B
+load("/Users/sklaassen/Desktop/work/db/debug/")
+focus all
+animate B
+unload
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+exit
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+focus all
+animate B
+animate theta
+help
+animate phi
+exit
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+spread all
+spread all
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+animate phi
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+animate phi
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+animate phi
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+focus all
+animate phi
+animate theta
+spread all
+focus
+animate theta
+animate theta
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+focus all
+animate phi
+help
+move
+Move
+Move(new Vector3(0, 0, 0), Vector2.Empty)
+Move(new Vector3(0, 0, 0), Vector2.Zero)
+Move(new Vector3(0, 0, 5), Vector2.Zero)
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+focus all
+Move(new Vector3(0, 0, 0), new Vector2(1, 0))
+Move(new Vector3(0, 0, 0), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+Move(new Vector3(0, 0, 5), new Vector2(0, 0))
+qwertyui
+wertyui
+ertyui
+ertyui
+rtyuio
+rtyuio
+rtyui
+rtyuio
+wwwwwww
+dfsgffdgdg
+fhhgfh
+hgfhg
+ggfhg
+
+
+
+h
+
+Command not found hggjjgghff
+fffh
+fffh
+hgfhff
+hffhggh
+hgghggh
+ffgfhgfh
+gggghgf
+ggghg
+fffff
+fff
+
+hfyytryttyrty
+
+
+
+
+
+
+
+Command not found tyyyyttyhggjk
+hfhtfhtf
+jgyjgyj
+hkhkhfdfgh
+qwertyuiop[]\
+qwertyuop[]]qweryuiipp[]
+
+qwertiiop]]]
+eryuooo
+yukui
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ertyu
+rtuiiivgikuykkuk
+kukhkuu
+khkhuk
+hhhkuh
+kkl
+kk
+exit
+load("/Users/sklaassen/Desktop/work/db/mpas/")
+unload
+exit
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+focus all
+animate time
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+focus all
+animate time
+animate time
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+load("/Users/sklaassen/Desktop/work/db/mpas_ani/")
+animate B
+load("/Users/sklaassen/Desktop/work/db/debug/")
+animate B
+load("/Users/sklaassen/Desktop/work/db/debug/")
+animate B
+load("/Users/sklaassen/Desktop/work/db/debug/")
+animate B
+load("/Users/sklaassen/Desktop/work/db/debug/")
+animate B
+animate B
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+help
+theta-phi-view theta phi
+theta-phi-view theta phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view theta phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view theta phi
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+focus all
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+focus all
+theta-phi-view $theta $phi
+animate $theta
+help
+ClearTransformations
+ClearTransforms
+exit
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+focus all
+theta-phi-view $theta $phi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+focus all
+theta-phi-view $theta $phi
+animate $time
+exit
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+focus all
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas_view/")
+theta-phi-view $theta $phi
+focus all
+theta-phi-view $theta $phi
+animate $foo
+animate $time
+exit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
