@@ -99,6 +99,7 @@ namespace csharp_viewer
 			}
 		}
 
+		[STAThread]
 		static public void Main(string[] args)
 		{
 			/*// Parse meta data from info.json
@@ -199,6 +200,17 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
 				argIndex.SelectAll();
 				imageCloud.FocusSelection();
+			});
+
+			ActionManager.CreateAction<int>("Apply x transform to %a of selection", "x %a", delegate(object[] parameters) {
+				int argidx = (int)parameters[0];
+				if(argidx < arguments.Length)
+				{
+					XTransform transform = new XTransform();
+					transform.SetArguments(arguments);
+					transform.SetIndex(0, argidx);
+					OnTransformationAdded(transform);
+				}
 			});
 
 			ActionManager.CreateAction<int>("Animate %a of selection", "animate %a", delegate(object[] parameters) {
@@ -692,6 +704,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void glImageCloud_Load(object sender, EventArgs e)
 		{
+			glImageCloud.Context.MakeCurrent(null);
 			Thread renderThread = new Thread(RenderThread);
 			renderThread.Priority = ThreadPriority.Lowest;
 			renderThread.Start();

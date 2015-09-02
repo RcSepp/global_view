@@ -54,10 +54,8 @@ namespace csharp_viewer
 
 				lengths = new int[arguments.Length - 2];
 				int totallength = 1;
-				for(int i = 0, j = 0; i < lengths.Length;)
-					if(j == skipidx0 || j == skipidx1)
-						++j;
-					else
+				for(int i = 0, j = 0; i < lengths.Length;++j)
+					if(j != skipidx0 && j != skipidx1)
 						totallength *= (lengths[i++] = arguments[j].values.Length);
 				arr = new ImageAndAngle[totallength];
 				for(int i = 0; i < totallength; ++i)

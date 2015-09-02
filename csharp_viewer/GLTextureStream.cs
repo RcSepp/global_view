@@ -139,7 +139,7 @@ namespace csharp_viewer
 			return new Texture(this, filename, texwidth, texheight);
 		}
 
-		private const int MAX_NUM_FRAME_LOADS = 1;
+		private const int MAX_NUM_FRAME_LOADS = 32;
 		private int numFrameLoads = 0;
 		public void Update()
 		{
@@ -174,14 +174,13 @@ public static int foo = 0;
 
 			public bool Load()
 			{
-//return false;
 				if(bmp == null) // If bitmap isn't loaded (implies that CPU streaming is enabled)
 				{
 					if(owner.numFrameLoads >= GLTextureStream.MAX_NUM_FRAME_LOADS)
 						return false; // Exceeded maximum number of loads from disk for this frame
 
 					bool isnewbmp;
-					bmp = owner.imagebuffer.Dequeue(this, out isnewbmp, bmpptr);
+					bmp = owner.imagebuffer.Dequeue(this, out isnewbmp, bmpptr); //UNFIXED BUG: LoadImage() is called twice. Shows wron images when commenting lines 196 & 197, unless also commenting 'bmpptr' in this line. It seems bmpptr returns wrong images!
 					if(isnewbmp)
 						LoadImage();
 					if(bmp == null)
@@ -245,6 +244,7 @@ public static int foo = 0;
 					Graphics gfx = Graphics.FromImage(bmp);
 					gfx.DrawImage(img, new Rectangle(0, 0, bmp.Width, bmp.Height));
 					gfx.Flush();
+					img.Dispose();
 				}
 			}
 		}

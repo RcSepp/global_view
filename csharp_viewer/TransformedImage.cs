@@ -147,7 +147,8 @@ namespace csharp_viewer
 				clr.G += Color4.Azure.G / 2.0f;
 				clr.B += Color4.Azure.B / 2.0f;
 			}*/
-			clr.A = 1.0f;//selected ? 0.8f : 0.1f;
+			//clr.A = selected ? 1.0f : 0.3f;
+			clr.A = 1.0f;
 
 			sdr.Bind(transform);
 			GL.Uniform4(sdr_colorParam, clr);

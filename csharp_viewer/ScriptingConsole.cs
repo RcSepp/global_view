@@ -138,7 +138,7 @@ namespace csharp_viewer
 
 				object[] args;
 				CompilerErrorCollection errors;
-				if(Eval(argsstr, out args, out errors, new string[] { "OpenTK", "OpenTK.Graphics" }, new string[] { Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/opentk-2014-07-23/Binaries/OpenTK/Release/OpenTK.dll" }))
+				if(Eval(argsstr, out args, out errors, new string[] { "OpenTK", "OpenTK.Graphics" }, new string[] { "OpenTK.dll" }))
 				{
 					if(MethodCall != null)
 					{

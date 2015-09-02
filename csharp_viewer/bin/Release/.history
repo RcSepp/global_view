@@ -48,3 +48,43 @@ theta-phi $theta $phi
 focus
 animate $theta
 exit
+help
+load("/Users/sklaassen/Desktop/work/db/mpas/")
+all
+theta-phi $theta $phi
+focus
+load("/Users/sklaassen/Desktop/work/db/mpas/")
+theta-phi $theta $phi
+focus
+theta-phi $theta $phi
+all
+theta-phi $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas/")
+all
+theta-phi $theta $phi
+focus
+load("/Users/sklaassen/Desktop/work/db/mpas/")
+all
+theta-phi $theta $phi
+load("/Users/sklaassen/Desktop/work/db/mpas/")
+theta-phi $theta $phi
+x $time
+load("/Users/sklaassen/Desktop/work/db/cosmo/")
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+all
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+all
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+all
+theta-phi-view $Theta $Phi
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+all
+theta-phi-view $Theta $Phi
+x $XYZAxis
+focus
+animate $XYZValue
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+exit
+load("/Users/sklaassen/Desktop/work/db/pbrt/")

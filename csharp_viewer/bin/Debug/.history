@@ -335,3 +335,57 @@ exit
 
 
 
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+all
+theta-phi-view $Theta $Phi
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+theta-phi-view $Theta $Phi
+load("/Users/sklaassen/Desktop/work/db/mag-figs-cmap/")
+theta-phi-view $Theta $Phi
+unload
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+focus all
+theta-phi-view $theta $phi
+ClearTransforms
+theta-phi-view $phi $theta
+ClearTransforms
+theta-phi-view $theta $phi
+ClearTransforms
+theta-phi $theta $phi
+focus
+ClearTransforms
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+theta-phi $theta $phi
+all
+theta-phi $theta $phi
+focus
+ClearTransforms
+theta-phi-view $theta $phi
+ClearTransforms
+theta-phi-view $phi $theta
+ClearTransforms
+theta-phi-view $phi $theta
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+exit
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi $theta $phi
+focus
+ClearTransforms
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+focus
+load("/Users/sklaassen/Desktop/work/db/debug/")
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+all
+spread all
+all

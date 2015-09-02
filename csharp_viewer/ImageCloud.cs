@@ -412,8 +412,11 @@ namespace csharp_viewer
 			arguments = null;
 			selection = null;
 			selectionAabb = null;
-			texstream.Free();
-			texstream = null;
+			if(texstream != null)
+			{
+				texstream.Free();
+				texstream = null;
+			}
 			sdrTextured = null;
 			if(colorTableMgr != null)
 			{
@@ -669,7 +672,7 @@ namespace csharp_viewer
 					float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;
 					if(dist >= Z_NEAR && dist <= Z_FAR)
 					{
-						//dist = -dist;
+						dist = -dist;
 						renderlist.Add(dist, new TransformedImageAndMatrix(iter.Value, transform));
 					}
 #else
