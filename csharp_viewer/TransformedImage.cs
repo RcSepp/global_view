@@ -261,7 +261,7 @@ namespace csharp_viewer
 			{
 				transforms[t].LocationTransform(key, this, out transformpos, ref rot, ref scl);
 				pos += Vector3.TransformPosition(transformpos, transformmatrix);
-				transformmatrix *= transforms[t].GetTransformBounds(this).GetTransform();
+				//transformmatrix *= transforms[t].GetTransformBounds(this).GetTransform();
 			}
 			if(transforms.Count > 0)
 			{

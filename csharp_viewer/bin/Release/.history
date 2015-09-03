@@ -88,3 +88,85 @@ load("/Users/sklaassen/Desktop/work/db/pbrt/")
 load("/Users/sklaassen/Desktop/work/db/pbrt/")
 exit
 load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi $theta $phi
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi $theta $phi
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+theta-phi $theta $phi
+all
+theta-phi $theta $phi
+focus
+ClearTransforms
+theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+focus
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+exit
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+exit
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+focus
+x $x
+y $y
+z $z
+focus
+all
+theta-phi $theta $phi
+focus
+ClearTransforms
+theta-phi $theta $phi
+x $x
+y $y
+z $z
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+focus
+theta-phi $theta $phi
+ClearTransforms
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+z $z
+y $y
+x $x
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+focus
+x $x
+y $y
+z $z
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+focus
+x $x
+y $y
+z $z
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi

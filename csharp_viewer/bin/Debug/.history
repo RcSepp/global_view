@@ -389,3 +389,24 @@ load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
 all
 spread all
 all
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi $theta $phi
+load("/Users/sklaassen/Desktop/work/db/debug/")
+all
+spread all
+load("/Users/sklaassen/Desktop/work/db/debug/")
+load("/Users/sklaassen/Desktop/work/db/debug/")
+load("/Users/sklaassen/Desktop/work/db/debug/")
+unload
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+all
+spread all
+unload
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+spread all
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi $theta $phi
+focus

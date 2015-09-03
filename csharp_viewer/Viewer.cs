@@ -212,6 +212,26 @@ namespace csharp_viewer
 					OnTransformationAdded(transform);
 				}
 			});
+			ActionManager.CreateAction<int>("Apply y transform to %a of selection", "y %a", delegate(object[] parameters) {
+				int argidx = (int)parameters[0];
+				if(argidx < arguments.Length)
+				{
+					YTransform transform = new YTransform();
+					transform.SetArguments(arguments);
+					transform.SetIndex(0, argidx);
+					OnTransformationAdded(transform);
+				}
+			});
+			ActionManager.CreateAction<int>("Apply z transform to %a of selection", "z %a", delegate(object[] parameters) {
+				int argidx = (int)parameters[0];
+				if(argidx < arguments.Length)
+				{
+					ZTransform transform = new ZTransform();
+					transform.SetArguments(arguments);
+					transform.SetIndex(0, argidx);
+					OnTransformationAdded(transform);
+				}
+			});
 
 			ActionManager.CreateAction<int>("Animate %a of selection", "animate %a", delegate(object[] parameters) {
 				int argidx = (int)parameters[0];

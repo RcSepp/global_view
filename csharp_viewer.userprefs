@@ -2,22 +2,22 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/GLTextureStream.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="363" Column="1" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/DimensionMapper.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ActionManager.cs" Line="431" Column="1" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="444" Column="5" />
-      <File FileName="csharp_viewer/ColorTableManager.cs" Line="174" Column="18" />
-      <File FileName="csharp_viewer/GLTextureStream.cs" Line="189" Column="5" />
+      <File FileName="csharp_viewer/ActionManager.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="198" Column="5" />
       <File FileName="csharp_viewer/ArgumentIndex.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ScriptingConsole.cs" Line="144" Column="7" />
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="130" Column="5" />
+      <File FileName="csharp_viewer/ScriptingConsole.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Cinema.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ImageContextMenu.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Selection.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="54" Column="5" />
+      <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/AnimationTransform.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Common.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ThetaPhiTransform.cs" Line="29" Column="49" />
+      <File FileName="csharp_viewer/ThetaPhiTransform.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
