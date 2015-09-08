@@ -81,10 +81,10 @@ namespace csharp_viewer
 				return value;
 			}
 		}
-		private RingBuffer<Bitmap> imagebuffer;
-		private RingBuffer<int> texturebuffer;
+		private RingBuffer<Tuple<Bitmap, Bitmap>> imagebuffer;
+		private RingBuffer<Tuple<int, int>> texturebuffer;
 		private readonly int texwidth, texheight;
-		private readonly int[] textures;
+		private int[] textures, depth_textures;
 		private Bitmap bmpFileNotFound;
 		private int texFileNotFound;
 
@@ -95,7 +95,7 @@ namespace csharp_viewer
 			return b;
 		}
 
-		public GLTextureStream(int numtextures, int texwidth, int texheight)
+		public GLTextureStream(int numtextures, int texwidth, int texheight, bool depthimages = false)
 		{
 			this.texwidth = texwidth;
 			this.texheight = texheight;
@@ -109,20 +109,40 @@ namespace csharp_viewer
 				numtextures = Math.Min(numtextures, 1024);
 			}
 
-			texturebuffer = new RingBuffer<int>(numtextures, -1);
-			imagebuffer = new RingBuffer<Bitmap>(numtextures, null);
+			if(depthimages)
+				numtextures /= 2; // Double the number of textures are required when using depth textures
+
+			texturebuffer = new RingBuffer<Tuple<int, int>>(numtextures, /*-1*/ null);
+			imagebuffer = new RingBuffer<Tuple<Bitmap, Bitmap>>(numtextures, null);
 
 			textures = new int[numtextures];
 			GL.GenTextures(numtextures, textures);
-			foreach(int tex in textures)
+			if(depthimages)
 			{
-				GL.BindTexture(TextureTarget.Texture2D, tex);
+				depth_textures = new int[numtextures];
+				GL.GenTextures(numtextures, depth_textures);
+			}
+			else
+				depth_textures = null;
+			for(int i = 0; i < numtextures; ++i)
+			{
+				GL.BindTexture(TextureTarget.Texture2D, textures[i]);
 				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
 				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
 				GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, texwidth, texheight, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
 
-				texturebuffer.Enqueue(null, tex);
-				imagebuffer.Enqueue(null, null);
+				if(depthimages)
+				{
+					GL.BindTexture(TextureTarget.Texture2D, depth_textures[i]);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+					GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f, texwidth, texheight, 0, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, IntPtr.Zero);
+					texturebuffer.Enqueue(null, new Tuple<int, int>(textures[i], depth_textures[i]));
+				}
+				else
+					texturebuffer.Enqueue(null, new Tuple<int, int>(textures[i], -1));
+				
+				imagebuffer.Enqueue(null, new Tuple<Bitmap, Bitmap>(null, null));
 			}
 
 			// >>> Create file-not-found bitmap and texture
@@ -163,18 +183,27 @@ namespace csharp_viewer
 		}
 		public void Free()
 		{
-			GL.DeleteTextures(textures.Length, textures);
+			if(textures != null)
+			{
+				GL.DeleteTextures(textures.Length, textures);
+				textures = null;
+			}
+			if(depth_textures != null)
+			{
+				GL.DeleteTextures(depth_textures.Length, depth_textures);
+				depth_textures = null;
+			}
 			texturebuffer = null;
 			imagebuffer = null;
 		}
 			
-		public Texture CreateTexture(Bitmap bmp)
+		public Texture CreateTexture(Bitmap bmp, Bitmap depth_bmp = null)
 		{
-			return new Texture(this, bmp);
+			return new Texture(this, bmp, depth_bmp);
 		}
-		public Texture CreateTexture(string filename)
+		public Texture CreateTexture(string filename, string depth_filename = null)
 		{
-			return new Texture(this, filename, texwidth, texheight);
+			return new Texture(this, filename, depth_filename, texwidth, texheight);
 		}
 
 		private const int MAX_NUM_FRAME_LOADS = 32;
@@ -188,24 +217,29 @@ public static int foo = 0;
 		public class Texture : GLTexture
 		{
 			private readonly GLTextureStream owner;
-			private readonly string filename;
-			private Bitmap bmp;
-			private RingBuffer<int>.Pointer texptr;
-			private RingBuffer<Bitmap>.Pointer bmpptr;
+			private readonly string filename, depth_filename;
+			public readonly GLTexture depth_tex;
+			private Bitmap bmp, depth_bmp;
+			private RingBuffer<Tuple<int, int>>.Pointer texptr;
+			private RingBuffer<Tuple<Bitmap, Bitmap>>.Pointer bmpptr;
 
-			public Texture(GLTextureStream owner, Bitmap bmp)
+			public Texture(GLTextureStream owner, Bitmap bmp, Bitmap depth_bmp)
 				: base(TextureTarget.Texture2D, bmp.Width, bmp.Height)
 			{
 				this.owner = owner;
 				this.filename = null;
+				this.depth_filename = null;
 				this.bmp = bmp;
+				this.depth_bmp = depth_bmp;
 				this.texptr = null;
+				this.depth_tex = new GLTexture(TextureTarget.Texture2D, depth_bmp.Width, depth_bmp.Height);
 			}
-			public Texture(GLTextureStream owner, string filename, int width, int height)
+			public Texture(GLTextureStream owner, string filename, string depth_filename, int width, int height)
 				: base(TextureTarget.Texture2D, width, height)
 			{
 				this.owner = owner;
 				this.filename = filename;
+				this.depth_filename = depth_filename;
 				if(File.Exists(filename))
 					this.bmp = null;
 				else
@@ -213,7 +247,9 @@ public static int foo = 0;
 					this.bmp = owner.bmpFileNotFound;
 					tex = owner.texFileNotFound;
 				}
+				this.depth_bmp = null;
 				this.texptr = null;
+				this.depth_tex = new GLTexture(TextureTarget.Texture2D, width, height);
 			}
 
 			public bool Load()
@@ -227,7 +263,9 @@ public static int foo = 0;
 						return false; // Exceeded maximum number of loads from disk for this frame
 
 					bool isnewbmp;
-					bmp = owner.imagebuffer.Dequeue(this, out isnewbmp, bmpptr); //UNFIXED BUG: LoadImage() is called twice. Shows wrong images when commenting lines 196 & 197, unless also commenting 'bmpptr' in this line. It seems bmpptr returns wrong images!
+					Tuple<Bitmap, Bitmap> tuple = owner.imagebuffer.Dequeue(this, out isnewbmp, bmpptr); //UNFIXED BUG: LoadImage() is called twice. Shows wrong images when commenting lines 196 & 197, unless also commenting 'bmpptr' in this line. It seems bmpptr returns wrong images!
+					bmp = tuple.Item1;
+					depth_bmp = tuple.Item2;
 					if(isnewbmp)
 						LoadImage();
 					if(bmp == null)
@@ -237,7 +275,9 @@ public static int foo = 0;
 				if(tex == -1)
 				{
 					bool isnewtex;
-					tex = owner.texturebuffer.Dequeue(this, out isnewtex, texptr);
+					Tuple<int, int> tuple = owner.texturebuffer.Dequeue(this, out isnewtex, texptr);
+					tex = tuple.Item1;
+					depth_tex.tex = tuple.Item2;
 					if(isnewtex)
 					{
 						if(filename != null) //EDIT: (see line 183)
@@ -248,6 +288,16 @@ public static int foo = 0;
 						GL.BindTexture(TextureTarget.Texture2D, tex);
 						GL.TexSubImage2D(type, 0, 0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, bmpdata.Scan0);
 						bmp.UnlockBits(bmpdata);
+//						return true;
+
+						if(depth_bmp != null)
+						{
+							bmpdata = depth_bmp.LockBits(new Rectangle(0, 0, depth_bmp.Width, depth_bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+							GL.BindTexture(TextureTarget.Texture2D, depth_tex.tex);
+							GL.TexSubImage2D(type, 0, 0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, bmpdata.Scan0);
+							depth_bmp.UnlockBits(bmpdata);
+						}
+
 						return true;
 					}
 					return tex != -1;
@@ -261,14 +311,16 @@ public static int foo = 0;
 
 				if(tex != -1)
 				{
-					texptr = owner.texturebuffer.Enqueue(this, tex);
+					texptr = owner.texturebuffer.Enqueue(this, new Tuple<int, int>(tex, depth_tex.tex));
 					tex = -1;
+					depth_tex.tex = -1;
 				}
 
 				if(bmp != null && filename != null) // If bitmap is loaded and CPU streaming is enabled
 				{
-					bmpptr = owner.imagebuffer.Enqueue(this, bmp);
+					bmpptr = owner.imagebuffer.Enqueue(this, new Tuple<Bitmap, Bitmap>(bmp, depth_bmp));
 					bmp = null;
+					depth_bmp = null;
 				}
 			}
 
@@ -284,9 +336,14 @@ public static int foo = 0;
 					bmp.Dispose();
 					bmp = null;
 				}
-				
+
 				if(Viewer.IMAGE_DIV == 1)
+				{
 					bmp = (Bitmap)Image.FromFile(filename);
+
+					if(depth_filename != null)
+						depth_bmp = (Bitmap)Image.FromFile(depth_filename);
+				}
 				else
 				{
 					Image img = Image.FromFile(filename);
@@ -295,6 +352,16 @@ public static int foo = 0;
 					gfx.DrawImage(img, new Rectangle(0, 0, bmp.Width, bmp.Height));
 					gfx.Flush();
 					img.Dispose();
+
+					if(depth_filename != null)
+					{
+						img = Image.FromFile(depth_filename);
+						depth_bmp = new Bitmap(img.Width / Viewer.IMAGE_DIV, img.Height / Viewer.IMAGE_DIV, img.PixelFormat);
+						gfx = Graphics.FromImage(depth_bmp);
+						gfx.DrawImage(img, new Rectangle(0, 0, depth_bmp.Width, depth_bmp.Height));
+						gfx.Flush();
+						img.Dispose();
+					}
 				}
 			}
 		}

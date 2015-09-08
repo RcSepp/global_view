@@ -24,14 +24,17 @@ namespace csharp_viewer
 		{
 			public object[] values;
 			public string filename;
+			public string depth_filename;
 			public Dictionary<string, object> meta;
+			public OpenTK.Matrix4 view; // Required to recreate 3D pixel locations from depth image
 		}
 
 		// Parse meta data from info.json
-		public static void ParseCinemaDescriptor(string databasePath, out CinemaArgument[] arguments, out string name_pattern, out string pixel_format)
+		public static void ParseCinemaDescriptor(string databasePath, out CinemaArgument[] arguments, out string name_pattern, out string depth_name_pattern, out string pixel_format)
 		{
 			arguments = null;
 			name_pattern = null;
+			depth_name_pattern = null;
 			pixel_format = null;
 
 			StreamReader sr = new StreamReader(new FileStream(databasePath + "image/info.json", FileMode.Open, FileAccess.Read));
@@ -45,6 +48,9 @@ namespace csharp_viewer
 				MessageBox.Show("Missing entry in info.json: name_pattern");
 				return;
 			}
+			try {
+				depth_name_pattern = meta.depth_name_pattern;
+			} catch {}
 			JObject argumentsMeta = null;
 			try {
 				argumentsMeta = meta.arguments;
@@ -93,18 +99,27 @@ namespace csharp_viewer
 		}
 
 		// Parse meta data from image Json
-		public static Dictionary<string, object> ParseImageDescriptor(string imagemetapath)
+		public static void ParseImageDescriptor(string imagemetapath, out Dictionary<string, object> meta, out OpenTK.Matrix4 view)
 		{
-			if(File.Exists(imagemetapath))
-			{
-				StreamReader sr = new StreamReader(new FileStream(imagemetapath, FileMode.Open, FileAccess.Read));
-				dynamic meta = JsonConvert.DeserializeObject(sr.ReadToEnd());
-				sr.Close();
+			meta = null;
+			view = new OpenTK.Matrix4();
 
-				return ((JObject)meta.variables).ToObject<Dictionary<string, object>>();
+			if(!File.Exists(imagemetapath))
+				return;
+
+			StreamReader sr = new StreamReader(new FileStream(imagemetapath, FileMode.Open, FileAccess.Read));
+			dynamic json = JsonConvert.DeserializeObject(sr.ReadToEnd());
+			try {
+				meta = ((JObject)json.variables).ToObject<Dictionary<string, object>>();
 			}
-			else
-				return null;
+			catch {}
+			if(json["lookat"] != null)
+			{
+				float[] lookat = json["lookat"].ToObject<float[]>();
+				if(lookat.Length == 9)
+					view = OpenTK.Matrix4.LookAt(lookat[0], lookat[1], lookat[2], lookat[3], lookat[4], lookat[5], lookat[6], lookat[7], lookat[8]);
+			}
+			sr.Close();
 		}
 	}
 }

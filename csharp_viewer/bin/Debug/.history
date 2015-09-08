@@ -410,3 +410,21 @@ load("/Users/sklaassen/Desktop/work/db/pbrt/")
 all
 theta-phi $theta $phi
 focus
+cammands
+commands
+focus
+unload
+unload
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+unload
+load("/Users/sklaassen/Desktop/work/db/cinema_debug/")
+theta_phi $theta $phi
+theta_phi_view $theta $phi
+theta-phi $theta $phi
+all
+theta-phi $theta $phi
+focus
+load("/Users/sklaassen/Desktop/work/db/volume_debug/")
+focus all

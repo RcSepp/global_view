@@ -16,13 +16,13 @@ namespace csharp_viewer
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{
 			float x = (float)imagekey[idx];
-			pos = new Vector3(x * 2.2f, 0.0f, 0.0f);
+			pos = new Vector3(-x * 1.2f, 0.0f, 0.0f);
 		}
 
 		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
 		{
 			float x = (float)imagekey[idx];
-			return new AABB(new Vector3(x * 2.2f - 0.5f, -0.5f, -0.5f), new Vector3(x * 2.2f + 0.5f, 0.5f, 0.5f));
+			return new AABB(new Vector3(-x * 1.2f - 0.5f, -0.5f, -0.5f), new Vector3(-x * 1.2f + 0.5f, 0.5f, 0.5f));
 		}
 	}
 
@@ -38,13 +38,13 @@ namespace csharp_viewer
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{
 			float y = (float)imagekey[idx];
-			pos = new Vector3(0.0f, y * 2.2f, 0.0f);
+			pos = new Vector3(0.0f, y * 1.2f, 0.0f);
 		}
 
 		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
 		{
 			float y = (float)imagekey[idx];
-			return new AABB(new Vector3(-0.5f, y * 2.2f - 0.5f, -0.5f), new Vector3(0.5f, y * 2.2f + 0.5f, 0.5f));
+			return new AABB(new Vector3(-0.5f, y * 1.2f - 0.5f, -0.5f), new Vector3(0.5f, y * 1.2f + 0.5f, 0.5f));
 		}
 	}
 
@@ -60,13 +60,13 @@ namespace csharp_viewer
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{
 			float z = (float)imagekey[idx];
-			pos = new Vector3(0.0f, 0.0f, z * 2.2f);
+			pos = new Vector3(0.0f, 0.0f, -z * 1.2f);
 		}
 
 		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
 		{
 			float z = (float)imagekey[idx];
-			return new AABB(new Vector3(-0.5f, -0.5f, z * 2.2f - 0.5f), new Vector3(0.5f, 0.5f, z * 2.2f + 0.5f));
+			return new AABB(new Vector3(-0.5f, -0.5f, -z * 1.2f - 0.5f), new Vector3(0.5f, 0.5f, -z * 1.2f + 0.5f));
 		}
 	}
 

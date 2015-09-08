@@ -15,8 +15,8 @@ namespace csharp_viewer
 			public int world, worldarray, view, proj, viewproj, worldviewproj, worldviewprojarray, worldinvtrans, worldinvtransarray, textransform; // Matrices
 			public int viewpos, ambient, diffuse, specular; // Vectors
 			public int numlights, lightparams, power; // Light parameters
-			public int tex, hastex; // Textures
-			public int time; // Misc
+			public int[] tex; // Textures
+			public int hastex, time; // Misc
 		}
 		public DefaultParameters defparams;
 		public struct DefaultAttributes
@@ -218,7 +218,9 @@ foo.Close();
 			defparams.lightparams = GL.GetUniformLocation(shaderprogram, "LightParams");
 			defparams.power = GL.GetUniformLocation(shaderprogram, "Power");
 
-			defparams.tex = GL.GetUniformLocation(shaderprogram, "Texture");
+			defparams.tex = new int[2];
+			defparams.tex[0] = GL.GetUniformLocation(shaderprogram, "Texture");
+			defparams.tex[1] = GL.GetUniformLocation(shaderprogram, "Texture2");
 			defparams.hastex = GL.GetUniformLocation(shaderprogram, "HasTexture");
 
 			defparams.time = GL.GetUniformLocation(shaderprogram, "Time");
@@ -250,10 +252,10 @@ foo.Close();
 				GL.Uniform3(defparams.viewpos, cam.pos);*/
 		}
 
-		public void SetTexture()
+		public void SetTexture(int texidx = 0)
 		{
-			if(defparams.tex != -1)
-				GL.Uniform1(defparams.tex, 0);
+			if(defparams.tex[texidx] != -1)
+				GL.Uniform1(defparams.tex[texidx], texidx);
 		}
 
 		public int GetUniformLocation(string name)

@@ -15,7 +15,50 @@ namespace csharp_viewer
 {
 	public static class IMAGE_CLOUD_SHADER
 	{
-		public const string VS = @"
+		public const string VS_DEFAULT = @"
+			attribute vec3 vpos;
+			attribute vec2 vtexcoord;
+			uniform mat4 World;
+			varying vec2 uv;
+			varying float alpha;
+
+			void main()
+			{
+				gl_Position = World * vec4(vpos, 1.0);
+				uv = vtexcoord;
+				alpha = 1.0;
+			}
+		";
+		public const string VS_DEPTHIMAGE = @"
+			attribute vec3 vpos;
+			attribute vec2 vtexcoord;
+			uniform sampler2D Texture2;
+			uniform mat4 World;
+			uniform mat4 matImageView; // View matrix of original image
+			varying vec2 uv;
+			varying float alpha;
+
+			void main()
+			{
+				vec3 pos = vpos;
+				uv = vtexcoord;
+
+				float depth = texture2D(Texture2, uv).r;
+
+				pos.x = uv.x * 2.0 - 1.0;
+				pos.y = 1.0 - uv.y * 2.0;
+				pos.z = 1.0;
+				pos.xy *= cos(1.0472);
+				pos.xyz *= depth;
+
+				pos = (matImageView * vec4(pos, 1.0)).xyz;
+
+				alpha = depth < 1e20 ? 1.0 : 0.0;
+
+				gl_Position = World * vec4(pos, 1.0);
+			}
+		";
+		/*public const string VS_USING_GS = @"
 			attribute vec3 vpos;
 
 			void main()
@@ -55,11 +98,12 @@ namespace csharp_viewer
 				EmitVertex();
 				EndPrimitive();
 			}
-		";
+		";*/
 		public const string FS = @"
 			varying vec2 uv;
 			uniform sampler2D Texture;
 			uniform vec4 Color;
+			varying float alpha;
 
 			vec4 shade(sampler2D sampler, in vec2 uv);
 
@@ -75,12 +119,13 @@ namespace csharp_viewer
 
 			void main()
 			{
-				gl_FragColor = Color * shade(Texture, uv) * vec4(0.8, 0.8, 0.8, 1.0);
+				gl_FragColor = Color * shade(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);//vec4(0.8, 0.8, 0.8, alpha);
 			}
 		";
 		public const string FS_DEFAULT_DECODER = @"
 			vec4 shade(sampler2D sampler, in vec2 uv)
 			{
+//return texture2D(Texture, uv).r > 1e20 ? vec4(0.0, 0.0, 0.0, 0.0) : texture2D(Texture, uv);
 				return texture2D(Texture, uv);
 			}
 		";
@@ -364,8 +409,6 @@ namespace csharp_viewer
 			// Load shaders
 			sdrAabb = new GLShader(new string[] {AABB_SHADER.VS}, new string[] {AABB_SHADER.FS});
 
-			meshVertex = new GLMesh(new Vector3[] {new Vector3(0.0f, 0.0f, 0.0f)}, null, null, null, null, null, PrimitiveType.Points);
-
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
 			coordsys = new CoordinateSystem();
@@ -373,14 +416,18 @@ namespace csharp_viewer
 			ContextMenu = new ImageContextMenu();
 		}
 
-		public void Load(FlowLayoutPanel pnlImageControls, Cinema.CinemaArgument[] arguments, Dictionary<int[], TransformedImage> images, Size imageSize, bool floatimages = false)
+		public void Load(FlowLayoutPanel pnlImageControls, Cinema.CinemaArgument[] arguments, Dictionary<int[], TransformedImage> images, Size imageSize, bool floatimages = false, bool depthimages = false)
 		{
+			int i;
+
 			this.images = images;
 			this.arguments = arguments;
 
 			selection = new ArraySelection(images);
 
-			sdrTextured = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GL});
+			sdrTextured = new GLShader(new string[] {depthimages ? IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE : IMAGE_CLOUD_SHADER.VS_DEFAULT},
+									   new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER},
+									   null/*new string[] {IMAGE_CLOUD_SHADER.GL}*/);
 			sdrTextured_colorParam = sdrTextured.GetUniformLocation("Color");
 
 			if(floatimages)
@@ -389,14 +436,47 @@ namespace csharp_viewer
 				colorTableMgr.Reset();
 			}
 
-			//texstream = new GLTextureStream(256, 963, 770);
-			//texstream = new GLTextureStream(512, 458, 517); //1024
-			//texstream = new GLTextureStream(256, 2266, 1100);
-			texstream = new GLTextureStream(-1, imageSize.Width, imageSize.Height);
-			//texstream = new GLTextureStream(256, imageSize.Width, imageSize.Height);
+			//texstream = new GLTextureStream(256, 963, 770, depthimages);
+			//texstream = new GLTextureStream(512, 458, 517, depthimages); //1024
+			//texstream = new GLTextureStream(256, 2266, 1100, depthimages);
+			texstream = new GLTextureStream(-1, imageSize.Width, imageSize.Height, depthimages);
+			//texstream = new GLTextureStream(256, imageSize.Width, imageSize.Height, depthimages);
+
+			if(depthimages)
+			{
+				Vector3[] positions = new Vector3[imageSize.Width * imageSize.Height];
+				Vector2[] texcoords = new Vector2[imageSize.Width * imageSize.Height];
+				i = 0;
+				for(int y = 0; y < imageSize.Height; ++y)
+					for(int x = 0; x < imageSize.Width; ++x)
+					{
+						positions[i] = new Vector3((float)x / (float)imageSize.Width, (float)y / (float)imageSize.Height, 0.0f);
+						texcoords[i] = new Vector2((float)x / (float)imageSize.Width, (float)(imageSize.Height - y - 1) / (float)imageSize.Height);
+						++i;
+					}
+
+				int[] indices = new int[6 * (imageSize.Width - 1) * (imageSize.Height - 1)];
+				i = 0;
+				for(int y = 1; y < imageSize.Height; ++y)
+					for(int x = 1; x < imageSize.Width; ++x)
+					{
+						indices[i++] = (x - 1) + imageSize.Width * (y - 1);
+						indices[i++] = (x - 0) + imageSize.Width * (y - 1);
+						indices[i++] = (x - 1) + imageSize.Width * (y - 0);
+
+						indices[i++] = (x - 1) + imageSize.Width * (y - 0);
+						indices[i++] = (x - 0) + imageSize.Width * (y - 1);
+						indices[i++] = (x - 0) + imageSize.Width * (y - 0);
+					}
+
+				meshVertex = new GLMesh(positions, null, null, null, texcoords, indices);
+			}
+			else
+				//meshVertex = new GLMesh(new Vector3[] {new Vector3(0.0f, 0.0f, 0.0f)}, null, null, null, null, null, PrimitiveType.Points); // Use this when rendering geometry shader quads
+				meshVertex = Common.meshQuad;
 
 			cmImage = new ImageContextMenu.MenuGroup("");
-			int i = 0;
+			i = 0;
 			foreach(Cinema.CinemaArgument arg in arguments)
 			{
 				ImageContextMenu.MenuButton button = new ImageContextMenu.MenuButton(arg.label, cmdAlign_Click);
@@ -424,6 +504,10 @@ namespace csharp_viewer
 				colorTableMgr = null;
 			}
 			cmImage = null;
+
+			if(meshVertex != null && meshVertex != Common.meshLineQuad)
+				meshVertex.Free();
+			meshVertex = null;
 		}
 
 		private void OnColorTableSettingsChanged(ColorTableManager.ColorTableSettings settings)

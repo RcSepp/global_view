@@ -18,6 +18,40 @@ namespace csharp_viewer
 				Reset(positions, normals, tangents, binormals, texcoords, indices, _primitivetype);
 		}
 
+		public void Free()
+		{
+			if(posbuffer != -1)
+			{
+				GL.DeleteBuffer(posbuffer);
+				posbuffer = -1;
+			}
+			if(nmlbuffer != -1)
+			{
+				GL.DeleteBuffer(nmlbuffer);
+				nmlbuffer = -1;
+			}
+			if(tgtbuffer != -1)
+			{
+				GL.DeleteBuffer(tgtbuffer);
+				tgtbuffer = -1;
+			}
+			if(bnmbuffer != -1)
+			{
+				GL.DeleteBuffer(bnmbuffer);
+				bnmbuffer = -1;
+			}
+			if(texcoordbuffer != -1)
+			{
+				GL.DeleteBuffer(texcoordbuffer);
+				texcoordbuffer = -1;
+			}
+			if(idxbuffer != -1)
+			{
+				GL.DeleteBuffer(idxbuffer);
+				idxbuffer = -1;
+			}
+		}
+
 		public void Reset(Vector3[] positions, Vector3[] normals = null, Vector3[] tangents = null, Vector3[] binormals = null, Vector2[] texcoords = null, int[] indices = null, PrimitiveType? _primitivetype = null)
 		{
 			numvertices = positions.Length;
@@ -83,7 +117,7 @@ namespace csharp_viewer
 			primitivetype = _primitivetype.Value;
 		}
 
-		public void Bind(GLShader shader, GLTexture texture)
+		public void Bind(GLShader shader, GLTexture texture = null, GLTexture texture2 = null)
 		{
 			if(posbuffer == -1) // Mesh without vertex positions can't be rendered
 				return;
@@ -125,7 +159,14 @@ namespace csharp_viewer
 				GL.ActiveTexture(TextureUnit.Texture0);
 				texture.Bind();
 				if(shader != null)
-					shader.SetTexture();
+					shader.SetTexture(0);
+			}
+			if(texture2 != null)
+			{
+				GL.ActiveTexture(TextureUnit.Texture1);
+				texture2.Bind();
+				if(shader != null)
+					shader.SetTexture(1);
 			}
 			if(idxbuffer != -1)
 				GL.BindBuffer(BufferTarget.ElementArrayBuffer, idxbuffer);

@@ -23,10 +23,19 @@ namespace csharp_viewer
 		public void LoadTexture(GLTextureStream texstream)
 		{
 			if(tex == null && texstream != null)
-				tex = texstream.CreateTexture(filename);
+				tex = texstream.CreateTexture(filename, depth_filename);
 			/*{
-				System.Drawing.Bitmap bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(filename);
-				tex = texstream.CreateTexture(bmp);
+				if(depth_filename != null)
+				{
+					System.Drawing.Bitmap bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(filename);
+					System.Drawing.Bitmap depth_bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(depth_filename);
+					tex = texstream.CreateTexture(bmp, depth_bmp);
+				}
+				else
+				{
+					System.Drawing.Bitmap bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(filename);
+					tex = texstream.CreateTexture(bmp);
+				}
 			}*/
 		}
 
@@ -112,7 +121,7 @@ namespace csharp_viewer
 				if(tex != null)
 					transform *= Matrix4.CreateScale((float)tex.width / (float)tex.height, 1.0f, 1.0f);
 				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-				transform *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
+//				transform *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
 				transform *= Matrix4.CreateTranslation(animatedPos);
 
 				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
@@ -152,7 +161,8 @@ namespace csharp_viewer
 
 			sdr.Bind(transform);
 			GL.Uniform4(sdr_colorParam, clr);
-			mesh.Bind(sdr, tex);
+			GL.UniformMatrix4(sdr.GetUniformLocation("matImageView"), false, ref view); //EDIT: Save uniform (like sdr_colorParam) and run this line only when volume rendering is enabled
+			mesh.Bind(sdr, tex, tex.depth_tex);
 			mesh.Draw();
 
 			foreach(ImageTransform t in transforms)
@@ -165,7 +175,7 @@ namespace csharp_viewer
 			//worldmatrix *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 			//worldmatrix *= Matrix4.CreateScale((float)img.Width / (float)img.Height, 1.0f, 1.0f);
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-			worldmatrix *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
+//			worldmatrix *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
 			worldmatrix *= Matrix4.CreateTranslation(animatedPos);
 
 			return worldmatrix;

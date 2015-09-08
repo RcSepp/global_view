@@ -170,3 +170,52 @@ z $z
 theta-phi-view $theta $phi
 all
 theta-phi-view $theta $phi
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+exit
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+focus
+load("/Users/sklaassen/Desktop/work/db/pbrt/")
+all
+focus
+x $x
+y y$
+z z$
+y $y
+z $z
+focus
+theta-phi-view $theta $phi
+unload
+load("/Users/sklaassen/Desktop/work/db/cosmo/")

@@ -64,7 +64,7 @@ namespace csharp_viewer
 		private Selection selection = null;
 
 		bool closing = false;
-		string name_pattern;
+		string name_pattern, depth_name_pattern;
 
 		private Action LoadDatabaseAction, UnloadDatabaseAction, ExitProgramAction;
 		private Action OnSelectionChangedAction, OnTransformationAddedAction, ClearTransformsAction;
@@ -293,7 +293,7 @@ namespace csharp_viewer
 				throw new System.IO.DirectoryNotFoundException(filename);
 
 			// Parse meta data from info.json
-			Cinema.ParseCinemaDescriptor(filename, out arguments, out name_pattern, out image_pixel_format);
+			Cinema.ParseCinemaDescriptor(filename, out arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
 
 			// >>> Load images and image meta
 
@@ -324,11 +324,21 @@ namespace csharp_viewer
 					}
 					imagepath = filename + "image/" + imagepath;
 
+					String depthpath = depth_name_pattern;
+					if(depth_name_pattern != null)
+					{
+						// Construct depth image file path from argidx[]
+						for(int i = 0; i < arguments.Length; ++i)
+							depthpath = depthpath.Replace("{" + arguments[i].name + "}", arguments[i].values[argidx[i]].ToString());
+						depthpath = filename + "image/" + depthpath;
+					}
+
 					// Load CinemaImage
 					TransformedImage cimg = new TransformedImage();
 					cimg.values = imagevalues;
 					cimg.filename = imagepath;
-					cimg.meta = Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json");
+					cimg.depth_filename = depthpath;
+					Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.view);
 					cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
 					images_mutex.WaitOne();
 					images.Add(cimg.key, cimg);
@@ -385,7 +395,7 @@ namespace csharp_viewer
 				img.Dispose();
 
 				try {
-					imageCloud.Load(pnlImageControls, arguments, images, imageSize, image_pixel_format != null && image_pixel_format.Equals("I24"));
+					imageCloud.Load(pnlImageControls, arguments, images, imageSize, image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
 				} catch(Exception ex) {
 					MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 					throw ex;
@@ -529,7 +539,7 @@ imageCloud.AddTransform(foo);*/
 				cimg.values = imagevalues;
 				cimg.filename = imagepath;
 
-				cimg.meta = Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json");
+				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.view);
 				cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
 foreach(ImageTransform transform in imageCloud.transforms)
 	cimg.AddTransform(transform);
@@ -738,6 +748,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			GL.Enable(EnableCap.DepthTest);
 			GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
 			GL.Enable(EnableCap.Blend);
+			//GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
 
 			Common.CreateCommonMeshes();
 			Common.CreateCommonFonts();
