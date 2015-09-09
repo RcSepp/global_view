@@ -34,9 +34,12 @@ namespace csharp_viewer
 			attribute vec2 vtexcoord;
 			uniform sampler2D Texture2;
 			uniform mat4 World;
-			uniform mat4 matImageView; // View matrix of original image
+			uniform mat4 ImageViewInv; // Inverse view matrix of original image
+			uniform vec3 eye, target;
 			varying vec2 uv;
 			varying float alpha;
+
+#define PI 3.141593
 
 			void main()
 			{
@@ -45,20 +48,15 @@ namespace csharp_viewer
 
 				float depth = texture2D(Texture2, uv).r;
 
-				pos.x = uv.x * 2.0 - 1.0;
-				pos.y = 1.0 - uv.y * 2.0;
-				pos.z = 1.0;
-				pos.xy *= cos(1.0472);
-				pos.xyz *= depth;
-
-				pos = (matImageView * vec4(pos, 1.0)).xyz;
+				float x = (30.0 * PI / 180.0) * vpos.x;
+				float y = (30.0 * PI / 180.0) * vpos.y;
+				vec3 voxelpos = (ImageViewInv * vec4(vec3(-sin(x), sin(y), -cos(x) * cos(y)) * depth, 1.0)).xyz;
 
 				alpha = depth < 1e20 ? 1.0 : 0.0;
-
-				gl_Position = World * vec4(pos, 1.0);
+				gl_Position = World * vec4(voxelpos, 1.0);
 			}
 		";
-		/*public const string VS_USING_GS = @"
+		public const string VS_USING_GS = @"
 			attribute vec3 vpos;
 
 			void main()
@@ -79,26 +77,31 @@ namespace csharp_viewer
 			//layout(triangle_strip, max_vertices = 4) out;
 
 			varying out vec2 uv;
+			varying out float alpha;
 
 			uniform mat4 World;
 
 			void main()
 			{
-				gl_Position = World * (gl_PositionIn[0] + vec4(0.0, 1.0, 0.0, 0.0));
+				gl_Position = World * (gl_PositionIn[0] + vec4(-0.5,  0.5, 0.0, 0.0));
 				uv = vec2(0.0, 0.0);
+				alpha = 1.0;
 				EmitVertex();
-				gl_Position = World * (gl_PositionIn[0] + vec4(0.0, 0.0, 0.0, 0.0));
+				gl_Position = World * (gl_PositionIn[0] + vec4(-0.5, -0.5, 0.0, 0.0));
 				uv = vec2(0.0, 1.0);
+				alpha = 1.0;
 				EmitVertex();
-				gl_Position = World * (gl_PositionIn[0] + vec4(1.0, 1.0, 0.0, 0.0));
+				gl_Position = World * (gl_PositionIn[0] + vec4( 0.5,  0.5, 0.0, 0.0));
 				uv = vec2(1.0, 0.0);
+				alpha = 1.0;
 				EmitVertex();
-				gl_Position = World * (gl_PositionIn[0] + vec4(1.0, 0.0, 0.0, 0.0));
+				gl_Position = World * (gl_PositionIn[0] + vec4( 0.5, -0.5, 0.0, 0.0));
 				uv = vec2(1.0, 1.0);
+				alpha = 1.0;
 				EmitVertex();
 				EndPrimitive();
 			}
-		";*/
+		";
 		public const string FS = @"
 			varying vec2 uv;
 			uniform sampler2D Texture;
@@ -197,7 +200,7 @@ namespace csharp_viewer
 		public event DimensionMapper.TransformDelegate TransformAdded;
 
 		GLShader sdrTextured, sdrAabb;
-		int sdrTextured_colorParam;
+		int sdrTextured_colorParam, sdrTextured_imageViewInv;
 		GLMesh meshVertex;
 
 		private GLControl glcontrol;
@@ -425,9 +428,9 @@ namespace csharp_viewer
 
 			selection = new ArraySelection(images);
 
-			sdrTextured = new GLShader(new string[] {depthimages ? IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE : IMAGE_CLOUD_SHADER.VS_DEFAULT},
+			sdrTextured = new GLShader(new string[] {depthimages ? IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE : IMAGE_CLOUD_SHADER.VS_USING_GS},
 									   new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER},
-									   null/*new string[] {IMAGE_CLOUD_SHADER.GL}*/);
+									   depthimages ? null : new string[] {IMAGE_CLOUD_SHADER.GL});
 			sdrTextured_colorParam = sdrTextured.GetUniformLocation("Color");
 
 			if(floatimages)
@@ -450,12 +453,12 @@ namespace csharp_viewer
 				for(int y = 0; y < imageSize.Height; ++y)
 					for(int x = 0; x < imageSize.Width; ++x)
 					{
-						positions[i] = new Vector3((float)x / (float)imageSize.Width, (float)y / (float)imageSize.Height, 0.0f);
-						texcoords[i] = new Vector2((float)x / (float)imageSize.Width, (float)(imageSize.Height - y - 1) / (float)imageSize.Height);
+						positions[i] = new Vector3(2.0f * (float)x / (float)(imageSize.Width - 1) - 1.0f, 2.0f * (float)y / (float)(imageSize.Height - 1) - 1.0f, 1.0f);
+						texcoords[i] = new Vector2((float)x / (float)(imageSize.Width - 1), 1.0f - (float)y / (float)(imageSize.Height - 1));
 						++i;
 					}
 
-				int[] indices = new int[6 * (imageSize.Width - 1) * (imageSize.Height - 1)];
+				/*int[] indices = new int[6 * (imageSize.Width - 1) * (imageSize.Height - 1)];
 				i = 0;
 				for(int y = 1; y < imageSize.Height; ++y)
 					for(int x = 1; x < imageSize.Width; ++x)
@@ -469,11 +472,18 @@ namespace csharp_viewer
 						indices[i++] = (x - 0) + imageSize.Width * (y - 0);
 					}
 
-				meshVertex = new GLMesh(positions, null, null, null, texcoords, indices);
+				meshVertex = new GLMesh(positions, null, null, null, texcoords, indices);*/
+				meshVertex = new GLMesh(positions, null, null, null, texcoords, null, PrimitiveType.Points);
+
+				sdrTextured_imageViewInv = sdrTextured.GetUniformLocation("ImageViewInv");
 			}
 			else
-				//meshVertex = new GLMesh(new Vector3[] {new Vector3(0.0f, 0.0f, 0.0f)}, null, null, null, null, null, PrimitiveType.Points); // Use this when rendering geometry shader quads
-				meshVertex = Common.meshQuad;
+			{
+				meshVertex = new GLMesh(new Vector3[] {new Vector3(0.0f, 0.0f, 0.0f)}, null, null, null, null, null, PrimitiveType.Points); // Use this when rendering geometry shader quads
+				//meshVertex = Common.meshQuad;
+
+				sdrTextured_imageViewInv = -1;
+			}
 
 			cmImage = new ImageContextMenu.MenuGroup("");
 			i = 0;
@@ -651,7 +661,7 @@ namespace csharp_viewer
 				bool viewChanged = InputDevices.mdz != 0.0f;
 				if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
 				{
-					freeview.Translate(Vector3.Multiply(freeViewTranslation, 10.0f * dt));
+					freeview.Translate(Vector3.Multiply(freeViewTranslation, 1.0f * dt));
 					viewChanged = true;
 				}
 				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle))
@@ -767,7 +777,7 @@ namespace csharp_viewer
 
 #if USE_DEPTH_SORTING
 			foreach(TransformedImageAndMatrix iter in renderlist)
-				iter.image.Render(meshVertex, sdrTextured, sdrTextured_colorParam, freeview, iter.matrix);
+				iter.image.Render(meshVertex, sdrTextured, sdrTextured_colorParam, sdrTextured_imageViewInv, freeview, iter.matrix);
 #endif
 			}
 

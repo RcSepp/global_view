@@ -102,6 +102,13 @@ namespace csharp_viewer
 		[STAThread]
 		static public void Main(string[] args)
 		{
+			/*OpenTK.Matrix4 foo = OpenTK.Matrix4.CreatePerspectiveFieldOfView(60.0f * MathHelper.Pi / 180.0f, 1.0f, 1.0f, 1000.0f).Inverted();
+			OpenTK.Vector4 bar1 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, -1.0f, 1.0f), foo); bar1.X /= bar1.W; bar1.Y /= bar1.W; bar1.Z /= bar1.W;
+			OpenTK.Vector4 bar2 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, 0.0f, 1.0f), foo); bar2.X /= bar2.W; bar2.Y /= bar2.W; bar2.Z /= bar2.W;
+			OpenTK.Vector4 bar3 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, 1.0f, 1.0f), foo); bar3.X /= bar3.W; bar3.Y /= bar3.W; bar3.Z /= bar3.W;
+			OpenTK.Vector4 bar4 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, 10.0f, 1.0f), foo); bar4.X /= bar4.W; bar4.Y /= bar4.W; bar4.Z /= bar4.W;
+			int abc = 0;*/
+
 			/*// Parse meta data from info.json
 			Cinema.CinemaArgument[] arguments;
 			string name_pattern;
@@ -120,12 +127,8 @@ namespace csharp_viewer
 		{
 			this.cmdline = cmdline;
 
-			LoadDatabaseAction = ActionManager.CreateAction("Load database", this, "LoadDatabase");
-			UnloadDatabaseAction = ActionManager.CreateAction("Unload database", this, "UnloadDatabase");
-			ExitProgramAction = ActionManager.CreateAction("Exit program", this, "Exit");
 			OnSelectionChangedAction = ActionManager.CreateAction("Change Selection", this, "OnSelectionChanged");
 			OnTransformationAddedAction = ActionManager.CreateAction("Add Transformation", this, "OnTransformationAdded");
-			ClearTransformsAction = ActionManager.CreateAction("Clear Transformations", this, "ClearTransforms");
 
 			// >>> Initialize Components
 
@@ -193,9 +196,15 @@ namespace csharp_viewer
 
 			LoadDatabaseAction = ActionManager.CreateAction("Load database", "load", this, "LoadDatabase");
 			LoadDatabaseAction = ActionManager.CreateAction("Unload database", "unload", this, "UnloadDatabase");
+			ClearTransformsAction = ActionManager.CreateAction("Clear Transformations", "clear", this, "ClearTransforms");
 			ActionManager.CreateAction("Exit program", "exit", this, "Exit");
 
 			ActionManager.CreateAction("Select all", "all", argIndex, "SelectAll");
+			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
+				images_mutex.WaitOne();
+				OnSelectionChanged(null);
+				images_mutex.ReleaseMutex();
+			});
 			ActionManager.CreateAction("Focus selection", "focus", imageCloud, "FocusSelection");
 			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
 				argIndex.SelectAll();
@@ -338,7 +347,7 @@ namespace csharp_viewer
 					cimg.values = imagevalues;
 					cimg.filename = imagepath;
 					cimg.depth_filename = depthpath;
-					Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.view);
+					Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 					cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
 					images_mutex.WaitOne();
 					images.Add(cimg.key, cimg);
@@ -539,7 +548,7 @@ imageCloud.AddTransform(foo);*/
 				cimg.values = imagevalues;
 				cimg.filename = imagepath;
 
-				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.view);
+				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 				cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
 foreach(ImageTransform transform in imageCloud.transforms)
 	cimg.AddTransform(transform);
@@ -794,11 +803,10 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 				actMgr.Update(ref dt);
 
-				//if(imageCloud != null)
 				imageCloud.Draw(dt);
-				images_mutex.ReleaseMutex();
-
 				argIndex.Draw(glImageCloud.PointToClient(Control.MousePosition), glImageCloud.Size);
+
+				images_mutex.ReleaseMutex();
 
 				glImageCloud.SwapBuffers();
 

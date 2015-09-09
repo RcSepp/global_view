@@ -26,7 +26,7 @@ namespace csharp_viewer
 			public string filename;
 			public string depth_filename;
 			public Dictionary<string, object> meta;
-			public OpenTK.Matrix4 view; // Required to recreate 3D pixel locations from depth image
+			public OpenTK.Matrix4 invview; // Required to recreate 3D pixel locations from depth image
 		}
 
 		// Parse meta data from info.json
@@ -99,16 +99,18 @@ namespace csharp_viewer
 		}
 
 		// Parse meta data from image Json
-		public static void ParseImageDescriptor(string imagemetapath, out Dictionary<string, object> meta, out OpenTK.Matrix4 view)
+		public static void ParseImageDescriptor(string imagemetapath, out Dictionary<string, object> meta, out OpenTK.Matrix4 invview)
 		{
 			meta = null;
-			view = new OpenTK.Matrix4();
+			invview = OpenTK.Matrix4.Identity;
 
 			if(!File.Exists(imagemetapath))
 				return;
 
 			StreamReader sr = new StreamReader(new FileStream(imagemetapath, FileMode.Open, FileAccess.Read));
 			dynamic json = JsonConvert.DeserializeObject(sr.ReadToEnd());
+			sr.Close();
+
 			try {
 				meta = ((JObject)json.variables).ToObject<Dictionary<string, object>>();
 			}
@@ -117,9 +119,8 @@ namespace csharp_viewer
 			{
 				float[] lookat = json["lookat"].ToObject<float[]>();
 				if(lookat.Length == 9)
-					view = OpenTK.Matrix4.LookAt(lookat[0], lookat[1], lookat[2], lookat[3], lookat[4], lookat[5], lookat[6], lookat[7], lookat[8]);
+					invview = OpenTK.Matrix4.LookAt(lookat[0], lookat[1], lookat[2], lookat[3], lookat[4], lookat[5], lookat[6], lookat[7], lookat[8]).Inverted();
 			}
-			sr.Close();
 		}
 	}
 }

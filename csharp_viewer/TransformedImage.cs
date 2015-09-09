@@ -71,7 +71,8 @@ namespace csharp_viewer
 				worldmatrix *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 				worldmatrix *= Matrix4.CreateScale((float)img.Width / (float)img.Height, 1.0f, 1.0f);
 				//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-				worldmatrix *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
+				if(depth_filename == null) // Do not always face screen when rendering volume images
+					worldmatrix *= invvieworient;
 				worldmatrix *= Matrix4.CreateTranslation(animatedPos);
 
 				if(freeview.DoFrustumCulling(worldmatrix, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
@@ -117,14 +118,15 @@ namespace csharp_viewer
 				if(hasDynamicLocationTransform)
 					ComputeLocation();
 
-				transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
+				//transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 				if(tex != null)
 					transform *= Matrix4.CreateScale((float)tex.width / (float)tex.height, 1.0f, 1.0f);
 				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-//				transform *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
+				if(depth_filename == null) // Do not always face screen when rendering volume images
+					transform *= invvieworient;
 				transform *= Matrix4.CreateTranslation(animatedPos);
 
-				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+if(true)//		if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
 					transform *= freeview.viewprojmatrix;
 					return true;
@@ -145,7 +147,7 @@ namespace csharp_viewer
 			else
 				return false;
 		}
-		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, ImageCloud.FreeView freeview, Matrix4 transform)
+		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, int sdr_imageViewInv, ImageCloud.FreeView freeview, Matrix4 transform)
 		{
 			tex.Load();
 
@@ -161,7 +163,8 @@ namespace csharp_viewer
 
 			sdr.Bind(transform);
 			GL.Uniform4(sdr_colorParam, clr);
-			GL.UniformMatrix4(sdr.GetUniformLocation("matImageView"), false, ref view); //EDIT: Save uniform (like sdr_colorParam) and run this line only when volume rendering is enabled
+			if(sdr_imageViewInv != -1)
+				GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
 			mesh.Bind(sdr, tex, tex.depth_tex);
 			mesh.Draw();
 
@@ -175,7 +178,8 @@ namespace csharp_viewer
 			//worldmatrix *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 			//worldmatrix *= Matrix4.CreateScale((float)img.Width / (float)img.Height, 1.0f, 1.0f);
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-//			worldmatrix *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
+			if(depth_filename == null) // Do not always face screen when rendering volume images
+				worldmatrix *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
 			worldmatrix *= Matrix4.CreateTranslation(animatedPos);
 
 			return worldmatrix;

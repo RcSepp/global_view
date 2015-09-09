@@ -263,9 +263,9 @@ public static int foo = 0;
 						return false; // Exceeded maximum number of loads from disk for this frame
 
 					bool isnewbmp;
-					Tuple<Bitmap, Bitmap> tuple = owner.imagebuffer.Dequeue(this, out isnewbmp, bmpptr); //UNFIXED BUG: LoadImage() is called twice. Shows wrong images when commenting lines 196 & 197, unless also commenting 'bmpptr' in this line. It seems bmpptr returns wrong images!
-					bmp = tuple.Item1;
-					depth_bmp = tuple.Item2;
+					Tuple<Bitmap, Bitmap> tuple = owner.imagebuffer.Dequeue(this, out isnewbmp, bmpptr); //UNFIXED BUG: LoadImage() is called twice. Shows wrong images when commenting lines 283 & 284, unless also commenting 'bmpptr' in this line. It seems bmpptr returns wrong images!
+					bmp = tuple == null ? null : tuple.Item1;
+					depth_bmp = tuple == null ? null : tuple.Item2;
 					if(isnewbmp)
 						LoadImage();
 					if(bmp == null)
@@ -280,8 +280,8 @@ public static int foo = 0;
 					depth_tex.tex = tuple.Item2;
 					if(isnewtex)
 					{
-						if(filename != null) //EDIT: (see line 183)
-							LoadImage(); //EDIT: (see line 183)
+						//if(filename != null) //EDIT: (see line 266)
+						//	LoadImage(); //EDIT: (see line 266)
 
 						//++GLTextureStream.foo;
 						BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);

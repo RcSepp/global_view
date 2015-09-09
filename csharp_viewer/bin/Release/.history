@@ -219,3 +219,4 @@ focus
 theta-phi-view $theta $phi
 unload
 load("/Users/sklaassen/Desktop/work/db/cosmo/")
+load("/Users/sklaassen/Desktop/work/db/pbrt/")

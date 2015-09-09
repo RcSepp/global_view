@@ -428,3 +428,68 @@ theta-phi $theta $phi
 focus
 load("/Users/sklaassen/Desktop/work/db/volume_debug/")
 focus all
+all
+x $arg
+all
+x $arg
+all
+all
+x $arg
+x $arg
+all
+x $arg
+all
+x $arg
+all
+x$ arg
+x $arg
+focus
+ClearTransforms
+all
+theta-phi-view' $theta $phi
+theta-phi-view $theta $phi
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+x $x
+y $y
+z $z
+unload
+load("/Users/sklaassen/Desktop/work/db/volume_debug/")
+load("/Users/sklaassen/Desktop/work/db/volume_debug/")
+all
+clear
+all
+all
+all
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+clear
+all
+none
+all
+theta-phi $theta $phi
+clear
