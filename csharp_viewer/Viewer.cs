@@ -28,8 +28,6 @@ namespace csharp_viewer
 		//public static string DATABASE_PATH = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/work/db/mpas_ani/";
 		//public static string DATABASE_PATH = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/work/db/mpas_view/";
 
-		public static int IMAGE_DIV = 1;
-
 		GLControl glImageCloud;
 		bool glImageCloud_loaded = false, form_closing = false;
 		//ImageCloud imageCloud = new SimpleImageCloud();
@@ -410,7 +408,7 @@ namespace csharp_viewer
 					imagepath = imagepath.Replace("{" + arguments[i].name + "}", arguments[i].values[0].ToString());
 				imagepath = filename + "image/" + imagepath;
 				Image img = Image.FromFile(imagepath);
-				Size imageSize = new Size(img.Width / IMAGE_DIV, img.Height / IMAGE_DIV);
+				Size imageSize = new Size(img.Width, img.Height);
 				img.Dispose();
 
 				try {

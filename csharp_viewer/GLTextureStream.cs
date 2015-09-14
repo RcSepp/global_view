@@ -11,6 +11,9 @@ namespace csharp_viewer
 {
 	public class GLTextureStream
 	{
+		public static int IMAGE_DIV = 1;
+		public static int DEPTH_IMAGE_DIV = 32;
+
 		public class RingBuffer<V>
 		{
 			private class Slot
@@ -83,7 +86,7 @@ namespace csharp_viewer
 		}
 		private RingBuffer<Tuple<Bitmap, Bitmap>> imagebuffer;
 		private RingBuffer<Tuple<int, int>> texturebuffer;
-		private readonly int texwidth, texheight;
+		private readonly int texwidth, texheight, depth_texwidth, depth_texheight;
 		private int[] textures, depth_textures;
 		private Bitmap bmpFileNotFound;
 		private int texFileNotFound;
@@ -95,22 +98,21 @@ namespace csharp_viewer
 			return b;
 		}
 
-		public GLTextureStream(int numtextures, int texwidth, int texheight, bool depthimages = false)
+		public GLTextureStream(int numtextures, int texturewidth, int textureheight, bool depthimages = false)
 		{
-			this.texwidth = texwidth;
-			this.texheight = texheight;
+			this.texwidth = texturewidth / IMAGE_DIV;
+			this.texheight = textureheight / IMAGE_DIV;
+			this.depth_texwidth = depthimages ? texturewidth / IMAGE_DIV : 0;
+			this.depth_texheight = depthimages ? textureheight / IMAGE_DIV : 0;
 
 			if(numtextures == -1)
 			{
 				// Get maximum number of textures for a certain amount of available memory
 
-				int w = ceilBin(texwidth), h = ceilBin(texwidth);
-				numtextures = 1024 * 1024 * 1024 / (w * h * 4); // Optimize for 1GB of GPU memory
+				int w = ceilBin(texwidth), h = ceilBin(texheight), dw = ceilBin(depth_texwidth), dh = ceilBin(depth_texheight);
+				numtextures = 1024 * 1024 * 1024 / ((w * h + dw * dh) * 4); // Optimize for 1GB of GPU memory
 				numtextures = Math.Min(numtextures, 1024);
 			}
-
-			if(depthimages)
-				numtextures /= 2; // Double the number of textures are required when using depth textures
 
 			texturebuffer = new RingBuffer<Tuple<int, int>>(numtextures, /*-1*/ null);
 			imagebuffer = new RingBuffer<Tuple<Bitmap, Bitmap>>(numtextures, null);
@@ -136,7 +138,9 @@ namespace csharp_viewer
 					GL.BindTexture(TextureTarget.Texture2D, depth_textures[i]);
 					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
 					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-					GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f, texwidth, texheight, 0, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, IntPtr.Zero);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
+					GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R32f, depth_texwidth, depth_texheight, 0, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, IntPtr.Zero);
 					texturebuffer.Enqueue(null, new Tuple<int, int>(textures[i], depth_textures[i]));
 				}
 				else
@@ -203,7 +207,7 @@ namespace csharp_viewer
 		}
 		public Texture CreateTexture(string filename, string depth_filename = null)
 		{
-			return new Texture(this, filename, depth_filename, texwidth, texheight);
+			return new Texture(this, filename, texwidth, texheight, depth_filename, depth_texwidth, depth_texheight);
 		}
 
 		private const int MAX_NUM_FRAME_LOADS = 32;
@@ -234,7 +238,7 @@ public static int foo = 0;
 				this.texptr = null;
 				this.depth_tex = new GLTexture(TextureTarget.Texture2D, depth_bmp.Width, depth_bmp.Height);
 			}
-			public Texture(GLTextureStream owner, string filename, string depth_filename, int width, int height)
+			public Texture(GLTextureStream owner, string filename, int width, int height, string depth_filename, int depth_width, int depth_height)
 				: base(TextureTarget.Texture2D, width, height)
 			{
 				this.owner = owner;
@@ -254,7 +258,7 @@ public static int foo = 0;
 				}
 				this.depth_bmp = null;
 				this.texptr = null;
-				this.depth_tex = new GLTexture(TextureTarget.Texture2D, width, height);
+				this.depth_tex = new GLTexture(TextureTarget.Texture2D, depth_width, depth_height);
 			}
 
 			public bool Load()
@@ -299,7 +303,7 @@ public static int foo = 0;
 						{
 							bmpdata = depth_bmp.LockBits(new Rectangle(0, 0, depth_bmp.Width, depth_bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 							GL.BindTexture(TextureTarget.Texture2D, depth_tex.tex);
-							GL.TexSubImage2D(type, 0, 0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, bmpdata.Scan0);
+							GL.TexSubImage2D(type, 0, 0, 0, depth_tex.width, depth_tex.height, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, bmpdata.Scan0);
 							depth_bmp.UnlockBits(bmpdata);
 						}
 
@@ -342,7 +346,7 @@ public static int foo = 0;
 					bmp = null;
 				}
 
-				if(Viewer.IMAGE_DIV == 1)
+				if(IMAGE_DIV == 1)
 				{
 					bmp = (Bitmap)Image.FromFile(filename);
 
@@ -352,18 +356,18 @@ public static int foo = 0;
 				else
 				{
 					Image img = Image.FromFile(filename);
-					bmp = new Bitmap(img.Width / Viewer.IMAGE_DIV, img.Height / Viewer.IMAGE_DIV, img.PixelFormat);
+					bmp = new Bitmap(width, height, img.PixelFormat);
 					Graphics gfx = Graphics.FromImage(bmp);
-					gfx.DrawImage(img, new Rectangle(0, 0, bmp.Width, bmp.Height));
+					gfx.DrawImage(img, new Rectangle(0, 0, width, height));
 					gfx.Flush();
 					img.Dispose();
 
 					if(depth_filename != null)
 					{
 						img = Image.FromFile(depth_filename);
-						depth_bmp = new Bitmap(img.Width / Viewer.IMAGE_DIV, img.Height / Viewer.IMAGE_DIV, img.PixelFormat);
+						depth_bmp = new Bitmap(depth_tex.width, depth_tex.height, img.PixelFormat);
 						gfx = Graphics.FromImage(depth_bmp);
-						gfx.DrawImage(img, new Rectangle(0, 0, depth_bmp.Width, depth_bmp.Height));
+						gfx.DrawImage(img, new Rectangle(0, 0, depth_tex.width, depth_tex.height));
 						gfx.Flush();
 						img.Dispose();
 					}

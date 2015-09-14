@@ -57,7 +57,8 @@ namespace csharp_viewer
 				float y = (30.0 * PI / 180.0) * vpos.y; //28.1
 				vec3 voxelpos = (/*ImageViewInv **/ vec4(vec3(sin(x), sin(y), -cos(x) * cos(y)) * vdepth, 1.0)).xyz;
 
-				alpha = depth < 1e20 ? 1.0 : 0.0;
+				//alpha = depth < 1e20 ? 1.0 : 0.0;
+				alpha = depth < 1e3 ? 1.0 : 0.0;
 				gl_Position = World * vec4(voxelpos, 1.0);
 			}
 		";
@@ -462,31 +463,33 @@ namespace csharp_viewer
 			//texstream = new GLTextureStream(256, imageSize.Width, imageSize.Height, depthimages);
 
 			// Create mesh for depth rendering
-			Vector3[] positions = new Vector3[imageSize.Width * imageSize.Height];
-			Vector2[] texcoords = new Vector2[imageSize.Width * imageSize.Height];
+			Size depthimagesize = new Size(imageSize.Width / GLTextureStream.DEPTH_IMAGE_DIV, imageSize.Height / GLTextureStream.DEPTH_IMAGE_DIV);
+			Vector3[] positions = new Vector3[depthimagesize.Width * depthimagesize.Height];
+			Vector2[] texcoords = new Vector2[depthimagesize.Width * depthimagesize.Height];
 			i = 0;
-			for(int y = 0; y < imageSize.Height; ++y)
-				for(int x = 0; x < imageSize.Width; ++x)
+			for(int y = 0; y < depthimagesize.Height; ++y)
+				for(int x = 0; x < depthimagesize.Width; ++x)
 				{
-					positions[i] = new Vector3(2.0f * (float)x / (float)(imageSize.Width - 1) - 1.0f, 2.0f * (float)y / (float)(imageSize.Height - 1) - 1.0f, 1.0f);
-					texcoords[i] = new Vector2((float)x / (float)(imageSize.Width - 1), 1.0f - (float)y / (float)(imageSize.Height - 1));
+					positions[i] = new Vector3(2.0f * (float)x / (float)(depthimagesize.Width - 1) - 1.0f, 2.0f * (float)y / (float)(depthimagesize.Height - 1) - 1.0f, 1.0f);
+					texcoords[i] = new Vector2((float)x / (float)(depthimagesize.Width - 1), 1.0f - (float)y / (float)(depthimagesize.Height - 1));
 					++i;
 				}
-			/*int[] indices = new int[6 * (imageSize.Width - 1) * (imageSize.Height - 1)];
+			/*int[] indices = new int[6 * (depthimagesize.Width - 1) * (depthimagesize.Height - 1)];
 			i = 0;
-			for(int y = 1; y < imageSize.Height; ++y)
-				for(int x = 1; x < imageSize.Width; ++x)
+			for(int y = 1; y < depthimagesize.Height; ++y)
+				for(int x = 1; x < depthimagesize.Width; ++x)
 				{
-					indices[i++] = (x - 1) + imageSize.Width * (y - 1);
-					indices[i++] = (x - 0) + imageSize.Width * (y - 1);
-					indices[i++] = (x - 1) + imageSize.Width * (y - 0);
+					indices[i++] = (x - 1) + depthimagesize.Width * (y - 1);
+					indices[i++] = (x - 0) + depthimagesize.Width * (y - 1);
+					indices[i++] = (x - 1) + depthimagesize.Width * (y - 0);
 
-					indices[i++] = (x - 1) + imageSize.Width * (y - 0);
-					indices[i++] = (x - 0) + imageSize.Width * (y - 1);
-					indices[i++] = (x - 0) + imageSize.Width * (y - 0);
+					indices[i++] = (x - 1) + depthimagesize.Width * (y - 0);
+					indices[i++] = (x - 0) + depthimagesize.Width * (y - 1);
+					indices[i++] = (x - 0) + depthimagesize.Width * (y - 0);
 				}
 			mesh3D = new GLMesh(positions, null, null, null, texcoords, indices);*/
 			mesh3D = new GLMesh(positions, null, null, null, texcoords, null, PrimitiveType.Points);
+			GL.PointSize(10.0f);
 
 			cmImage = new ImageContextMenu.MenuGroup("");
 			i = 0;
@@ -665,17 +668,21 @@ namespace csharp_viewer
 		}
 		public void Draw(float dt)
 		{
-			if(overallAabb_invalid && images != null)
+			if(overallAabb_invalid)
 			{
-				overallAabb_invalid = false;
-				AABB overallAabb = new AABB();
-				foreach(TransformedImage image in images.Values)
-					overallAabb.Include(image.GetBounds());
-				camera_speed = 0.1f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
-				camera_speed = Math.Max(0.0001f, camera_speed);
+				if(images != null)
+				{
+					overallAabb_invalid = false;
+					AABB overallAabb = new AABB();
+					foreach(TransformedImage image in images.Values)
+						overallAabb.Include(image.GetBounds());
+					camera_speed = 0.1f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
+					camera_speed = Math.Max(0.0001f, camera_speed);
+					camera_speed = 100.0f;
+				}
+				else
+					camera_speed = 1.0f;
 			}
-			else
-				camera_speed = 1.0f;
 
 			// >>> Update free-view matrix
 
@@ -704,13 +711,13 @@ namespace csharp_viewer
 					}
 					viewChanged = true;
 				}
-				freeview.Update(dt);
+				freeview.Update(camera_speed * dt);
 				if(viewChanged)
 					foreach(ImageTransform transform in transforms)
 						transform.OnCameraMoved(freeview);
 			}
 			else
-				freeview.Update(dt);
+				freeview.Update(camera_speed * dt);
 
 			if(texstream != null)
 				texstream.Update();
