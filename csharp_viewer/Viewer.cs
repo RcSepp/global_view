@@ -279,7 +279,16 @@ namespace csharp_viewer
 				}
 			});
 
-			ActionManager.CreateAction("Spread out all dimensions", "spread all", delegate(object[] parameters) {
+			ActionManager.CreateAction("Spread out all dimensions", "spread", delegate(object[] parameters) {
+				WheelTransform transform = new WheelTransform();
+				transform.SetArguments(arguments);
+				for(int i = 0; i < arguments.Length; ++i)
+					transform.SetIndex(i, i);
+				OnTransformationAdded(transform);
+			});
+			ActionManager.CreateAction("Select all images and spread out all dimensions", "spread all", delegate(object[] parameters) {
+				argIndex.SelectAll();
+
 				WheelTransform transform = new WheelTransform();
 				transform.SetArguments(arguments);
 				for(int i = 0; i < arguments.Length; ++i)
@@ -344,6 +353,7 @@ namespace csharp_viewer
 
 					// Load CinemaImage
 					TransformedImage cimg = new TransformedImage();
+					cimg.LocationChanged += imageCloud.InvalidateOverallBounds;
 					cimg.values = imagevalues;
 					cimg.filename = imagepath;
 					cimg.depth_filename = depthpath;
@@ -545,6 +555,7 @@ imageCloud.AddTransform(foo);*/
 
 				// Load CinemaImage
 				TransformedImage cimg = new TransformedImage();
+				cimg.LocationChanged += imageCloud.InvalidateOverallBounds;
 				cimg.values = imagevalues;
 				cimg.filename = imagepath;
 
@@ -751,7 +762,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		private void RenderThread()
 		{
 			glImageCloud.MakeCurrent();
-			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
+			GL.ClearColor(0.8f, 0.8f, 0.8f, 1.0f);
+			//GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
 			//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
 			GL.Viewport(glImageCloud.Size);
 			GL.Enable(EnableCap.DepthTest);

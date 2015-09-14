@@ -493,3 +493,48 @@ none
 all
 theta-phi $theta $phi
 clear
+none
+all
+all
+none
+all
+spread all
+all
+all
+theta-phi-view $theta $phi
+clear
+theta-phi $theta $phi
+all
+theta-phi $theta $phi
+none
+exit
+all
+theta-phi-view $theta $phi
+none
+all
+theta-phi-view $theta $phi
+none
+all
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+all
+clear
+all
+all
+spread all
+all
+spread
+exit
+spread all
+spread all
+focus
+spread all

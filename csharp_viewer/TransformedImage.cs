@@ -18,7 +18,12 @@ namespace csharp_viewer
 		private Vector3 animatedPos = new Vector3(float.NaN);
 		public void skipPosAnimation() { animatedPos = pos; }
 
+		public delegate void LocationChangedDelegate();
+		public event LocationChangedDelegate LocationChanged;
+
 		private List<ImageTransform> transforms = new List<ImageTransform>();
+
+		public bool HasDepthInfo { get {return depth_filename != null;} }
 
 		public void LoadTexture(GLTextureStream texstream)
 		{
@@ -112,7 +117,7 @@ namespace csharp_viewer
 					hasDynamicLocationTransform = true;
 			}
 
-			transform = Matrix4.Identity;
+			transform = invview; //Matrix4.Identity
 			if(_visible)
 			{
 				if(hasDynamicLocationTransform)
@@ -147,24 +152,27 @@ if(true)//		if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Id
 			else
 				return false;
 		}
-		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, int sdr_imageViewInv, ImageCloud.FreeView freeview, Matrix4 transform)
+		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, int sdr_imageViewInv, int sdr_DepthScale, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
 		{
 			tex.Load();
 
 			Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-			/*if(selected)
+			if(selected)
 			{
-				clr.R += Color4.Azure.R / 2.0f;
-				clr.G += Color4.Azure.G / 2.0f;
-				clr.B += Color4.Azure.B / 2.0f;
-			}*/
+				/*clr.R += 1.0f;//Color4.Azure.R / 2.0f;
+				clr.G += 0.0f;//Color4.Azure.G / 2.0f;
+				clr.B += 0.0f;//Color4.Azure.B / 2.0f;*/
+				clr = Color4.Red;
+			}
 			//clr.A = selected ? 1.0f : 0.3f;
 			clr.A = 1.0f;
 
 			sdr.Bind(transform);
 			GL.Uniform4(sdr_colorParam, clr);
-			if(sdr_imageViewInv != -1)
-				GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
+			//if(sdr_imageViewInv != -1)
+			//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
+			if(sdr_DepthScale != -1)
+				GL.Uniform1(sdr_DepthScale, depthscale);
 			mesh.Bind(sdr, tex, tex.depth_tex);
 			mesh.Draw();
 
@@ -174,7 +182,7 @@ if(true)//		if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Id
 
 		public Matrix4 GetWorldMatrix(Matrix4 invvieworient)
 		{
-			Matrix4 worldmatrix = Matrix4.Identity;
+			Matrix4 worldmatrix = invview; //Matrix4.Identity
 			//worldmatrix *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 			//worldmatrix *= Matrix4.CreateScale((float)img.Width / (float)img.Height, 1.0f, 1.0f);
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
@@ -286,23 +294,23 @@ if(true)//		if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Id
 			// Do not animate towards initial position
 			if(float.IsNaN(animatedPos.X))
 				skipPosAnimation();
+
+			if(LocationChanged != null)
+				LocationChanged();
 		}
 
 		public AABB GetBounds()
 		{
-			if(tex == null)
-				return new AABB();
-
 			AABB aabb = new AABB();
 
 			//foreach(ImageTransform t in transforms)
 			//	aabb.Include(t.ImageBounds(key, this));
 
-			Matrix4 worldmatrix = Matrix4.Identity;
+			Matrix4 worldmatrix = invview; //Matrix4.Identity
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 			worldmatrix *= Matrix4.CreateTranslation(pos);
 
-			float aspectRatio = (float)tex.width / (float)tex.height;
+			float aspectRatio = tex == null ? 1.0f : ((float)tex.width / (float)tex.height);
 			aabb.Include(Vector3.TransformPosition(new Vector3(-0.5f * aspectRatio, -0.5f, -0.5f * aspectRatio), worldmatrix));
 			aabb.Include(Vector3.TransformPosition(new Vector3( 0.5f * aspectRatio,  0.5f,  0.5f * aspectRatio), worldmatrix));
 

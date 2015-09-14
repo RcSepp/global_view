@@ -119,8 +119,19 @@ namespace csharp_viewer
 			{
 				float[] lookat = json["lookat"].ToObject<float[]>();
 				if(lookat.Length == 9)
-					invview = OpenTK.Matrix4.LookAt(lookat[0], lookat[1], lookat[2], lookat[3], lookat[4], lookat[5], lookat[6], lookat[7], lookat[8]).Inverted();
+					invview = OpenTK.Matrix4.LookAt(lookat[0], lookat[1], lookat[2], -lookat[3], lookat[4], lookat[5], lookat[6], lookat[7], lookat[8]).Inverted(); //EDIT: -lookat[3] or lookat[3] ???
+			} else if(json["theta-phi-xyz"] != null)
+			{
+				float[] theta_phi_xyz = json["theta-phi-xyz"].ToObject<float[]>();
+				if(theta_phi_xyz.Length == 5)
+				{
+					invview = OpenTK.Matrix4.CreateTranslation(-theta_phi_xyz[2], theta_phi_xyz[3], -theta_phi_xyz[4]);
+					invview *= OpenTK.Matrix4.CreateRotationY(theta_phi_xyz[0]);
+					invview *= OpenTK.Matrix4.CreateRotationX(-theta_phi_xyz[1]);
+					invview.Invert();
+				}
 			}
+
 		}
 	}
 }

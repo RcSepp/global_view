@@ -239,12 +239,17 @@ public static int foo = 0;
 			{
 				this.owner = owner;
 				this.filename = filename;
-				this.depth_filename = depth_filename;
 				if(File.Exists(filename))
+				{
 					this.bmp = null;
+					this.depth_filename = File.Exists(depth_filename) ? depth_filename : null;
+					if(depth_filename != null && this.depth_filename == null)
+						throw new FileNotFoundException(depth_filename);
+				}
 				else
 				{
 					this.bmp = owner.bmpFileNotFound;
+					this.depth_filename = null;
 					tex = owner.texFileNotFound;
 				}
 				this.depth_bmp = null;
