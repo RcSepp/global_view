@@ -2,10 +2,10 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/ImageCloud.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="292" Column="41" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="768" Column="7" />
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="113" Column="5" />
-      <File FileName="csharp_viewer/Cinema.cs" Line="83" Column="26" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="665" Column="4" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Cinema.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ImageContextMenu.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Selection.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="1" Column="1" />
@@ -16,8 +16,8 @@
       <File FileName="csharp_viewer/ActionManager.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/GLMesh.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ArgumentIndex.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTextureStream.cs" Line="249" Column="9" />
-      <File FileName="csharp_viewer/ImageTransform.cs" Line="35" Column="24" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageTransform.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

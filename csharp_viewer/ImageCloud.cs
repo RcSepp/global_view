@@ -367,8 +367,7 @@ namespace csharp_viewer
 		}
 		FreeView freeview = new FreeView();
 		private float aspectRatio;
-		private AABB selectionAabb = null, overallAabb;
-		bool overallAabb_invalid = true;
+		private AABB selectionAabb = null;
 		private class MouseRect
 		{
 			public Vector2 min, max;
@@ -380,6 +379,8 @@ namespace csharp_viewer
 			}
 		}
 		private MouseRect mouseRect = null;
+		bool overallAabb_invalid = true;
+		float camera_speed = 1.0f;
 
 		string status_str = "";
 		float status_timer = 0.0f;
@@ -664,29 +665,30 @@ namespace csharp_viewer
 		}
 		public void Draw(float dt)
 		{
-			if(overallAabb_invalid)
+			if(overallAabb_invalid && images != null)
 			{
 				overallAabb_invalid = false;
-				overallAabb = new AABB();
+				AABB overallAabb = new AABB();
 				foreach(TransformedImage image in images.Values)
 					overallAabb.Include(image.GetBounds());
+				camera_speed = 0.1f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
+				camera_speed = Math.Max(0.0001f, camera_speed);
 			}
+			else
+				camera_speed = 1.0f;
 
 			// >>> Update free-view matrix
 
 			if(glcontrol.Focused)
 			{
-				float scale = 0.1f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
-				scale = Math.Max(0.0001f, scale);
-
 				Vector3 freeViewTranslation = new Vector3((InputDevices.kbstate.IsKeyDown(Key.A) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.D) ? 1.0f : 0.0f),
 					                              (InputDevices.kbstate.IsKeyDown(Key.Space) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.LShift) ? 1.0f : 0.0f),
 					                              (InputDevices.kbstate.IsKeyDown(Key.W) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.S) ? 1.0f : 0.0f));
-				freeViewTranslation.Z += scale * InputDevices.mdz;
+				freeViewTranslation.Z += camera_speed * InputDevices.mdz;
 				bool viewChanged = InputDevices.mdz != 0.0f;
 				if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
 				{
-					freeview.Translate(Vector3.Multiply(freeViewTranslation, scale * dt));
+					freeview.Translate(Vector3.Multiply(freeViewTranslation, camera_speed * dt));
 					viewChanged = true;
 				}
 				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle))
