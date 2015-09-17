@@ -225,3 +225,41 @@ theta-phi-view $arg $arg
 none
 all
 none
+focus all
+theta-phi $theta $phi
+focus
+clear
+theta-phi-view $theta $phi
+focus
+focus all
+theta-phi $theta $phi
+focus all
+theta-phi $theta $phi
+focus
+clear
+focus
+theta-phi-view $theta $phi
+all
+theta-phi $theta $phi
+clear
+focus all
+theta-phi $theta $phi
+focus
+all
+clear
+focus
+theta-phi-view $theta $phi
+focus all
+theta phi $theta $phi
+theta-phi $theta $phi
+focus all
+theta-phi $theta $phi
+focus
+focus all
+theta-phi $theta $phi
+focus
+all
+clear
+focus
+theta-phi-view $theta $phi
+clear

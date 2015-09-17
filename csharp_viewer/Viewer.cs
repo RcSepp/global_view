@@ -29,7 +29,7 @@ namespace csharp_viewer
 		//public static string DATABASE_PATH = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/work/db/mpas_view/";
 
 		GLControl glImageCloud;
-		bool glImageCloud_loaded = false, form_closing = false;
+		bool glImageCloud_loaded = false, form_closing = false, renderThread_finished = false;
 		//ImageCloud imageCloud = new SimpleImageCloud();
 		//ImageCloud imageCloud = new ThetaPhiImageCloud();
 		ArgumentIndex argIndex = new ArgumentIndex();
@@ -134,11 +134,12 @@ namespace csharp_viewer
 
 			this.Text = "csharp_viewer";
 			this.StartPosition = FormStartPosition.Manual;
-			this.Bounds = new Rectangle(screenbounds.Left, screenbounds.Top + 22, screenbounds.Width * 2 / 3, screenbounds.Height - 200);
+			//this.Bounds = new Rectangle(screenbounds.Left, screenbounds.Top + 22, screenbounds.Width * 2 / 3, screenbounds.Height - 200);
+			this.Bounds = new Rectangle(0, 22, 1608, 1251); // Results in backbuffersize == (1600, 1024)
 			this.BackColor = Color.White;
 			this.FormClosing += form_Closing;
 
-			glImageCloud = new GLControl(new GraphicsMode(32, 24, 8, 1), 3, 2, GraphicsContextFlags.Default);
+			glImageCloud = new GLControl(new GraphicsMode(32, 24, 8, 1), 3, 0, GraphicsContextFlags.Default);
 			glImageCloud.Load += glImageCloud_Load;
 			//glImageCloud.Paint += glImageCloud_Paint;
 			glImageCloud.TabIndex = 0;
@@ -298,6 +299,7 @@ namespace csharp_viewer
 		private void form_Closing(object sender, FormClosingEventArgs e)
 		{
 			form_closing = true;
+			while(!renderThread_finished) {Thread.Sleep(1);}
 		}
 
 		private void LoadDatabase(string filename)
@@ -307,6 +309,9 @@ namespace csharp_viewer
 
 			if(!System.IO.Directory.Exists(filename))
 				throw new System.IO.DirectoryNotFoundException(filename);
+
+			if(!filename.EndsWith("/") && !filename.EndsWith("\\"))
+				filename += '/';
 
 			// Parse meta data from info.json
 			Cinema.ParseCinemaDescriptor(filename, out arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
@@ -804,8 +809,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 				InputDevices.Update();
 
-				//glImageCloud.MakeCurrent(); //TODO: Uncomment when using multiple GLControl's
-
 				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 				float dt = (float)timer.Elapsed.TotalSeconds;
@@ -822,6 +825,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 				actMgr.PostRender(glImageCloud);
 			}
+			renderThread_finished = true;
 		}
 
 		private bool mouseDownInsideArgIndex = false;

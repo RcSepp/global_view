@@ -12,7 +12,7 @@ namespace csharp_viewer
 	public class GLTextureStream
 	{
 		public static int IMAGE_DIV = 1;
-		public static int DEPTH_IMAGE_DIV = 32;
+		public static int DEPTH_IMAGE_DIV = 1;
 
 		public class RingBuffer<V>
 		{

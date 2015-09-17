@@ -103,11 +103,7 @@ namespace csharp_viewer
 
 				// Compile fragment shader
 				fragmentshader = GL.CreateShader(ShaderType.FragmentShader);
-//				GL.ShaderSource(fragmentshader, fsstr);
-StreamReader foo = new StreamReader(new FileStream("test.gx", FileMode.Open, FileAccess.Read));
-string[] bar = new string[] { fsstr, foo.ReadToEnd() };
-foo.Close();
-				GL.ShaderSource(fragmentshader, 2, bar, (int[])null);
+				GL.ShaderSource(fragmentshader, fsstr);
 				GL.CompileShader(fragmentshader);
 				GL.GetShader(fragmentshader, ShaderParameter.CompileStatus, out isCompiled);
 				if(isCompiled == 0)

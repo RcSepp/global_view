@@ -1,4 +1,4 @@
-﻿//#define USE_DEPTH_SORTING
+﻿#define USE_DEPTH_SORTING
 
 using System;
 using System.Windows.Forms;
@@ -53,12 +53,11 @@ namespace csharp_viewer
 				vdepth.x = vdepth.y = 1.0 + DepthScale * (depth - 1.0);
 				vdepth.z = DepthScale * depth;
 
-				float x = (30.0 * PI / 180.0) * vpos.x; //28.1
-				float y = (30.0 * PI / 180.0) * vpos.y; //28.1
+				float x = (28.1 * PI / 180.0) * vpos.x; //30.0
+				float y = (28.1 * PI / 180.0) * vpos.y; //30.0
 				vec3 voxelpos = (/*ImageViewInv **/ vec4(vec3(sin(x), sin(y), -cos(x) * cos(y)) * vdepth, 1.0)).xyz;
 
-				//alpha = depth < 1e20 ? 1.0 : 0.0;
-				alpha = depth < 1e3 ? 1.0 : 0.0;
+				alpha = depth < 1e20 ? 1.0 : 0.0;
 				gl_Position = World * vec4(voxelpos, 1.0);
 			}
 		";
@@ -405,11 +404,12 @@ namespace csharp_viewer
 
 		private ArraySelection selection;
 
-		GLTexture1D tex1, tex2; //TODO: Bad style (tex1 and tex2 are activated at the beginning of the draw call)
+		GLTexture1D tex2, tex3; //TODO: Bad style (tex2 and tex3 are activated at the beginning of the draw call)
 
 		// Actions
 		private Action FocusSelectionAction, MoveSelectionAction;
 		private Action SetViewControlAction;
+		private Action EnableDepthRenderingAction, DisableDepthRenderingAction;
 
 		public void Init(GLControl glcontrol)
 		{
@@ -419,6 +419,8 @@ namespace csharp_viewer
 			FocusSelectionAction = ActionManager.CreateAction("Focus Selection", this, "FocusSelection");
 			MoveSelectionAction = ActionManager.CreateAction("Move Selection", this, "MoveSelection");
 			SetViewControlAction = ActionManager.CreateAction("Set View Control", this, "SetViewControl");
+			EnableDepthRenderingAction = ActionManager.CreateAction("Enable Depth Rendering", "enable depth", this, "EnableDepthRendering");
+			DisableDepthRenderingAction = ActionManager.CreateAction("Disable Depth Rendering", "disable depth", this, "DisableDepthRendering");
 
 			// Load shaders
 			sdrAabb = new GLShader(new string[] {AABB_SHADER.VS}, new string[] {AABB_SHADER.FS});
@@ -489,7 +491,7 @@ namespace csharp_viewer
 				}
 			mesh3D = new GLMesh(positions, null, null, null, texcoords, indices);*/
 			mesh3D = new GLMesh(positions, null, null, null, texcoords, null, PrimitiveType.Points);
-			GL.PointSize(10.0f);
+			//GL.PointSize(2.0f);
 
 			cmImage = new ImageContextMenu.MenuGroup("");
 			i = 0;
@@ -504,6 +506,8 @@ namespace csharp_viewer
 			// Enable depth rendering by default whenever a new scene is loaded
 			depthRenderingEnabled = true;
 			depthRenderingEnabled_fade = 1.0f;
+//depthRenderingEnabled = false;
+//depthRenderingEnabled_fade = 0.0f;
 		}
 
 		public void Unload()
@@ -541,23 +545,23 @@ namespace csharp_viewer
 				GL.Uniform1(sdr.GetUniformLocation("MaxValue"), settings.maxValue);
 				GL.Uniform3(sdr.GetUniformLocation("NanColor"), settings.nanColor);
 
-				GL.ActiveTexture(TextureUnit.Texture1);
+				GL.ActiveTexture(TextureUnit.Texture2);
 				settings.innerColorTable.Bind();
-				GL.Uniform1(sdr.GetUniformLocation("InnerColorTable"), 1);
-				tex1 = settings.innerColorTable;
+				GL.Uniform1(sdr.GetUniformLocation("InnerColorTable"), 2);
+				tex2 = settings.innerColorTable;
 
 				if(settings.hasOuterColorTable)
 				{
-					GL.ActiveTexture(TextureUnit.Texture2);
+					GL.ActiveTexture(TextureUnit.Texture3);
 					settings.outerColorTable.Bind();
-					GL.Uniform1(sdr.GetUniformLocation("OuterColorTable"), 2);
-					tex2 = settings.outerColorTable;
+					GL.Uniform1(sdr.GetUniformLocation("OuterColorTable"), 3);
+					tex3 = settings.outerColorTable;
 				}
 				else
 				{
-					GL.ActiveTexture(TextureUnit.Texture2);
-					GL.Uniform1(sdr.GetUniformLocation("OuterColorTable"), 2);
-					tex2 = null;
+					GL.ActiveTexture(TextureUnit.Texture3);
+					GL.Uniform1(sdr.GetUniformLocation("OuterColorTable"), 3);
+					tex3 = null;
 				}
 			}
 
@@ -676,9 +680,8 @@ namespace csharp_viewer
 					AABB overallAabb = new AABB();
 					foreach(TransformedImage image in images.Values)
 						overallAabb.Include(image.GetBounds());
-					camera_speed = 0.1f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
+					camera_speed = 0.5f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
 					camera_speed = Math.Max(0.0001f, camera_speed);
-					camera_speed = 100.0f;
 				}
 				else
 					camera_speed = 1.0f;
@@ -729,10 +732,10 @@ namespace csharp_viewer
 				GL.ActiveTexture(TextureUnit.Texture2);
 				tex2.Bind();
 			}
-			if(tex1 != null)
+			if(tex3 != null)
 			{
-				GL.ActiveTexture(TextureUnit.Texture1);
-				tex1.Bind();
+				GL.ActiveTexture(TextureUnit.Texture3);
+				tex3.Bind();
 			}
 			GL.ActiveTexture(TextureUnit.Texture0);
 
@@ -832,16 +835,16 @@ namespace csharp_viewer
 
 #if USE_DEPTH_SORTING
 				foreach(TransformedImageAndMatrix iter in renderlist)
-				}
-					if(depthRenderingEnabled && iter.Value.HasDepthInfo)
+				{
+					if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
 					{
 						sdr3D.Bind();
-						iter.image.Render(meshVertex, sdr3D, sdr3D_colorParam, sdr3D_imageViewInv, sdr3D_DepthScale, depthRenderingEnabled_fade, freeview, iter.matrix);
+						iter.image.Render(mesh3D, sdr3D, sdr3D_colorParam, sdr3D_imageViewInv, sdr3D_DepthScale, depthRenderingEnabled_fade, freeview, iter.matrix);
 					}
 					else
 					{
 						sdr2D.Bind();
-						iter.image.Render(meshVertex, sdr2D, sdr2D_colorParam, -1, -1, 0.0f, freeview, iter.matrix);
+						iter.image.Render(mesh2D, sdr2D, sdr2D_colorParam, -1, -1, 0.0f, freeview, iter.matrix);
 					}
 				}
 #endif
@@ -1224,8 +1227,10 @@ string foo = "";
 				break;
 
 			case Keys.O:
-				//ActionManager.Do(SetDepthRenderingAction);
-				SwitchDepthRendering();
+				if(depthRenderingEnabled)
+					ActionManager.Do(DisableDepthRenderingAction);
+				else
+					ActionManager.Do(EnableDepthRenderingAction);
 				break;
 
 			case Keys.F:
@@ -1265,6 +1270,9 @@ string foo = "";
 		}
 		private void EnableDepthRendering()
 		{
+			if(depthRenderingEnabled)
+				return;
+
 			// Enable depth rendering
 			depthRenderingEnabled = true;
 			depthRenderingEnabled_fade = 0.0f;
@@ -1273,6 +1281,9 @@ string foo = "";
 		}
 		private void DisableDepthRendering()
 		{
+			if(!depthRenderingEnabled)
+				return;
+
 			// Disable depth rendering
 			depthRenderingEnabled = false;
 			depthRenderingEnabled_fade = 1.0f;

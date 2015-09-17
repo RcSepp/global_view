@@ -109,6 +109,7 @@ namespace csharp_viewer
 				for(int i = 0, numzeros = 5 - framestr.Length; i < numzeros; ++i)
 					framestr = '0' + framestr;
 				bmp.Save("frames/frame" + framestr + ".png");
+				bmp.Dispose();
 			}
 		}
 
