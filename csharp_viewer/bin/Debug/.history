@@ -547,3 +547,201 @@ focus
 all
 focus
 focus
+exit
+exit
+foo
+exit
+exit
+d
+
+focus
+commands
+AnimatePos()
+AnimateCamPos()
+AnimateCam()
+AnimateCam(new Vector5())
+AnimateCam(0, 0, 10)
+exit
+exit
+all
+exit
+all
+d
+ds
+exit
+exit
+exit
+
+exit
+exit
+exit
+focus
+all
+focus
+x $phi
+x $theta
+clear
+exit
+all
+focus
+spread all
+focus
+all
+focus
+spread
+focus
+all
+focus
+theta-phi $theta $phi
+focus
+x $time
+focus
+all
+spread all
+focus
+clear
+spread all
+none
+exit
+all
+spread all
+focus
+none
+focus
+exit
+load("foo")
+load("foo")
+load("foo")
+load("foo")
+load("foo")
+load("mpas_single")
+all
+focus
+exit
+ls
+lss
+exit
+ls
+ls
+exit
+ls
+exit
+ls
+load("bunny")
+all
+focus
+theta-phi-time $theta $phi
+theta-phi-view $theta $phi
+none
+y $phi
+x $phi
+load("bunny")
+load("bunny")
+load("bunny")
+load("bunny")
+load("bunny")
+theta-phi $theta $phi
+all
+theta-phi $theta $phi
+theta-phi $theta $phi
+load("bunny")
+all
+theta-phi $theta $phi
+load("bunny")
+all
+theta-phi $theta $phi
+load("bunny")
+all
+theta-phi $theta $phi
+load("bunny")
+all
+load("bunny")
+all
+theta-phi $theta $phi
+load("bunny")
+all
+theta-phi $theta $phi
+load("bunny")
+load("bunny")
+load("bunny")
+load("cinema_debug")
+all
+focus
+load("cinema_debug")
+focus all
+load("cinema_debug")
+load("cinema_debug")
+clear
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+spread all
+spread all
+spread all
+load("cinema_debug")
+spread all
+load("cinema_debug")
+focus all
+none
+none
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+spread
+spread
+load("cinema_debug")
+load("cinema_debug")
+load("cinema_debug")
+spread
+load("cinema_debug")
+spread all
+ focus
+focus
+exit

@@ -279,7 +279,7 @@ namespace csharp_viewer
 			return -1;
 		}
 
-		public void Invoke(string action_name)
+		/*public void Invoke(string action_name)
 		{
 			Action action;
 			if(registered_actions.TryGetValue(action_name, out action))
@@ -290,9 +290,11 @@ namespace csharp_viewer
 			Action action;
 			if(registered_actions.TryGetValue(action_name, out action))
 				action.Do(args);
-		}
-		public void Invoke(string action_name, object[] args, ref string stdout)
+		}*/
+		public string Invoke(string action_name, object[] args)
 		{
+			string stdout = "";
+
 			if(action_name == "help")
 			{
 				foreach(KeyValuePair<string, Action> registered_action in registered_actions)
@@ -306,7 +308,7 @@ namespace csharp_viewer
 					else
 						stdout += registered_action.Key + "() -> " + registered_action.Value.desc + '\n';
 				}
-				return;
+				return stdout;
 			}
 
 			Action action;
@@ -315,7 +317,7 @@ namespace csharp_viewer
 				if(arguments == null)
 				{
 					stdout += "Command not found " + action_name;
-					return;
+					return stdout;
 				}
 
 				/*string new_action_name = null;
@@ -340,7 +342,7 @@ namespace csharp_viewer
 				if(new_action_name == null || !registered_actions.TryGetValue(new_action_name, out action))
 				{
 					stdout += "Command not found " + action_name;
-					return;
+return stdout;
 				}*/
 
 				/*string[] labels = new string[arguments.Length];
@@ -366,7 +368,7 @@ namespace csharp_viewer
 				if(!registered_actions.TryGetValue(new_action_name, out action))
 				{
 					stdout += "Command not found " + action_name;
-					return;
+					return stdout;
 				}*/
 
 				string new_action_name = action_name;
@@ -381,7 +383,7 @@ namespace csharp_viewer
 					if(index == arguments.Length)
 					{
 						stdout += "Unknown argument " + argname;
-						return;
+						return stdout;
 					}
 
 					new_action_name = new_action_name.Substring(0, --c) + "%a" + (spacepos == -1 ? "" : new_action_name.Substring(spacepos));
@@ -401,7 +403,7 @@ namespace csharp_viewer
 				if(!registered_actions.TryGetValue(new_action_name, out action))
 				{
 					stdout += "Command not found " + action_name;
-					return;
+					return stdout;
 				}
 			}
 
@@ -421,7 +423,7 @@ namespace csharp_viewer
 							args[i] = castMethod.Invoke(null, new object[] { args[i] });
 						} catch {
 							stdout += "Cannot cast argument " + (i + 1).ToString() + " from " + args[i].GetType() + " to " + action.argtypes[i];
-							return;
+							return stdout;
 						}
 					}
 
@@ -433,6 +435,8 @@ namespace csharp_viewer
 					stdout += ex.InnerException.ToString();
 				}
 			}
+
+			return stdout;
 		}
 
 		private static object Cast<T>(object o)

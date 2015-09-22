@@ -1,4 +1,6 @@
 ﻿#define USE_DEPTH_SORTING
+//#define USE_GS_QUAD
+//#define USE_2D_VIEW_CONTROL
 
 using System;
 using System.Windows.Forms;
@@ -53,8 +55,8 @@ namespace csharp_viewer
 				vdepth.x = vdepth.y = 1.0 + DepthScale * (depth - 1.0);
 				vdepth.z = DepthScale * depth;
 
-				float x = (28.1 * PI / 180.0) * vpos.x; //30.0
-				float y = (28.1 * PI / 180.0) * vpos.y; //30.0
+				float x = (9.5 * PI / 180.0) * vpos.x; //30.0 28.1
+				float y = (9.5 * PI / 180.0) * vpos.y; //30.0 28.1
 				vec3 voxelpos = (/*ImageViewInv **/ vec4(vec3(sin(x), sin(y), -cos(x) * cos(y)) * vdepth, 1.0)).xyz;
 
 				alpha = depth < 1e20 ? 1.0 : 0.0;
@@ -69,7 +71,7 @@ namespace csharp_viewer
 				gl_Position = vec4(vpos, 1.0);
 			}
 		";
-		public const string GL = @"
+		public const string GS = @"
 			#extension GL_EXT_geometry_shader4 : require
 			//#version 150
 			//#extension GL_ARB_explicit_attrib_location : require
@@ -426,8 +428,11 @@ namespace csharp_viewer
 			sdrAabb = new GLShader(new string[] {AABB_SHADER.VS}, new string[] {AABB_SHADER.FS});
 
 			// Create mesh for non-depth rendering
+#if USE_GS_QUAD
 			mesh2D = new GLMesh(new Vector3[] {new Vector3(0.0f, 0.0f, 0.0f)}, null, null, null, null, null, PrimitiveType.Points); // Use this when rendering geometry shader quads
-			//mesh2D = Common.meshQuad;
+#else
+			mesh2D = Common.meshQuad2;
+#endif
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
@@ -451,18 +456,19 @@ namespace csharp_viewer
 				colorTableMgr.Reset();
 			}
 
-			sdr2D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GL});
+#if USE_GS_QUAD
+			sdr2D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
+#else
+			sdr2D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
+#endif
 			sdr2D_colorParam = sdr2D.GetUniformLocation("Color");
 			sdr3D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
 			sdr3D_colorParam = sdr3D.GetUniformLocation("Color");
 			sdr3D_imageViewInv = sdr3D.GetUniformLocation("ImageViewInv");
 			sdr3D_DepthScale = sdr3D.GetUniformLocation("DepthScale");
 
-			//texstream = new GLTextureStream(256, 963, 770, depthimages);
-			//texstream = new GLTextureStream(512, 458, 517, depthimages); //1024
-			//texstream = new GLTextureStream(256, 2266, 1100, depthimages);
 			texstream = new GLTextureStream(-1, imageSize.Width, imageSize.Height, depthimages);
-			//texstream = new GLTextureStream(256, imageSize.Width, imageSize.Height, depthimages);
+			//texstream = new GLTextureStream(16, imageSize.Width, imageSize.Height, depthimages);
 
 			// Create mesh for depth rendering
 			Size depthimagesize = new Size(imageSize.Width / GLTextureStream.DEPTH_IMAGE_DIV, imageSize.Height / GLTextureStream.DEPTH_IMAGE_DIV);
@@ -631,16 +637,20 @@ namespace csharp_viewer
 		{
 			status_str = "Selection changed: " + (_selection == null ? "null" : _selection.Count.ToString());
 			status_timer = 1.0f;
-			
-			if(_selection == null || images == null)
+
+			if(images == null)
 				return;
 
 			// Unselect all images
 			foreach(KeyValuePair<int[], TransformedImage> image in images)
 				image.Value.selected = false;
 
+			OnSelectionMoved(_selection);
+		}
+		public void OnSelectionMoved(Selection _selection)
+		{
 			// Select images and lay selectionAabb around selected images
-			if(_selection.IsEmpty)
+			if(_selection == null || _selection.IsEmpty)
 				selectionAabb = null;
 			else
 			{
@@ -648,8 +658,17 @@ namespace csharp_viewer
 				foreach(KeyValuePair<int[], TransformedImage> selectedimage in _selection)
 				{
 					selectedimage.Value.selected = true;
+					#if USE_2D_VIEW_CONTROL
+					AABB selectedimageBounds = selectedimage.Value.GetBounds().Clone();
+					selectedimageBounds.min.Z = selectedimageBounds.max.Z = (selectedimageBounds.min.Z + selectedimageBounds.max.Z) / 2.0f;
+					selectionAabb.Include(selectedimageBounds);
+					#else
 					selectionAabb.Include(selectedimage.Value.GetBounds());
+					#endif
 				}
+				/*#if USE_2D_VIEW_CONTROL
+				selectionAabb.min.Z = selectionAabb.max.Z = (selectionAabb.min.Z + selectionAabb.max.Z) / 2.0f;
+				#endif*/
 			}
 		}
 
@@ -670,6 +689,7 @@ namespace csharp_viewer
 				this.matrix = matrix;
 			}
 		}
+		private Point oldmousepos = Control.MousePosition;
 		public void Draw(float dt)
 		{
 			if(overallAabb_invalid)
@@ -680,8 +700,9 @@ namespace csharp_viewer
 					AABB overallAabb = new AABB();
 					foreach(TransformedImage image in images.Values)
 						overallAabb.Include(image.GetBounds());
-					camera_speed = 0.5f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
+					camera_speed = 0.2f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
 					camera_speed = Math.Max(0.0001f, camera_speed);
+					camera_speed = Math.Min(10.0f, camera_speed);
 				}
 				else
 					camera_speed = 1.0f;
@@ -691,11 +712,35 @@ namespace csharp_viewer
 
 			if(glcontrol.Focused)
 			{
+				bool viewChanged = false;
+				#if USE_2D_VIEW_CONTROL
+				Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, camera_speed * 10.0f * InputDevices.mdz);
+
+				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle))
+				{
+					Vector2 dm = new Vector2(4.0f * (Control.MousePosition.X - oldmousepos.X) / backbuffersize.Width, 4.0f * (oldmousepos.Y - Control.MousePosition.Y) / backbuffersize.Height);
+					Vector3 vnear = new Vector3(dm.X, dm.Y, 0.0f);
+					Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
+					Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+					vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
+					vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
+					Vector3 vdir = (vfar - vnear).Normalized();
+
+					freeViewTranslation.X = 31.0f * vdir.X * freeview.viewpos.Z;//(float)dm.X / (float)backbuffersize.Width * freeview.viewpos.Z / (float)Z_NEAR;
+					freeViewTranslation.Y = 31.0f * vdir.Y * freeview.viewpos.Z;//(float)dm.Y / (float)backbuffersize.Height * freeview.viewpos.Z / (float)Z_NEAR;
+				}
+				oldmousepos = Control.MousePosition;
+
+				if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
+				{
+					freeview.Translate(Vector3.Multiply(freeViewTranslation, dt));
+					viewChanged = true;
+				}
+				#else
 				Vector3 freeViewTranslation = new Vector3((InputDevices.kbstate.IsKeyDown(Key.A) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.D) ? 1.0f : 0.0f),
 					                              (InputDevices.kbstate.IsKeyDown(Key.Space) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.LShift) ? 1.0f : 0.0f),
 					                              (InputDevices.kbstate.IsKeyDown(Key.W) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.S) ? 1.0f : 0.0f));
-				freeViewTranslation.Z += camera_speed * InputDevices.mdz;
-				bool viewChanged = InputDevices.mdz != 0.0f;
+				freeViewTranslation.Z += InputDevices.mdz;
 				if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
 				{
 					freeview.Translate(Vector3.Multiply(freeViewTranslation, camera_speed * dt));
@@ -714,6 +759,7 @@ namespace csharp_viewer
 					}
 					viewChanged = true;
 				}
+				#endif
 				freeview.Update(camera_speed * dt);
 				if(viewChanged)
 					foreach(ImageTransform transform in transforms)
@@ -835,6 +881,10 @@ namespace csharp_viewer
 
 #if USE_DEPTH_SORTING
 				foreach(TransformedImageAndMatrix iter in renderlist)
+					if(!iter.image.Load())
+						break;
+				renderlist.reversed = true;
+				foreach(TransformedImageAndMatrix iter in renderlist)
 				{
 					if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
 					{
@@ -918,6 +968,28 @@ namespace csharp_viewer
 				Common.fontText.DrawString(0.0f, backbuffersize.Height - 20.0f, status_str, backbuffersize);
 			}
 
+			if(selection != null)
+			{
+				int j = 2;
+				foreach(KeyValuePair<int[], TransformedImage> selectedimage in selection)
+				{
+					string desc = "";
+					if(arguments.Length > 0)
+					{
+						Cinema.CinemaArgument arg = arguments[0];
+						desc = arg.label + ": " + arg.values[selectedimage.Key[0]].ToString();
+					}
+					for(int i = 1; i < arguments.Length; ++i)
+					{
+						Cinema.CinemaArgument arg = arguments[i];
+						desc += "  " + arg.label + ": " + arg.values[selectedimage.Key[i]].ToString();
+					}
+					Common.fontText.DrawString(0.0f, backbuffersize.Height - 20.0f * j++, desc, backbuffersize);
+					if(j >= 10)
+						break;
+				}
+			}
+
 			if(mouseRect != null)
 			{
 				Common.sdrSolidColor.Bind(mouseRect.GetTransform());
@@ -967,6 +1039,7 @@ namespace csharp_viewer
 		}
 
 		private TransformedImage dragImage;
+		private Vector3 dragImageOffset;
 		private Plane dragImagePlane;
 		private Vector2 mouseDownPos;
 		private Point mouseDownLocation;
@@ -1047,6 +1120,7 @@ namespace csharp_viewer
 					if(closest_dist < float.MaxValue)
 					{
 						dragImage = closest_pair.Value;
+						dragImageOffset = closest_pair.Value.pos - (vnear + vdir * closest_dist);
 
 						// dragImagePlane = plane parallel to screen, going through point of intersection
 						Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
@@ -1099,7 +1173,7 @@ namespace csharp_viewer
 				selectedimage.Value.pos += deltapos;
 				selectedimage.Value.skipPosAnimation();
 			}
-			SelectionChanged(selection);
+			OnSelectionMoved(selection);
 		}
 
 string foo = "";
@@ -1128,7 +1202,9 @@ string foo = "";
 				// Set newpos to intersection of mouse ray and dragImagePlane
 				Vector3 newpos;
 				dragImagePlane.IntersectLine(vnear, vdir, out newpos);
-				ActionManager.Do(MoveSelectionAction, new object[] { newpos - dragImage.pos });
+				ActionManager.Do(MoveSelectionAction, new object[] { newpos - dragImage.pos + dragImageOffset });
+
+				InvalidateOverallBounds();
 			}
 			else if(defineAlignmentStage != DefineAlignmentStage.None)
 			{
@@ -1215,6 +1291,15 @@ string foo = "";
 						selection.Add(pair.Key);
 				SelectionChanged(selection);
 			}
+		}
+		public void DoubleClick(object sender, Point mousepos)
+		{
+			if(selection == null)
+				return;
+
+			//Vector2 mousePos = new Vector2(2.0f * mousepos.X / backbuffersize.Width - 1.0f, 1.0f - 2.0f * mousepos.Y / backbuffersize.Height);
+
+			//EDIT: Show closeup of selected images
 		}
 
 		public void KeyDown(object sender, KeyEventArgs e)

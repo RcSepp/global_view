@@ -131,7 +131,7 @@ namespace csharp_viewer
 					transform *= invvieworient;
 				transform *= Matrix4.CreateTranslation(animatedPos);
 
-if(true)//		if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
 					transform *= freeview.viewprojmatrix;
 					return true;
@@ -152,17 +152,23 @@ if(true)//		if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Id
 			else
 				return false;
 		}
+		public bool Load()
+		{
+			return tex.Load();
+		}
 		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, int sdr_imageViewInv, int sdr_DepthScale, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
 		{
-			tex.Load();
+			//tex.Load();
+
+			//if(tex.tex == -1)
+			//	return;
 
 			Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
 			if(selected)
 			{
-				/*clr.R += 1.0f;//Color4.Azure.R / 2.0f;
-				clr.G += 0.0f;//Color4.Azure.G / 2.0f;
-				clr.B += 0.0f;//Color4.Azure.B / 2.0f;*/
-				clr = Color4.Red;
+				clr.R = 1.0f;//Color4.Azure.R / 2.0f;
+				clr.G = 0.5f;//Color4.Azure.G / 2.0f;
+				clr.B = 0.5f;//Color4.Azure.B / 2.0f;
 			}
 			//clr.A = selected ? 1.0f : 0.3f;
 			clr.A = 1.0f;

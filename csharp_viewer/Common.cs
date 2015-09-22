@@ -78,7 +78,7 @@ namespace csharp_viewer
 			";
 		}
 
-		public static GLMesh meshQuad;
+		public static GLMesh meshQuad, meshQuad2;
 		public static GLMesh meshLine;
 		public static GLMesh meshLineQuad, meshLineQuad2;
 		public static GLMesh meshLineCube;
@@ -114,6 +114,13 @@ namespace csharp_viewer
 				new Vector2(1.0f, 1.0f)
 			};
 			meshQuad = new GLMesh(positions, null, null, null, texcoords);
+			positions = new Vector3[] {
+				new Vector3(-0.5f,  0.5f, 0.0f),
+				new Vector3(-0.5f, -0.5f, 0.0f),
+				new Vector3( 0.5f,  0.5f, 0.0f),
+				new Vector3( 0.5f, -0.5f, 0.0f),
+			};
+			meshQuad2 = new GLMesh(positions, null, null, null, texcoords);
 
 			// Create a 2D quad outline mesh
 			positions = new Vector3[] {
@@ -243,6 +250,10 @@ namespace csharp_viewer
 		{
 			this.min = min;
 			this.max = max;
+		}
+		public AABB Clone()
+		{
+			return new AABB(min, max);
 		}
 
 		public Matrix4 GetTransform()
@@ -408,9 +419,10 @@ namespace csharp_viewer
 		{
 			public float key;
 			public Value value;
-			public Element next;
+			public Element prev, next;
 		}
-		Element first = null;
+		Element first = null, last = null;
+		public bool reversed = false;
 
 		public void Add(float key, Value value)
 		{
@@ -426,16 +438,25 @@ namespace csharp_viewer
 			}
 
 			e.next = current;
+			e.prev = prev;
 			if(prev != null)
 				prev.next = e;
 			else
 				first = e;
+			if(current != null)
+				current.prev = e;
+			else
+				last = e;
 		}
 
 		public System.Collections.Generic.IEnumerator<Value> GetEnumerator()
 		{
-			for(Element current = first; current != null; current = current.next)
-				yield return current.value;
+			if(reversed)
+				for(Element current = first; current != null; current = current.next)
+					yield return current.value;
+			else
+				for(Element current = last; current != null; current = current.prev)
+					yield return current.value;
 		}
 		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
 		{

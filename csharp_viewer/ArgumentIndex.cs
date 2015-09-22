@@ -319,7 +319,7 @@ else
 
 		public void OnSelectionChanged(Selection _selection)
 		{
-			if(!(_selection is IndexProductSelection))
+			if(arguments != null && !(_selection is IndexProductSelection))
 				for(int i = 0; i < arguments.Length; ++i)
 					selection[i].Clear();
 		}

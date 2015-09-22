@@ -1,4 +1,5 @@
 ﻿#define DISABLE_DATAVIZ
+//#define USE_STD_IO
 
 using System;
 using System.Windows.Forms;
@@ -38,7 +39,11 @@ namespace csharp_viewer
 		Control ctrlConsole = null;
 		DimensionMapper dimMapper;
 		ActionManager actMgr = new ActionManager();
+#if USE_STD_IO
+		StdConsole scrCle = new StdConsole();
+#else
 		ScriptingConsole scrCle = new ScriptingConsole();
+#endif
 
 #if !DISABLE_DATAVIZ
 		Panel pnlPCView;
@@ -164,11 +169,12 @@ namespace csharp_viewer
 			//tbArguments = new TrackBar[arguments.Length];
 			//lblArgumentValues = new Label[arguments.Length];
 
-			#if !DISABLE_DATAVIZ
+#if !DISABLE_DATAVIZ
 			// Create data visualization
 			dataviz = new DataVisualization(images, arguments, valueset, pnlPCView);
-			#endif
+#endif
 
+#if !USE_STD_IO
 			// Create scripting console
 			/*ctrlConsole = scrCle.Create();
 			scrCle.MethodCall += actMgr.Invoke;
@@ -181,6 +187,9 @@ namespace csharp_viewer
 			scrCle.MethodCall += actMgr.Invoke;
 			frmConsole.Controls.Add(ctrlConsole);
 			frmConsole.Show();
+#endif
+
+			scrCle.workingDirectory = "/Users/sklaassen/Desktop/work/db/";
 
 			this_SizeChanged(null, null);
 
@@ -279,21 +288,33 @@ namespace csharp_viewer
 			});
 
 			ActionManager.CreateAction("Spread out all dimensions", "spread", delegate(object[] parameters) {
-				WheelTransform transform = new WheelTransform();
-				transform.SetArguments(arguments);
-				for(int i = 0; i < arguments.Length; ++i)
-					transform.SetIndex(i, i);
-				OnTransformationAdded(transform);
+				if(arguments != null)
+				{
+					WheelTransform transform = new WheelTransform();
+					transform.SetArguments(arguments);
+					for(int i = 0; i < arguments.Length; ++i)
+						transform.SetIndex(i, i);
+					OnTransformationAdded(transform);
+				}
 			});
 			ActionManager.CreateAction("Select all images and spread out all dimensions", "spread all", delegate(object[] parameters) {
-				argIndex.SelectAll();
+				if(arguments != null)
+				{
+					argIndex.SelectAll();
 
-				WheelTransform transform = new WheelTransform();
-				transform.SetArguments(arguments);
-				for(int i = 0; i < arguments.Length; ++i)
-					transform.SetIndex(i, i);
-				OnTransformationAdded(transform);
+					WheelTransform transform = new WheelTransform();
+					transform.SetArguments(arguments);
+					for(int i = 0; i < arguments.Length; ++i)
+						transform.SetIndex(i, i);
+					OnTransformationAdded(transform);
+				}
 			});
+
+#if USE_STD_IO
+			scrCle.MethodCall += actMgr.Invoke;
+			scrCle.MethodCallInvoker = this;
+			scrCle.Run();
+#endif
 		}
 
 		private void form_Closing(object sender, FormClosingEventArgs e)
@@ -308,7 +329,12 @@ namespace csharp_viewer
 				UnloadDatabase(); // Only one database can be loaded at a time
 
 			if(!System.IO.Directory.Exists(filename))
-				throw new System.IO.DirectoryNotFoundException(filename);
+			{
+				string relative_filename = scrCle.workingDirectory + filename;
+				if(!System.IO.Directory.Exists(relative_filename))
+					throw new System.IO.DirectoryNotFoundException(filename);
+				filename = relative_filename;
+			}
 
 			if(!filename.EndsWith("/") && !filename.EndsWith("\\"))
 				filename += '/';
@@ -617,6 +643,9 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void Exit()
 		{
+#if USE_STD_IO
+			scrCle.Close();
+#endif
 			this.Close();
 		}
 
@@ -765,8 +794,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		private void RenderThread()
 		{
 			glImageCloud.MakeCurrent();
-			GL.ClearColor(0.8f, 0.8f, 0.8f, 1.0f);
-			//GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
+			//GL.ClearColor(0.8f, 0.8f, 0.8f, 1.0f);
+			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
 			//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
 			GL.Viewport(glImageCloud.Size);
 			GL.Enable(EnableCap.DepthTest);
@@ -790,6 +819,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			glImageCloud.MouseDown += glImageCloud_MouseDown;
 			glImageCloud.MouseUp += glImageCloud_MouseUp;
 			glImageCloud.MouseMove += glImageCloud_MouseMove;
+			glImageCloud.DoubleClick += glImageCloud_DoubleClick;
 			glImageCloud.KeyDown += glImageCloud_KeyDown;
 
 			// Start timer
@@ -853,10 +883,16 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				imageCloud.MouseMove(sender, e);
 			images_mutex.ReleaseMutex();
 		}
+		private void glImageCloud_DoubleClick(object sender, EventArgs e)
+		{
+			images_mutex.WaitOne();
+			imageCloud.DoubleClick(sender, this.PointToClient(MousePosition));
+			images_mutex.ReleaseMutex();
+		}
 		private void glImageCloud_KeyDown(object sender, KeyEventArgs e)
 		{
 			if(e.KeyCode == Keys.P)
-				actMgr.Play(4.0);
+				actMgr.Play(1.0);
 			else if(e.KeyCode == Keys.R)
 				actMgr.CaptureFrames(20.0);
 			else if(e.KeyCode == Keys.X)

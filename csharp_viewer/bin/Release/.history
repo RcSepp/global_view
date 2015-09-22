@@ -263,3 +263,81 @@ clear
 focus
 theta-phi-view $theta $phi
 clear
+focus all
+spread all
+focus
+clear
+all
+theta_phi_view $theta $phi
+theta-phi-view $theta $phi
+focus
+spread all
+spread all
+spread all
+load("/Users/sklaassen/Desktop/work/db/mpas2/")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+ls
+load("cosmo")
+spread all
+load("mpas")
+all
+focus
+x $time
+load("mpas")
+load("mpas2")
+all
+x $time
+focus
+focus
+load("mpas2")
+x $time
+all
+x $time
+load("mpas2")
+all
+x $time
+theta-phi $theta $phi
+clear
+exit
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+exit
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas2")
+spread all
+focus
+load("mpas2")
+load("mpas2")
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+none
+all
+clear

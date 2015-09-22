@@ -14,42 +14,10 @@ using FastColoredTextBoxNS;
 
 namespace csharp_viewer
 {
-	public class ScriptingConsole
+	public class ScriptingConsole : Console
 	{
-		private static string HISTORY_PATH;
-
 		private FastColoredTextBox txt;
 		private TextStyle OUTPUT_STYLE = new TextStyle(Brushes.Brown, null, FontStyle.Regular);
-		private List<string> history = new List<string>();
-		private int history_idx = 0;
-		private string history_current;
-
-		public delegate void MethodCallDelegate(string method, object[] args, ref string stdout);
-		public event MethodCallDelegate MethodCall;
-
-		public ScriptingConsole()
-		{
-			HISTORY_PATH = System.Reflection.Assembly.GetEntryAssembly().Location;
-			HISTORY_PATH = HISTORY_PATH.Substring(0, Math.Max(HISTORY_PATH.LastIndexOf('/'), HISTORY_PATH.LastIndexOf('\\')) + 1);
-			HISTORY_PATH += ".history";
-
-			if(File.Exists(HISTORY_PATH))
-			{
-				StreamReader sr = new StreamReader(HISTORY_PATH);
-				while(sr.Peek() != -1)
-					history.Add(sr.ReadLine());
-				sr.Close();
-				history_idx = history.Count;
-			}
-		}
-
-		~ScriptingConsole()
-		{
-			StreamWriter sw = new StreamWriter(HISTORY_PATH);
-			foreach(string h in history)
-				sw.WriteLine(h);
-			sw.Close();
-		}
 
 		public Control Create()
 		{
@@ -85,35 +53,30 @@ namespace csharp_viewer
 				break;
 
 			case Keys.Up:
-				if(history_idx > 0)
 				{
-					txt.Selection.BeginUpdate();
-					txt.Selection.Start = new Place(0, txt.LinesCount - 1);
-					txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
-					txt.Selection.EndUpdate();
-					if(history_idx == history.Count)
-						history_current = txt.Selection.Text;
-					txt.InsertText(history[--history_idx]);
+					string current = txt.Lines[txt.LinesCount - 1];
+					if(HistoryUp(ref current))
+					{
+						txt.Selection.BeginUpdate();
+						txt.Selection.Start = new Place(0, txt.LinesCount - 1);
+						txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
+						txt.Selection.EndUpdate();
+						txt.InsertText(current);
+					}
 				}
 				e.Handled = true;
 				break;
 			case Keys.Down:
-				if(history_idx == history.Count - 1)
 				{
-					txt.Selection.BeginUpdate();
-					txt.Selection.Start = new Place(0, txt.LinesCount - 1);
-					txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
-					txt.Selection.EndUpdate();
-					++history_idx;
-					txt.InsertText(history_current);
-				}
-				else if(history_idx < history.Count - 1)
-				{
-					txt.Selection.BeginUpdate();
-					txt.Selection.Start = new Place(0, txt.LinesCount - 1);
-					txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
-					txt.Selection.EndUpdate();
-					txt.InsertText(history[++history_idx]);
+					string current = txt.Lines[txt.LinesCount - 1];
+					if(HistoryDown(ref current))
+					{
+						txt.Selection.BeginUpdate();
+						txt.Selection.Start = new Place(0, txt.LinesCount - 1);
+						txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
+						txt.Selection.EndUpdate();
+						txt.InsertText(current);
+					}
 				}
 				e.Handled = true;
 				break;
@@ -125,44 +88,13 @@ namespace csharp_viewer
 				txt.GoEnd();
 				string method = txt.Lines[txt.LinesCount - 1];
 
-				history.Add(method);
-				history_idx = history.Count;
+				string output = Execute(method);
 
-				string argsstr = "";
-				int obpos = method.IndexOf('('), cbpos = method.LastIndexOf(')');
-				if(obpos != -1 && cbpos != -1)
-				{
-					argsstr = method.Substring(obpos + 1, cbpos - obpos - 1);
-					method = method.Substring(0, obpos);
-				}
-
-				object[] args;
-				CompilerErrorCollection errors;
-				if(Eval(argsstr, out args, out errors, new string[] { "OpenTK", "OpenTK.Graphics" }, new string[] { "OpenTK.dll" }))
-				{
-					if(MethodCall != null)
-					{
-						string stdout = "";
-						MethodCall(method, args, ref stdout);
-						stdout.TrimEnd(new char[] { ' ', '\t', '\n' });
-						if(stdout.Length > 0)
-						{
-							Place startpos = txt.Selection.Start;
-							txt.AppendText('\n' + stdout);
-							txt.SelectionStart += stdout.Length + 1;
-							new Range(txt, startpos, txt.Selection.Start).SetStyle(OUTPUT_STYLE);
-						}
-					}
-				} else
+				if(output != null && output != "")
 				{
 					Place startpos = txt.Selection.Start;
-					int i = 0;
-					foreach(CompilerError error in errors)
-					{
-						txt.AppendText('\n' + error.ErrorText);
-						i += 1 + error.ErrorText.Length;
-					}
-					txt.SelectionStart += i;
+					txt.AppendText('\n' + output);
+					txt.SelectionStart += output.Length + 1;
 					new Range(txt, startpos, txt.Selection.Start).SetStyle(OUTPUT_STYLE);
 				}
 
@@ -204,63 +136,6 @@ namespace csharp_viewer
 		{
 			new Range(txt, 0, 0, 0, txt.LinesCount - 1).ReadOnly = true;
 		}*/
-
-		private static bool Eval(string code, out object[] result, out CompilerErrorCollection errors, string[] usingStatements = null, string[] assemblies = null)  
-		{
-			var includeUsings = new HashSet<string>(new[] { "System" });
-			if (usingStatements != null)
-				foreach (var usingStatement in usingStatements)
-					includeUsings.Add(usingStatement);
-
-			using (CSharpCodeProvider compiler = new CSharpCodeProvider())
-			{
-				List<string> includeAssemblies = new List<string>(new[] { "system.dll" });
-				if (assemblies != null)
-					foreach (var assembly in assemblies)
-						includeAssemblies.Add(assembly);
-
-				var parameters = new CompilerParameters(includeAssemblies.ToArray())
-				{
-					GenerateInMemory = true
-				};
-
-				string source = string.Format(@"
-{0}
-namespace NS
-{{
-    public static class EvalClass
-    {{
-        public static object[] Eval()
-        {{
-            return new object[] {{ {1} }};
-        }}
-    }}
-}}", GetUsing(includeUsings), code);
-
-				CompilerResults compilerResult = compiler.CompileAssemblyFromSource(parameters, source);
-				if(compilerResult.Errors.Count > 0)
-				{
-					result = null;
-					errors = compilerResult.Errors;
-					return false;
-				}
-				var compiledAssembly = compilerResult.CompiledAssembly;
-				var type = compiledAssembly.GetType("NS.EvalClass");
-				var method = type.GetMethod("Eval");
-				result = (object[])method.Invoke(null, new object[] { });
-				errors = null;
-				return true;
-			}  
-		}
-		private static string GetUsing(HashSet<string> usingStatements)  
-		{  
-			StringBuilder result = new StringBuilder();  
-			foreach (string usingStatement in usingStatements)  
-			{  
-				result.AppendLine(string.Format("using {0};", usingStatement));  
-			}  
-			return result.ToString();  
-		}  
 	}
 }
 
