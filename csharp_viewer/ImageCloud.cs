@@ -1043,8 +1043,11 @@ namespace csharp_viewer
 		private Plane dragImagePlane;
 		private Vector2 mouseDownPos;
 		private Point mouseDownLocation;
+		private bool mouseDownInsideImageCloud = false;
 		public void MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
+			mouseDownInsideImageCloud = false;
+
 			if(ContextMenu.MouseDown(sender, e, backbuffersize))
 				return;
 			
@@ -1056,6 +1059,7 @@ namespace csharp_viewer
 
 			mouseDownPos = new Vector2(2.0f * e.X / backbuffersize.Width - 1.0f, 1.0f - 2.0f * e.Y / backbuffersize.Height);
 			mouseDownLocation = e.Location;
+			mouseDownInsideImageCloud = true;
 
 			if((e.Button & MouseButtons.Left) != 0)
 			{
@@ -1179,11 +1183,16 @@ namespace csharp_viewer
 string foo = "";
 		public void MouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
-			if(ContextMenu.MouseMove(sender, e, backbuffersize))
-				return;
+			if(!mouseDownInsideImageCloud)
+			{
+				if(ContextMenu.MouseMove(sender, e, backbuffersize))
+					return;
 
-			if(colorTableMgr != null && colorTableMgr.MouseMove(e))
+				if(colorTableMgr != null && colorTableMgr.MouseMove(e))
+					return;
+
 				return;
+			}
 
 			if(images == null)
 				return;

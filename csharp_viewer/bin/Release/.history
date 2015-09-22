@@ -341,3 +341,46 @@ none
 none
 all
 clear
+load("mpas2")
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+none
+none
+none
+none
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+none
+none
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none

@@ -12,7 +12,7 @@ namespace csharp_viewer
 {
 	public class ColorTableManager
 	{
-		private static int COLOR_TABLE_SIZE = 256;
+		private static int COLOR_TABLE_SIZE = 1024;
 
 		private static GLShader colortableshader = null;
 		private static class COLOR_TABLE_SHADER

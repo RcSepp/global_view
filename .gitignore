@@ -1,3 +1,5 @@
 csharp_viewer/bin/Debug/frames/*.png
 csharp_viewer/bin/Release/frames/*.png
+csharp_viewer/bin/Release/old_ColorMaps.docx
+csharp_viewer/bin/Release/old_ColorMaps.xml
 *~
