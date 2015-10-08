@@ -29,7 +29,7 @@ namespace csharp_viewer
 		//public static string DATABASE_PATH = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/work/db/mpas_ani/";
 		//public static string DATABASE_PATH = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/work/db/mpas_view/";
 
-		GLControl glImageCloud;
+		GLWindow glImageCloud; //OpenTK.GLControl glImageCloud;
 		bool glImageCloud_loaded = false, form_closing = false, renderThread_finished = false;
 		//ImageCloud imageCloud = new SimpleImageCloud();
 		//ImageCloud imageCloud = new ThetaPhiImageCloud();
@@ -105,6 +105,9 @@ namespace csharp_viewer
 		[STAThread]
 		static public void Main(string[] args)
 		{
+			//GLFont foo = new GLFont(new Font("Verdana", 14.0f));
+			//return;
+
 			/*OpenTK.Matrix4 foo = OpenTK.Matrix4.CreatePerspectiveFieldOfView(60.0f * MathHelper.Pi / 180.0f, 1.0f, 1.0f, 1000.0f).Inverted();
 			OpenTK.Vector4 bar1 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, -1.0f, 1.0f), foo); bar1.X /= bar1.W; bar1.Y /= bar1.W; bar1.Z /= bar1.W;
 			OpenTK.Vector4 bar2 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, 0.0f, 1.0f), foo); bar2.X /= bar2.W; bar2.Y /= bar2.W; bar2.Z /= bar2.W;
@@ -126,6 +129,13 @@ namespace csharp_viewer
 			}
 		}
 
+		/*GLWindow foo;
+		public Viewer(string[] cmdline)
+		{
+			foo = new GLWindow();
+			foo.Dock = DockStyle.Fill;
+			this.Controls.Add(foo);
+		}*/
 		public Viewer(string[] cmdline)
 		{
 			this.cmdline = cmdline;
@@ -144,12 +154,14 @@ namespace csharp_viewer
 			this.BackColor = Color.White;
 			this.FormClosing += form_Closing;
 
-			glImageCloud = new GLControl(new GraphicsMode(32, 24, 8, 1), 3, 0, GraphicsContextFlags.Default);
+			glImageCloud = new GLWindow();//new OpenTK.GLControl(new GraphicsMode(32, 24, 8, 1), 3, 0, GraphicsContextFlags.Default);
 			glImageCloud.Load += glImageCloud_Load;
 			//glImageCloud.Paint += glImageCloud_Paint;
 			glImageCloud.TabIndex = 0;
 			this.Controls.Add(glImageCloud);
 			imageCloud = new ImageCloud();
+			imageCloud.Dock = DockStyle.Fill;
+			glImageCloud.Controls.Add(imageCloud);
 
 			pnlImageControls = new FlowLayoutPanel();
 			pnlImageControls.BackColor = SystemColors.Control;
@@ -176,9 +188,9 @@ namespace csharp_viewer
 
 #if !USE_STD_IO
 			// Create scripting console
-			/*ctrlConsole = scrCle.Create();
-			scrCle.MethodCall += actMgr.Invoke;
-			this.Controls.Add(ctrlConsole);*/
+			//ctrlConsole = scrCle.Create();
+			//scrCle.MethodCall += actMgr.Invoke;
+			//this.Controls.Add(ctrlConsole);
 			Form frmConsole = new Form();
 			frmConsole.StartPosition = FormStartPosition.Manual;
 			frmConsole.Bounds = new Rectangle(this.Left + this.Width, this.Top, screenbounds.Width - this.Width, 512);
@@ -443,7 +455,7 @@ namespace csharp_viewer
 				img.Dispose();
 
 				try {
-					imageCloud.Load(pnlImageControls, arguments, images, imageSize, image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
+					imageCloud.Load(arguments, images, imageSize, image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
 				} catch(Exception ex) {
 					MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 					throw ex;
@@ -786,19 +798,17 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void glImageCloud_Load(object sender, EventArgs e)
 		{
-			glImageCloud.Context.MakeCurrent(null);
 			Thread renderThread = new Thread(RenderThread);
 			renderThread.Priority = ThreadPriority.Lowest;
 			renderThread.Start();
 		}
 		private void RenderThread()
 		{
-			glImageCloud.MakeCurrent();
+			glImageCloud.Init();
 			//GL.ClearColor(0.8f, 0.8f, 0.8f, 1.0f);
 			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
 			//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
 			GL.Viewport(glImageCloud.Size);
-			GL.Enable(EnableCap.DepthTest);
 			GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
 			GL.Enable(EnableCap.Blend);
 			//GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
@@ -811,7 +821,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				MessageBox.Show(ex.Message, "Error creating shaders");
 			}
 
-			imageCloud.Init(glImageCloud);
+			imageCloud.Init(glImageCloud, pnlImageControls);
 			imageCloud.OnSizeChanged(glImageCloud.Size);
 
 			argIndex.Init();
@@ -835,19 +845,21 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			{
 				if (images_mutex.WaitOne(1) == false)
 					continue;
-				glImageCloud.MakeCurrent();
 
 				InputDevices.Update();
-
-				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
 				float dt = (float)timer.Elapsed.TotalSeconds;
 				timer.Restart();
 
 				actMgr.Update(ref dt);
 
+				glImageCloud.Render(dt);
+				/*glImageCloud.MakeCurrent();
+				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
 				imageCloud.Draw(dt);
 				argIndex.Draw(glImageCloud.PointToClient(Control.MousePosition), glImageCloud.Size);
+				glImageCloud.SwapBuffers();*/
 
 				images_mutex.ReleaseMutex();
 

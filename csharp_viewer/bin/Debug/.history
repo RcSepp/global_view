@@ -745,3 +745,17 @@ spread all
  focus
 focus
 exit
+load("/Users/sklaassen/work/mpas_60km")
+load("/Users/sklaassen/Desktop/work/mpas_60km")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+load("/Users/sklaassen/Desktop/work/mpas_060km/")
+exit

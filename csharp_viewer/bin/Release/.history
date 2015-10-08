@@ -384,3 +384,134 @@ theta-phi-view $theta $phi
 animate $time
 focus
 none
+load("mpas2")
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+exit
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+exit
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas2")
+theta-phi-view $theta $phi
+animate $time
+exit
+load("mpas2")
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+none
+load("mpas_eu")
+all
+animate $time
+focus none
+focus
+none
+load("mpas_eu")
+all
+animate $time
+focus
+none
+none
+clear
+x $time
+clear
+all
+x $time
+none
+all
+clear
+all
+animate $time
+focus
+none
+all
+x $time
+focus
+clear
+animate $time
+all
+animate $time
+none
+clear
+z $time
+all
+z $time
+load("mpas_natl")
+all
+animate $time
+focus
+none
+load("mpas_natl")
+all
+animate $time
+focus
+none
+clear
+y $time
+all
+y $time
+none
+exit
+load("mpas2")
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+exit
+load("mpas2")
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+exit
+load("mpas_anta")
+all
+animate $time
+focus
+none
+load("mpas_anta")
+all
+animate $time
+focus
+none
+all
+clear
+z $time
+load("mpas_natl")
+all
+animate $time
+focus
+none
+exit
+open("../../../../db/mpas2/")
+load("../../../../db/mpas2/")
+load("../../../db/mpas2/")
+load("../../../../db/mpas2/")
+exit
+focus all
+theta-phi-time $theta $phi
+theta-phi-view $theta $phi
+animate $time
+none

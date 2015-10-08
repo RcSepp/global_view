@@ -94,7 +94,7 @@ namespace csharp_viewer
 				time += (double)dt;
 		}
 
-		public void PostRender(OpenTK.GLControl gl)
+		public void PostRender(GLWindow gl)
 		{
 			if(playing && playing_captureframes)
 			{

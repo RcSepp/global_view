@@ -191,7 +191,7 @@ namespace csharp_viewer
 
 	public delegate float ValueCast(object value);
 
-	public class ImageCloud
+	public class ImageCloud : GLControl
 	{
 		private const float FOV_Y = 75.0f * MathHelper.Pi / 180.0f; //90.0f
 		private const float Z_NEAR = 0.1f;
@@ -210,7 +210,7 @@ namespace csharp_viewer
 		int sdr2D_colorParam, sdr3D_colorParam, sdr3D_imageViewInv, sdr3D_DepthScale;
 		GLMesh mesh2D, mesh3D;
 
-		private GLControl glcontrol;
+		private GLWindow glcontrol;
 		private Size backbuffersize;
 
 		public class FreeView
@@ -398,7 +398,8 @@ namespace csharp_viewer
 
 		GLTexture2D texdot;
 
-		ColorTableManager colorTableMgr = null;
+		ColorTableManager colorTableMgr;
+		bool floatimages;
 		GLTextureStream texstream;
 		CoordinateSystem coordsys;
 		ImageContextMenu ContextMenu;
@@ -413,7 +414,7 @@ namespace csharp_viewer
 		private Action SetViewControlAction;
 		private Action EnableDepthRenderingAction, DisableDepthRenderingAction;
 
-		public void Init(GLControl glcontrol)
+		public void Init(GLWindow glcontrol, FlowLayoutPanel pnlImageControls)
 		{
 			this.glcontrol = glcontrol;
 
@@ -436,23 +437,31 @@ namespace csharp_viewer
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
+			colorTableMgr = new ColorTableManager(glcontrol, new Rectangle(100, glcontrol.Height - 60, glcontrol.Width - 200, 40), Common.meshQuad, pnlImageControls, OnColorTableSettingsChanged);
+
 			coordsys = new CoordinateSystem();
 
 			ContextMenu = new ImageContextMenu();
+
+this.Controls.Add(new GLButton("splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Top | AnchorStyles.Left, "XXX", "yyy"));
+GLLabel lbl = new GLLabel();
+lbl.Text = "TEST";
+this.Controls.Add(lbl);
 		}
 
-		public void Load(FlowLayoutPanel pnlImageControls, Cinema.CinemaArgument[] arguments, Dictionary<int[], TransformedImage> images, Size imageSize, bool floatimages = false, bool depthimages = false)
+		public void Load(Cinema.CinemaArgument[] arguments, Dictionary<int[], TransformedImage> images, Size imageSize, bool floatimages = false, bool depthimages = false)
 		{
 			int i;
 
 			this.images = images;
 			this.arguments = arguments;
+			this.floatimages = floatimages;
 
 			selection = new ArraySelection(images);
 
 			if(floatimages)
 			{
-				colorTableMgr = new ColorTableManager(new Rectangle(100, 10, 15, 128), Common.meshQuad, pnlImageControls, OnColorTableSettingsChanged);
+				colorTableMgr.OnSizeChanged(backbuffersize);
 				colorTableMgr.Reset();
 			}
 
@@ -532,11 +541,11 @@ namespace csharp_viewer
 			if(mesh3D != null)
 				mesh3D.Free();
 			mesh3D = null;
-			if(colorTableMgr != null)
+			/*if(colorTableMgr != null)
 			{
 				colorTableMgr.Free();
 				colorTableMgr = null;
-			}
+			}*/
 			cmImage = null;
 		}
 
@@ -676,6 +685,9 @@ namespace csharp_viewer
 		{
 			this.backbuffersize = backbuffersize;
 			freeview.OnSizeChanged(aspectRatio = (float)backbuffersize.Width / (float)backbuffersize.Height);
+
+			if(floatimages)
+				colorTableMgr.OnSizeChanged(backbuffersize);
 		}
 
 		struct TransformedImageAndMatrix
@@ -690,7 +702,7 @@ namespace csharp_viewer
 			}
 		}
 		private Point oldmousepos = Control.MousePosition;
-		public void Draw(float dt)
+		protected override void Draw(float dt, Matrix4 _transform)
 		{
 			if(overallAabb_invalid)
 			{
@@ -772,6 +784,8 @@ namespace csharp_viewer
 				texstream.Update();
 
 			// >>> Render
+
+			GL.Enable(EnableCap.DepthTest);
 
 			if(tex2 != null)
 			{
@@ -953,9 +967,6 @@ namespace csharp_viewer
 
 			GL.Disable(EnableCap.DepthTest);
 
-			if(colorTableMgr != null)
-				colorTableMgr.Draw(backbuffersize);
-
 			//Common.fontText.DrawString(0.0f, 0.0f, freeview.viewpos.ToString(), backbuffersize);
 			//Common.fontText.DrawString(0.0f, 20.0f, freeview.GetViewDirection().ToString(), backbuffersize);
 
@@ -967,6 +978,9 @@ namespace csharp_viewer
 				status_timer -= dt;
 				Common.fontText.DrawString(0.0f, backbuffersize.Height - 20.0f, status_str, backbuffersize);
 			}
+
+			if(floatimages)
+				colorTableMgr.Draw(dt);
 
 			if(selection != null)
 			{
@@ -999,8 +1013,6 @@ namespace csharp_viewer
 			}
 
 			ContextMenu.Draw(dt, backbuffersize);
-
-			GL.Enable(EnableCap.DepthTest);
 		}
 
 		private enum DefineAlignmentStage
@@ -1051,7 +1063,7 @@ namespace csharp_viewer
 			if(ContextMenu.MouseDown(sender, e, backbuffersize))
 				return;
 			
-			if(colorTableMgr != null && colorTableMgr.MouseDown(e))
+			if(floatimages && colorTableMgr.MouseDown(e))
 				return;
 
 			if(images == null)
@@ -1166,7 +1178,7 @@ namespace csharp_viewer
 			}
 			else if(ContextMenu.MouseUp(sender, e, backbuffersize))
 				return;
-			else if(colorTableMgr != null)
+			else if(floatimages)
 				colorTableMgr.MouseUp(e);
 		}
 
@@ -1188,7 +1200,7 @@ string foo = "";
 				if(ContextMenu.MouseMove(sender, e, backbuffersize))
 					return;
 
-				if(colorTableMgr != null && colorTableMgr.MouseMove(e))
+				if(floatimages && colorTableMgr.MouseMove(e))
 					return;
 
 				return;

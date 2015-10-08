@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 
 using OpenTK;
 using OpenTK.Graphics;
@@ -156,13 +157,13 @@ namespace csharp_viewer
 			}
 		}
 
-		private Matrix3 Matrix3_CreateTranslation(float tx, float ty)
+		public static Matrix3 Matrix3_CreateTranslation(float tx, float ty)
 		{
 			return new Matrix3(1.0f, 0.0f, 0.0f,
 				0.0f, 1.0f, 0.0f,
 				tx, ty, 1.0f);
 		}
-		private Matrix3 Matrix3_CreateScale(float sx, float sy)
+		public static Matrix3 Matrix3_CreateScale(float sx, float sy)
 		{
 			return new Matrix3(sx, 0.0f, 0.0f,
 				0.0f, sy, 0.0f,
@@ -253,6 +254,158 @@ namespace csharp_viewer
 				}
 				else
 					x += charsize.X;
+			}
+			size.X = Math.Max(size.X, x);
+			return size;
+		}
+	}
+
+	public class GLFont
+	{
+		private const int CHARMAP_PADDING = 2;
+		private const int CHARMAP_CHAR_SIZE_INFLATE = 2;
+		private const int CHARMAP_CHAR_DIST_INFLATE = 2;
+
+		private GLTexture2D texture;
+		private Rectangle[] charBounds = new Rectangle[256];
+		private int lineHeight, blankWidth;
+
+		private static GLShader fontshader = null;
+		private static int fontshader_coloruniform;
+
+		public GLFont(Font font)
+		{
+			if(fontshader == null)
+			{
+				fontshader = new GLShader(new string[] { FONT_SHADER.VS }, new string[] { FONT_SHADER.FS });
+				fontshader_coloruniform = fontshader.GetUniformLocation("Color");
+			}
+
+			/*string charmap = "";
+			for(int i = 0; i < 255; ++i)
+				if(!char.IsControl((char)i))
+				charmap += (char)i;
+
+			Bitmap bmp = new Bitmap(1, 1);
+			Graphics gfx = Graphics.FromImage(bmp);
+			Size charmapSize = gfx.MeasureString(charmap, font, 1024).ToSize();
+			bmp = new Bitmap(charmapSize.Width, charmapSize.Height);
+			gfx = Graphics.FromImage(bmp);
+			gfx.DrawString(charmap, font, Brushes.White, new RectangleF(0.0f, 0.0f, (float)charmapSize.Width, (float)charmapSize.Height));
+			gfx.Flush();
+			bmp.Save("charmap.png");*/
+
+			int x = CHARMAP_PADDING, y = CHARMAP_PADDING, lineMaxHeight = 0;
+			lineHeight = 0;
+			Bitmap bmp = new Bitmap(1, 1);
+			Graphics gfx = Graphics.FromImage(bmp);
+			for(int i = 0; i < 255; ++i)
+				if(!char.IsControl((char)i))
+				{
+					Size charmapSize = gfx.MeasureString(new string((char)i, 1), font).ToSize();
+					charmapSize.Width += CHARMAP_CHAR_SIZE_INFLATE;
+					charmapSize.Height += CHARMAP_CHAR_SIZE_INFLATE;
+					charBounds[i] = new Rectangle(x, y, charmapSize.Width, charmapSize.Height);
+					x += charmapSize.Width + CHARMAP_CHAR_DIST_INFLATE;
+					lineMaxHeight = Math.Max(lineMaxHeight, charmapSize.Height);
+
+					if(x > 1024)
+					{
+						y += lineMaxHeight + CHARMAP_CHAR_DIST_INFLATE;
+						x = CHARMAP_PADDING + charmapSize.Width + CHARMAP_CHAR_DIST_INFLATE;
+						lineHeight = Math.Max(lineHeight, lineMaxHeight);
+						lineMaxHeight = charmapSize.Height;
+						charBounds[i].X = CHARMAP_PADDING;
+						charBounds[i].Y += lineMaxHeight;
+					}
+				}
+				else
+					charBounds[i] = Rectangle.Empty;
+			lineHeight = Math.Max(lineHeight, lineMaxHeight);
+
+			blankWidth = (int)Math.Ceiling(gfx.MeasureString(" ", font).Width);
+
+			bmp = new Bitmap(1024, y + lineMaxHeight);
+			gfx = Graphics.FromImage(bmp);
+			for(int i = 0; i < 255; ++i)
+				if(!char.IsControl((char)i))
+					gfx.DrawString(new string((char)i, 1), font, Brushes.White, new RectangleF((float)charBounds[i].X - 1, (float)charBounds[i].Y - 2, (float)charBounds[i].Width, (float)charBounds[i].Height));
+			gfx.Flush();
+			//bmp.Save("charmap.png"); // For debugging
+
+			texture = new GLTexture2D(bmp);
+		}
+
+		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
+		{
+			// Fonts look best when they are drawn on integer positions (so they don't have to be interpolated over multiple pixels)
+			float linestart = x = (float)(int)x;
+			y = (float)(int)y;
+
+			// Bind texture and save the size of a pixel in the texture's coordinate system
+			fontshader.Bind();
+			GL.Uniform4(fontshader_coloruniform, color);
+			Common.meshQuad.Bind(fontshader, texture);
+			/*if(sdr.InvTexSizeUniform)
+				gl.uniform2f(sdr.InvTexSizeUniform, 1.0 / texture.image.width, 1.0 / texture.image.height);*/
+
+			for(int i = 0; i < text.Length; ++i)
+			{
+				char chr = text[i];
+				if(chr == '\n')
+				{
+					x = linestart;
+					y += (float)lineHeight;
+				}
+				if(!char.IsControl(chr))
+				{
+					Vector2 charsize = new Vector2((float)charBounds[(int)chr].Width, (float)charBounds[(int)chr].Height);
+
+					// Transform texture quad texture coordinates to select the letter
+					Matrix3 texcoordtrans = Matrix3.Identity;
+					texcoordtrans *= GLTextFont.Matrix3_CreateScale(charsize.X / texture.width, charsize.Y / texture.height);
+					texcoordtrans *= GLTextFont.Matrix3_CreateTranslation(((float)charBounds[(int)chr].X - 0.5f) / texture.width, ((float)charBounds[(int)chr].Y - 0.5f) / texture.height);
+					GL.UniformMatrix3(fontshader.defparams.textransform, false, ref texcoordtrans);
+
+					/*// Save character bounds so that characters can be clamped to avoid bleeding over of neighboring characters
+					if(sdr.texboundsUniform)
+						gl.uniform1fv(sdr.texboundsUniform, [charpos[0] / texture.image.width, (charpos[0] + charsize[0]) / texture.image.width,
+							charpos[1] / texture.image.height, (charpos[1] + charsize[1]) / texture.image.height]);*/
+
+					// Transform texture quad vertices to position the letter
+					Matrix4 trans = Matrix4.Identity;
+					trans *= Matrix4.CreateScale(2.0f * charsize.X / backbufferSize.Width, (2.0f * charsize.Y - 4.0f) / backbufferSize.Height, 1.0f);
+					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y + charsize.Y) / backbufferSize.Height, 0.0f);
+					GL.UniformMatrix4(fontshader.defparams.worldviewproj, false, ref trans);
+
+					Common.meshQuad.Draw();
+					x += charsize.X;
+				}
+				else
+					x += blankWidth;
+			}
+		}
+		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize)
+		{
+			DrawString(x, y, text, backbufferSize, Color4.White);
+		}
+
+		public Vector2 MeasureString(string text)
+		{
+			Vector2 size = new Vector2(0.0f, (float)lineHeight);
+			float x = 0.0f;
+			foreach(char chr in text)
+			{
+				if(chr == '\n')
+				{
+					size.X = Math.Max(size.X, x);
+					size.Y += lineHeight;
+					x = 0.0f;
+				}
+				else if(!char.IsControl(chr))
+					x += (float)charBounds[(int)chr].Width;
+				else
+					x += blankWidth;
 			}
 			size.X = Math.Max(size.X, x);
 			return size;
