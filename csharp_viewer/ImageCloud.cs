@@ -140,9 +140,10 @@ namespace csharp_viewer
 			}
 		";
 		public const string FS_COLORTABLE_DECODER = @"
-			uniform sampler1D InnerColorTable, OuterColorTable;
-			uniform int HasOuterColorTable;
-			uniform float MinValue, MaxValue;
+			//uniform sampler1D InnerColorTable, OuterColorTable;
+			//uniform int HasOuterColorTable;
+			//uniform float MinValue, MaxValue;
+uniform sampler1D Colormap;
 			uniform vec3 NanColor;
 
 			vec4 shade(sampler2D sampler, in vec2 uv)
@@ -160,13 +161,15 @@ namespace csharp_viewer
 				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
 				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
 
-				// Sample color table based on valueS
+				/*// Sample color table based on valueS
 				if(valueS < MinValue)
 					return HasOuterColorTable != 0 ? vec4(texture1D(OuterColorTable, valueS).rgb, alpha) : vec4(texture1D(InnerColorTable, 0.0).rgb, alpha);
 				else if(valueS > MaxValue)
 					return HasOuterColorTable != 0 ? vec4(texture1D(OuterColorTable, valueS).rgb, alpha) : vec4(texture1D(InnerColorTable, 1.0 - 1e-5).rgb, alpha);
 				else
-					return vec4(texture1D(InnerColorTable, (valueS - MinValue) / (MaxValue - MinValue)).rgb, alpha);
+					return vec4(texture1D(InnerColorTable, (valueS - MinValue) / (MaxValue - MinValue)).rgb, alpha);*/
+
+return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 		";
 	}
@@ -407,7 +410,7 @@ namespace csharp_viewer
 
 		private ArraySelection selection;
 
-		GLTexture1D tex2, tex3; //TODO: Bad style (tex2 and tex3 are activated at the beginning of the draw call)
+		//GLTexture1D tex2, tex3; //TODO: Bad style (tex2 and tex3 are activated at the beginning of the draw call)
 
 		// Actions
 		private Action FocusSelectionAction, MoveSelectionAction;
@@ -437,7 +440,7 @@ namespace csharp_viewer
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
-			colorTableMgr = new ColorTableManager(glcontrol, new Rectangle(100, glcontrol.Height - 60, glcontrol.Width - 200, 40), Common.meshQuad, pnlImageControls, OnColorTableSettingsChanged);
+			colorTableMgr = new ColorTableManager(glcontrol, new Rectangle(100, glcontrol.Height - 60, glcontrol.Width - 200, 40), Common.meshQuad, pnlImageControls);
 
 			coordsys = new CoordinateSystem();
 
@@ -475,6 +478,15 @@ this.Controls.Add(lbl);
 			sdr3D_colorParam = sdr3D.GetUniformLocation("Color");
 			sdr3D_imageViewInv = sdr3D.GetUniformLocation("ImageViewInv");
 			sdr3D_DepthScale = sdr3D.GetUniformLocation("DepthScale");
+
+			foreach(GLShader sdr in new GLShader[] {sdr2D, sdr3D})
+			{
+				sdr.Bind();
+				GL.ActiveTexture(TextureUnit.Texture2);
+				colorTableMgr.Colormap.Bind();
+				GL.Uniform1(sdr.GetUniformLocation("Colormap"), 2);
+			}
+			GL.ActiveTexture(TextureUnit.Texture0);
 
 			texstream = new GLTextureStream(-1, imageSize.Width, imageSize.Height, depthimages);
 			//texstream = new GLTextureStream(16, imageSize.Width, imageSize.Height, depthimages);
@@ -547,40 +559,6 @@ this.Controls.Add(lbl);
 				colorTableMgr = null;
 			}*/
 			cmImage = null;
-		}
-
-		private void OnColorTableSettingsChanged(ColorTableManager.ColorTableSettings settings)
-		{
-			foreach(GLShader sdr in new GLShader[] {sdr2D, sdr3D})
-			{
-				sdr.Bind();
-
-				GL.Uniform1(sdr.GetUniformLocation("HasOuterColorTable"), settings.hasOuterColorTable ? 1 : 0);
-				GL.Uniform1(sdr.GetUniformLocation("MinValue"), settings.minValue);
-				GL.Uniform1(sdr.GetUniformLocation("MaxValue"), settings.maxValue);
-				GL.Uniform3(sdr.GetUniformLocation("NanColor"), settings.nanColor);
-
-				GL.ActiveTexture(TextureUnit.Texture2);
-				settings.innerColorTable.Bind();
-				GL.Uniform1(sdr.GetUniformLocation("InnerColorTable"), 2);
-				tex2 = settings.innerColorTable;
-
-				if(settings.hasOuterColorTable)
-				{
-					GL.ActiveTexture(TextureUnit.Texture3);
-					settings.outerColorTable.Bind();
-					GL.Uniform1(sdr.GetUniformLocation("OuterColorTable"), 3);
-					tex3 = settings.outerColorTable;
-				}
-				else
-				{
-					GL.ActiveTexture(TextureUnit.Texture3);
-					GL.Uniform1(sdr.GetUniformLocation("OuterColorTable"), 3);
-					tex3 = null;
-				}
-			}
-
-			GL.ActiveTexture(TextureUnit.Texture0);
 		}
 
 		private void FocusAABB(AABB aabb)
@@ -787,7 +765,7 @@ this.Controls.Add(lbl);
 
 			GL.Enable(EnableCap.DepthTest);
 
-			if(tex2 != null)
+			/*if(tex2 != null)
 			{
 				GL.ActiveTexture(TextureUnit.Texture2);
 				tex2.Bind();
@@ -797,7 +775,14 @@ this.Controls.Add(lbl);
 				GL.ActiveTexture(TextureUnit.Texture3);
 				tex3.Bind();
 			}
-			GL.ActiveTexture(TextureUnit.Texture0);
+			GL.ActiveTexture(TextureUnit.Texture0);*/
+
+			/*if(floatimages)
+			{
+				GL.ActiveTexture(TextureUnit.Texture2);
+				colorTableMgr.Colormap.Bind();
+				GL.ActiveTexture(TextureUnit.Texture0);
+			}*/
 
 			foreach(ImageTransform transform in transforms)
 				transform.OnRender(dt, freeview);
@@ -972,6 +957,7 @@ this.Controls.Add(lbl);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
 			Common.fontText.DrawString(0.0f, 40.0f, foo.ToString(), backbuffersize);
+			Common.fontText.DrawString(0.0f, 80.0f, ColorTableManager.foo.ToString(), backbuffersize);
 
 			if(status_timer > 0.0f)
 			{
@@ -1321,6 +1307,19 @@ string foo = "";
 			//Vector2 mousePos = new Vector2(2.0f * mousepos.X / backbuffersize.Width - 1.0f, 1.0f - 2.0f * mousepos.Y / backbuffersize.Height);
 
 			//EDIT: Show closeup of selected images
+		}
+
+		public void MouseWheel(object sender, System.Windows.Forms.MouseEventArgs e)
+		{
+			if(!mouseDownInsideImageCloud)
+			{
+				if(floatimages && colorTableMgr.MouseWheel(e))
+					return;
+
+				return;
+			}
+
+
 		}
 
 		public void KeyDown(object sender, KeyEventArgs e)

@@ -49,14 +49,23 @@ namespace csharp_viewer
 		{
 			float f = x * (float)width;
 			int i = (int)f;
-			if(i < 0 || i >= width)
+			if(i < 0)
 			{
-				r = g = b = 0;
+				r = bytes[0];
+				g = bytes[1];
+				b = bytes[2];
+				return;
+			}
+			if(i + 1 >= width)
+			{
+				r = bytes[3 * width - 3];
+				g = bytes[3 * width - 2];
+				b = bytes[3 * width - 1];
 				return;
 			}
 
 			f -= (float)i;
-			if(i + 1 == width || f <= 0.0f)
+			if(f <= 0.0f)
 			{
 				r = bytes[i * 3 + 0];
 				g = bytes[i * 3 + 1];

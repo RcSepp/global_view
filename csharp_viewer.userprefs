@@ -2,10 +2,11 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/ColorTableManager.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="41" Column="46" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ColorTableManager.cs" Line="663" Column="22" />
-      <File FileName="csharp_viewer/GLTexture1D.cs" Line="68" Column="18" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="229" Column="4" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="449" Column="136" />
+      <File FileName="csharp_viewer/ColorTableManager.cs" Line="757" Column="95" />
+      <File FileName="csharp_viewer/GLTexture1D.cs" Line="66" Column="4" />
+      <File FileName="csharp_viewer/ActionManager.cs" Line="461" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

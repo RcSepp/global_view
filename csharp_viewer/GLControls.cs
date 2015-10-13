@@ -206,6 +206,7 @@ namespace csharp_viewer
 			MouseDown += OnMouseDown;
 			MouseUp += OnMouseUp;
 			MouseMove += OnMouseMove;
+			MouseWheel += OnMouseWheel;
 			KeyDown += OnKeyDown;
 		}
 
@@ -230,6 +231,10 @@ namespace csharp_viewer
 			int abc = 0;
 		}
 		private void OnMouseMove(object sender, MouseEventArgs e)
+		{
+			int abc = 0;
+		}
+		private void OnMouseWheel(object sender, MouseEventArgs e)
 		{
 			int abc = 0;
 		}

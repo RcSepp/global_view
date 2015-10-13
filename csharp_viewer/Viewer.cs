@@ -829,6 +829,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			glImageCloud.MouseDown += glImageCloud_MouseDown;
 			glImageCloud.MouseUp += glImageCloud_MouseUp;
 			glImageCloud.MouseMove += glImageCloud_MouseMove;
+			glImageCloud.MouseWheel += glImageCloud_MouseWheel;
 			glImageCloud.DoubleClick += glImageCloud_DoubleClick;
 			glImageCloud.KeyDown += glImageCloud_KeyDown;
 
@@ -893,6 +894,12 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			images_mutex.WaitOne();
 			if(!argIndex.MouseMove(glImageCloud.Size, e) && !mouseDownInsideArgIndex)
 				imageCloud.MouseMove(sender, e);
+			images_mutex.ReleaseMutex();
+		}
+		private void glImageCloud_MouseWheel(object sender, MouseEventArgs e)
+		{
+			images_mutex.WaitOne();
+			imageCloud.MouseWheel(sender, e);
 			images_mutex.ReleaseMutex();
 		}
 		private void glImageCloud_DoubleClick(object sender, EventArgs e)
