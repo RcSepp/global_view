@@ -515,3 +515,26 @@ theta-phi-time $theta $phi
 theta-phi-view $theta $phi
 animate $time
 none
+load("mpas2")
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("mpas2")
+spread all
+focus
+none
+focus
+clear
+animate time
+animate $time
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none
+load("cosmo")
+all
+focus

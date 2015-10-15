@@ -440,16 +440,18 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
-			colorTableMgr = new ColorTableManager(glcontrol, new Rectangle(100, glcontrol.Height - 60, glcontrol.Width - 200, 40), Common.meshQuad, pnlImageControls);
+			colorTableMgr = new ColorTableManager(glcontrol, pnlImageControls);
+			colorTableMgr.Visible = false;
+			this.Controls.Add(colorTableMgr);
 
 			coordsys = new CoordinateSystem();
 
 			ContextMenu = new ImageContextMenu();
 
-this.Controls.Add(new GLButton("splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Top | AnchorStyles.Left, "XXX", "yyy"));
+/*this.Controls.Add(new GLButton("splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Top | AnchorStyles.Left, "XXX", "yyy"));
 GLLabel lbl = new GLLabel();
 lbl.Text = "TEST";
-this.Controls.Add(lbl);
+this.Controls.Add(lbl);*/
 		}
 
 		public void Load(Cinema.CinemaArgument[] arguments, Dictionary<int[], TransformedImage> images, Size imageSize, bool floatimages = false, bool depthimages = false)
@@ -464,9 +466,12 @@ this.Controls.Add(lbl);
 
 			if(floatimages)
 			{
+				colorTableMgr.Visible = true;
 				colorTableMgr.OnSizeChanged(backbuffersize);
 				colorTableMgr.Reset();
 			}
+			else
+				colorTableMgr.Visible = false;
 
 #if USE_GS_QUAD
 			sdr2D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});

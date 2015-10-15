@@ -331,7 +331,7 @@ namespace csharp_viewer
 				if(!char.IsControl((char)i))
 					gfx.DrawString(new string((char)i, 1), font, Brushes.White, new RectangleF((float)charBounds[i].X - 1, (float)charBounds[i].Y - 2, (float)charBounds[i].Width, (float)charBounds[i].Height));
 			gfx.Flush();
-			//bmp.Save("charmap.png"); // For debugging
+			bmp.Save("charmap.png"); // For debugging
 
 			texture = new GLTexture2D(bmp);
 		}
@@ -375,7 +375,7 @@ namespace csharp_viewer
 					// Transform texture quad vertices to position the letter
 					Matrix4 trans = Matrix4.Identity;
 					trans *= Matrix4.CreateScale(2.0f * charsize.X / backbufferSize.Width, (2.0f * charsize.Y - 4.0f) / backbufferSize.Height, 1.0f);
-					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y + charsize.Y) / backbufferSize.Height, 0.0f);
+					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y - 0.25f + charsize.Y) / backbufferSize.Height, 0.0f);
 					GL.UniformMatrix4(fontshader.defparams.worldviewproj, false, ref trans);
 
 					Common.meshQuad.Draw();

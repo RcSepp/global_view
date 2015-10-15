@@ -396,7 +396,7 @@ namespace csharp_viewer
 		}
 		private ColorMapPicker picker;
 		private bool pickerVisible = false;
-		private NamedColorTable draggedColormap = null;
+		public NamedColorTable draggedColormap = null;
 
 		private class Section
 		{
@@ -405,623 +405,400 @@ namespace csharp_viewer
 			public float startValue, endValue;
 			public bool flipped, interjector;
 		}
-		private List<Section> sections;
 		private class Splitter
 		{
 			public bool isfixed, interjector;
 			public float pos;
 			public Section left, right;
 		}
-		private List<Splitter> splitters;
 
-		private readonly GLWindow glcontrol;
-		private readonly Rectangle bounds;
-		private readonly GLMesh meshquad;
-		private readonly GLButton[] buttons;
-		private readonly GLCursor[] cursors;
-		private GLCursor activecursor = null;
-		private ComboBox cbInnerColorTable, cbOuterColorTable;
-		private GLMesh meshLines, meshHistogram;
-		private GLTexture2D texSplitter, texInterjectorLeft, texInterjectorRight;
-		private Matrix4 transform = Matrix4.Identity, invtransform = Matrix4.Identity;
-		private bool settingsChanged = true;
-		private Size backbuffersize;
-
-		private Dictionary<string, NamedColorTable> colormaps = new Dictionary<string, NamedColorTable>();
-
-		private GLTexture1D colormapTexture;
-		public GLTexture1D Colormap { get { return colormapTexture;} }
-		private Color4 colormapNanColor;
-
-		private Splitter dragSplitter = null;
-		private float dragBoundsLeft, dragBoundsRight;
-
-		private Section dragPointSection = null;
-		private enum DragPoint {None, Start, End};
-		private DragPoint dragPoint = DragPoint.None;
-		private float dragOffset, dragOffset2;
-
-		private Action ShowColormapPickerAction, HideColormapPickerAction;
-		private Action InsertSplitterPinAction, InsertNestedPinAction, SetSectionColormapAction, ResetColorTableAction;
-
-		public ColorTableManager(GLWindow glcontrol, Rectangle bounds, GLMesh meshquad, FlowLayoutPanel pnlImageControls)
+		private class InputSection : GLControl
 		{
-			this.glcontrol = glcontrol;
-			this.bounds = bounds;
-			this.meshquad = meshquad;
-			SetCursor(glcontrol.Cursor);
+			private readonly ColorTableManager colorTableMgr;
+			private readonly GLFont font;
 
-			ShowColormapPickerAction = ActionManager.CreateAction("Show colormap picker", "show picker", delegate(object[] parameters) {
-				pickerVisible = true;
-			});
-			HideColormapPickerAction = ActionManager.CreateAction("Hide colormap picker", "hide picker", delegate(object[] parameters) {
-				pickerVisible = false;
-			});
+			private GLMesh meshLines, meshHistogram;
+			private GLTexture2D texSplitter, texInterjectorLeft, texInterjectorRight;
 
-			InsertSplitterPinAction = ActionManager.CreateAction("Insert splitter pin", this, "InsertSplitterPin");
-			InsertNestedPinAction = ActionManager.CreateAction("Insert nesting pin", this, "InsertNestedPin");
-			SetSectionColormapAction = ActionManager.CreateAction("Set colormap of section", this, "SetSectionColormap");
-			ResetColorTableAction = ActionManager.CreateAction("Reset colormap", this, "ResetColorTable");
+			private List<Section> sections;
+			private List<Splitter> splitters;
 
-			// Create shaders as singleton
-			/*if(colortableshader == null)
-				colortableshader = new GLShader(new string[] {COLOR_TABLE_SHADER.VS}, new string[] {COLOR_TABLE_SHADER.FS});*/
-			if(lineshader == null)
-				lineshader = new GLShader(new string[] {LINE_SHADER.VS}, new string[] {LINE_SHADER.FS});
-			if(cmpreviewshader == null)
-				cmpreviewshader = new GLShader(new string[] {COLORMAP_PREVIEW_SHADER.VS}, new string[] {COLORMAP_PREVIEW_SHADER.FS});
+			private GLTexture1D colormapTexture;
+			public GLTexture1D Colormap { get { return colormapTexture;} }
+			private Color4 colormapNanColor;
+			private float colormapUpdateStart = float.MaxValue, colormapUpdateEnd = float.MinValue;
 
-			// Create colormap
-			colormapTexture = new GLTexture1D(new byte[3 * FINAL_COLORMAP_SIZE], FINAL_COLORMAP_SIZE, false);
+			private Matrix4 transform = Matrix4.Identity, invtransform = Matrix4.Identity;
 
-			// Create colormap picker
-			picker = new ColorMapPicker(new GLFont(new Font("Lucida Grande", 12.0f, FontStyle.Bold)));
-			picker.bounds = new Rectangle(0, 0, glcontrol.Width, bounds.Top);
-			picker.ColormapDragStart += ColorMapPicker_ColormapDragStart;
+			private int dragSplitterIndex = -1;
 
-			// Create ComboBoxes containing all loaded color tables
-			cbInnerColorTable = new ComboBox();
-			cbOuterColorTable = new ComboBox();
-			cbInnerColorTable.DropDownStyle = cbOuterColorTable.DropDownStyle = ComboBoxStyle.DropDownList;
-			pnlImageControls.Controls.Add(cbInnerColorTable);
-			pnlImageControls.Controls.Add(cbOuterColorTable);
+			private Section dragPointSection = null;
+			private enum DragPoint {None, Start, End};
+			private DragPoint dragPoint = DragPoint.None;
+			private float dragOffset, dragOffset2;
 
-			// Create/load color tables
-			ColorMapCreator.Vector3 C0 = new ColorMapCreator.Vector3(58.650f, 76.245f, 192.270f);
-			ColorMapCreator.Vector3 C1 = new ColorMapCreator.Vector3(180.030f, 4.080f, 38.250f);
-			cbInnerColorTable.Items.Add(ColorTableFromRange(C0, C1, new Vector3(65.0f / 255.0f, 68.0f / 255.0f, 91.0f / 255.0f), "Moreland cool/warm", "Divergent"));
-			cbInnerColorTable.Items.AddRange(ColorTableFromXml("ColorMaps.xml"));
-			cbOuterColorTable.Items.Add(NamedColorTable.None);
-			foreach(NamedColorTable colormap in cbInnerColorTable.Items)
+			public Action InsertSplitterPinAction, InsertNestedPinAction, MovePinAction, SetSectionColormapAction, ResetColorTableAction;
+
+			public InputSection(ColorTableManager colorTableMgr, GLFont font)
 			{
-				colormaps.Add(colormap.name, colormap);
+				this.colorTableMgr = colorTableMgr;
+				this.font = font;
 
-				cbOuterColorTable.Items.Add(colormap);
-				picker.AddColorMap(colormap);
-			}
-			//cbInnerColorTable.SelectedIndex = cbOuterColorTable.SelectedIndex = 0;
+				InsertSplitterPinAction = ActionManager.CreateAction("Insert splitter pin", this, "InsertSplitterPin");
+				InsertNestedPinAction = ActionManager.CreateAction("Insert nesting pin", this, "InsertNestedPin");
+				MovePinAction = ActionManager.CreateAction("Move pin", this, "MovePin");
+				SetSectionColormapAction = ActionManager.CreateAction("Set colormap of section", this, "SetSectionColormap");
+				ResetColorTableAction = ActionManager.CreateAction("Reset colormap", this, "ResetColorTable");
 
-			ActionManager.Do(HideColormapPickerAction);
-			ResetColorTable();
+				// Create colormap
+				colormapTexture = new GLTexture1D(new byte[3 * FINAL_COLORMAP_SIZE], FINAL_COLORMAP_SIZE, false);
 
-			// Create table outline and tick marks as line list mesh
-			List<Vector3> positions = new List<Vector3>();
-			positions.AddRange(new Vector3[] {
-				// Outline
-				new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f),
-				new Vector3(0.0f, 1.0f, 0.0f), new Vector3(1.0f, 1.0f, 0.0f),
-				new Vector3(1.0f, 1.0f, 0.0f), new Vector3(1.0f, 0.0f, 0.0f),
-				new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, 0.0f, 0.0f)
-			});
-			for(int i = 0; i <= 40; ++i)
-			{
-				float x = (float)i / 40.0f;
-				positions.Add(new Vector3(x, 1.0f, 0.0f));
-				positions.Add(new Vector3(x, i % 10 == 0 ? 1.6f : 1.3f, 0.0f));
-			}
-			meshLines = new GLMesh(positions.ToArray(), null, null, null, null, null, PrimitiveType.Lines);
-
-			// Create textures
-			texSplitter = GLTexture2D.FromFile("splitter.png", false);
-			texInterjectorLeft = GLTexture2D.FromFile("InterjectorLeft.png", false);
-			texInterjectorRight = GLTexture2D.FromFile("InterjectorRight.png", false);
-
-			// Create number font
-			//font = new GLNumberFont("HelveticaNeue_12.png", new FontDefinition(new int[] {0, 14, 26, 39, 53, 67, 80, 93, 106, 120, 133}, new int[] {0, 19}), meshquad, true);
-			//font = new GLNumberFont("HelveticaNeue_16.png", new FontDefinition(new int[] {0, 18, 34, 53, 71, 89, 106, 124, 142, 160, 178}, new int[] {0, 25}), true);
-			//font = new GLTextFont("fntDefault.png", new Vector2(19.0f, 32.0f), meshquad);
-
-			// Create buttons
-			buttons = new GLButton[4];
-			buttons[0] = new GLButton("splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateSplitter", "Create colormap splitter");
-			buttons[0].Click = SplitterButton_Click;
-			buttons[1] = new GLButton("interjectorButton.png", new Rectangle(4, 100 - buttons[0].bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateInterjector", "Create colormap interjector");
-			buttons[1].Click = InterjectorButton_Click;
-			buttons[2] = new GLButton("colorMapButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "ShowColormapPicker", "Show colormap picker");
-			buttons[2].Click = ColorMapButton_Click;
-			buttons[3] = new GLButton("saveColorMapButton.png", new Rectangle(4, 100 - buttons[2].bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "SaveColormap", "Save colormap to disk");
-			buttons[3].Click = SplitterButton_Click;
-
-			// Create cursors
-			cursors = new GLCursor[2];
-			cursors[0] = new GLCursor("splitterCursor.png", new Point(2, 54));
-			cursors[1] = new GLCursor("interjectorCursor.png", new Point(8, 51));
-		}
-
-		public void Free()
-		{
-			cbInnerColorTable.Parent.Controls.Remove(cbInnerColorTable);
-			cbOuterColorTable.Parent.Controls.Remove(cbOuterColorTable);
-		}
-
-		public void SelectImage(HashSet<int>[] selection, Dictionary<int[], TransformedImage> images)
-		{
-			/*TransformedImage selection;
-			images.TryGetValue(selectionkey, out selection);
-
-			if(selection != null && selection.meta.ContainsKey("histogram"))
-			{
+				// Create histogram grid as line list mesh
 				List<Vector3> positions = new List<Vector3>();
-				Newtonsoft.Json.Linq.JContainer histogram = (Newtonsoft.Json.Linq.JContainer)selection.meta["histogram"];
-				const float xscale = -50.0f;
-				float yscale = (float)1.0f / (float)histogram.Count, i = 0.0f;
-				positions.Add(new Vector3(0.0f, 1.0f, 0.0f));
-				foreach(double value in histogram)
-					positions.Add(new Vector3((float)value * xscale, 1.0f - i++ * yscale, 0.0f));
-				positions.Add(new Vector3(0.0f, 0.0f, 0.0f));
-
-				meshHistogram = new GLMesh(positions.ToArray(), null, null, null, null, null, PrimitiveType.LineLoop);
-			}
-			else
-				meshHistogram = null;*/
-		}
-
-		private void SplitterButton_Click(object sender, EventArgs e)
-		{
-			activecursor = cursors[0];
-		}
-		private void InterjectorButton_Click(object sender, EventArgs e)
-		{
-			activecursor = cursors[1];
-		}
-		private void ColorMapButton_Click(object sender, EventArgs e)
-		{
-			if(pickerVisible)
-				ActionManager.Do(HideColormapPickerAction);
-			else
-				ActionManager.Do(ShowColormapPickerAction);
-		}
-
-		private void ColorMapPicker_ColormapDragStart(NamedColorTable colormap)
-		{
-			draggedColormap = colormap;
-		}
-
-		public void OnSizeChanged(Size backbuffersize)
-		{
-			this.backbuffersize = backbuffersize;
-			foreach(GLButton button in buttons)
-				button.OnParentSizeChanged(backbuffersize);
-			foreach(GLCursor cursor in cursors)
-				cursor.OnSizeChanged(backbuffersize);
-			picker.OnSizeChanged(backbuffersize);
-		}
-
-		public void Draw(float dt)
-		{
-			if(settingsChanged)
-			{
-				settingsChanged = false;
-
-				// Create colormap from sections
-				List<Section>.Enumerator sectionEnum = sections.GetEnumerator();
-				if(sectionEnum.MoveNext())
+				/*positions.AddRange(new Vector3[] {
+					// Outline
+					new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 0.5f, 0.0f),
+					new Vector3(0.0f, 0.5f, 0.0f), new Vector3(1.0f, 0.5f, 0.0f),
+					new Vector3(1.0f, 0.5f, 0.0f), new Vector3(1.0f, 0.0f, 0.0f),
+					new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, 0.0f, 0.0f)
+				});*/
+				for(int i = 0; i <= 10; ++i)
 				{
-					byte[] colormapBytes = colormapTexture.Lock();
-					for(int x = 0; x < colormapTexture.width; ++x)
-					{
-						float xr = ((float)x + 0.5f) / (float)colormapTexture.width;
+					float y = (float)i / 10.0f * 0.9f + 0.1f;
+					positions.Add(new Vector3(0.0f, y, 0.0f));
+					positions.Add(new Vector3(1.0f, y, 0.0f));
+				}
+				for(int i = 0; i <= 10; ++i)
+				{
+					float x = (float)i / 10.0f;
+					positions.Add(new Vector3(x, 0.1f, 0.0f));
+					positions.Add(new Vector3(x, 1.0f, 0.0f));
+				}
+				meshLines = new GLMesh(positions.ToArray(), null, null, null, null, null, PrimitiveType.Lines);
 
-						/*if(xr >= sectionEnum.Current.end.pos && !sectionEnum.MoveNext())
+				// Create textures
+				texSplitter = GLTexture2D.FromFile("splitter.png", false);
+				texInterjectorLeft = GLTexture2D.FromFile("InterjectorLeft.png", false);
+				texInterjectorRight = GLTexture2D.FromFile("InterjectorRight.png", false);
+
+				// Create number font
+				//font = new GLNumberFont("HelveticaNeue_12.png", new FontDefinition(new int[] {0, 14, 26, 39, 53, 67, 80, 93, 106, 120, 133}, new int[] {0, 19}), Common.meshQuad, true);
+				//font = new GLNumberFont("HelveticaNeue_16.png", new FontDefinition(new int[] {0, 18, 34, 53, 71, 89, 106, 124, 142, 160, 178}, new int[] {0, 25}), true);
+				//font = new GLTextFont("fntDefault.png", new Vector2(19.0f, 32.0f), Common.meshQuad);
+			}
+
+			protected override void Draw(float dt, Matrix4 _transform)
+			{
+				GL.Enable(EnableCap.ScissorTest);
+				GL.Scissor(Bounds.Left, BackbufferSize.Height - Bounds.Bottom, Bounds.Width + 1, Bounds.Height + 1);
+
+				if(colormapUpdateEnd >= colormapUpdateStart)
+				{
+					// Create colormap from sections
+					List<Section>.Enumerator sectionEnum = sections.GetEnumerator();
+					if(sectionEnum.MoveNext())
+					{
+						byte[] colormapBytes = colormapTexture.Lock();
+						for(int x = Math.Max(0, (int)Math.Floor(colormapUpdateStart * colormapTexture.width)), end = Math.Min(colormapTexture.width - 1, (int)Math.Ceiling(colormapUpdateEnd * colormapTexture.width)); x < end; ++x)
+						{
+							float xr = ((float)x + 0.5f) / (float)colormapTexture.width;
+
+							/*if(xr >= sectionEnum.Current.end.pos && !sectionEnum.MoveNext())
 							break;*/
-						sectionEnum = sections.GetEnumerator();
-						sectionEnum.MoveNext();
-						while(xr < sectionEnum.Current.start.pos || xr >= sectionEnum.Current.end.pos)
-							if(!sectionEnum.MoveNext())
-								goto endColormapCreation;
-						
-						xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
-						sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 3 + 0], out colormapBytes[x * 3 + 1], out colormapBytes[x * 3 + 2]);
+							sectionEnum = sections.GetEnumerator();
+							sectionEnum.MoveNext();
+							while(xr < sectionEnum.Current.start.pos || xr >= sectionEnum.Current.end.pos)
+								if(!sectionEnum.MoveNext())
+									goto endColormapCreation;
+
+							xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
+							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 3 + 0], out colormapBytes[x * 3 + 1], out colormapBytes[x * 3 + 2]);
+						}
+						endColormapCreation:
+						colormapTexture.Unlock();
 					}
-					endColormapCreation:
 					colormapTexture.Unlock();
+
+					// Reset colormap update region
+					colormapUpdateStart = float.MaxValue;
+					colormapUpdateEnd = float.MinValue;
 				}
-				colormapTexture.Unlock();
-			}
 
-			Matrix4 trans;
-			trans = Matrix4.CreateScale(2.0f * bounds.Width / backbuffersize.Width, (2.0f * bounds.Height - 4.0f) / backbuffersize.Height, 1.0f);
-			trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (bounds.Left + 0.5f) / backbuffersize.Width, 1.0f - 2.0f * (bounds.Bottom - 0.5f) / backbuffersize.Height, 0.0f);
+				Matrix4 trans;
+				trans = Matrix4.CreateScale(2.0f * Bounds.Width / BackbufferSize.Width, (2.0f * Bounds.Height * 0.1f - 4.0f) / BackbufferSize.Height, 1.0f);
+				trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (Bounds.Left + 0.5f) / BackbufferSize.Width, 1.0f - 2.0f * (Bounds.Bottom + 0.5f) / BackbufferSize.Height, 0.0f);
 
-			trans *= Matrix4.CreateScale((float)backbuffersize.Width / (float)bounds.Width, 1.0f, 1.0f);
-			trans *= transform;
-			trans *= Matrix4.CreateScale((float)bounds.Width / (float)backbuffersize.Width, 1.0f, 1.0f);
+				trans *= Matrix4.CreateScale((float)BackbufferSize.Width / (float)Bounds.Width, 1.0f, 1.0f);
+				trans *= transform;
+				trans *= Matrix4.CreateScale((float)Bounds.Width / (float)BackbufferSize.Width, 1.0f, 1.0f);
 
-			cmpreviewshader.Bind(trans);
-			meshquad.Bind(cmpreviewshader, colormapTexture);
-			meshquad.Draw();
+				cmpreviewshader.Bind(trans);
+				Common.meshQuad.Bind(cmpreviewshader, colormapTexture);
+				Common.meshQuad.Draw();
 
-			lineshader.Bind(trans);
-			meshLines.Bind(lineshader, null);
-			meshLines.Draw();
-			if(meshHistogram != null)
-			{
-				meshHistogram.Bind(lineshader, null);
-				meshHistogram.Draw();
-			}
 
-			foreach(Splitter splitter in splitters)
-				if(!splitter.isfixed)
+				trans = Matrix4.CreateScale(2.0f * Bounds.Width / BackbufferSize.Width, (2.0f * Bounds.Height - 4.0f) / BackbufferSize.Height, 1.0f);
+				trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (Bounds.Left + 0.5f) / BackbufferSize.Width, 1.0f - 2.0f * (Bounds.Bottom + 0.5f) / BackbufferSize.Height, 0.0f);
+
+				trans *= Matrix4.CreateScale((float)BackbufferSize.Width / (float)Bounds.Width, 1.0f, 1.0f);
+				trans *= transform;
+				trans *= Matrix4.CreateScale((float)Bounds.Width / (float)BackbufferSize.Width, 1.0f, 1.0f);
+
+				lineshader.Bind(trans);
+				meshLines.Bind(lineshader, null);
+				meshLines.Draw();
+				if(meshHistogram != null)
 				{
-					if(splitter.left == null)
-						drawSplitter(splitter.pos, texInterjectorLeft);
-					else if(splitter.right == null)
-						drawSplitter(splitter.pos, texInterjectorRight);
-					else
-						drawSplitter(splitter.pos, texSplitter);
+					meshHistogram.Bind(lineshader, null);
+					meshHistogram.Draw();
 				}
 
-			foreach(GLButton button in buttons)
-				button.Draw(dt);
-
-			Common.fontText.DrawString(bounds.Left - 10, bounds.Top - bounds.Height, "0%", backbuffersize);
-			Common.fontText.DrawString(bounds.Right - 20, bounds.Top - bounds.Height, "100%", backbuffersize);
-
-			if(pickerVisible)
-				picker.Draw();
-
-			if(activecursor != null)
-				activecursor.Draw(glcontrol.PointToClient(Control.MousePosition));
-		}
-
-		private void drawSplitter(float pos, GLTexture2D tex) // pos = 0.0f ... 1.0f
-		{
-			Vector3 vpos = Vector3.Transform(new Vector3(2.0f * pos - 1.0f, -1.0f, 0.0f), transform);
-			vpos.X *= (float)bounds.Width / (float)backbuffersize.Width;
-			//vpos.X += (float)bounds.Left / (float)backbuffersize.Width;
-
-			Matrix4 mattrans;
-			mattrans = Matrix4.Identity;
-			mattrans *= Matrix4.CreateTranslation(-0.5f, 0.0f, 0.0f);
-			mattrans *= Matrix4.CreateScale((float)tex.width / (float)backbuffersize.Width, (float)tex.height / (float)backbuffersize.Height, 1.0f);
-			mattrans *= Matrix4.CreateTranslation(vpos);
-			Common.sdrTextured.Bind(mattrans);
-
-			Common.meshQuad.Bind(Common.sdrTextured, tex);
-			Common.meshQuad.Draw();
-		}
-
-		private Cursor currentCursor;
-public static string foo = "";
-		private void SetCursor(Cursor cursor)
-		{
-			if(cursor != currentCursor)
-			{
-				Cursor.Current = glcontrol.Cursor = currentCursor = cursor;
-				//foo = Cursor.Current.ToString();
-			}
-		}
-
-		private Vector3 tmd0 = new Vector3();
-		public new bool MouseDown(MouseEventArgs e)
-		{
-			if(pickerVisible && picker.MouseDown(e))
-				return true;
-			foreach(GLButton button in buttons)
-				if(button.OnMouseDown(e))
-					return true;
-
-			if(!bounds.Contains(e.Location))
-				return false;
-
-			float xr = Math.Min(Math.Max((float)(e.X - bounds.X) / (float)bounds.Width, 0.0f), 1.0f);
-
-			if(glcontrol.Cursor == Cursors.SizeWE)
-			{
-				Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
-				xr = vpos.X / 2.0f + 0.5f;
-
-				//EDIT: Show trash button
-
-				float dragSplitterDistance = float.MaxValue;
 				foreach(Splitter splitter in splitters)
-					if(!splitter.isfixed && Math.Abs(splitter.pos - xr) < dragSplitterDistance)
+					if(!splitter.isfixed)
 					{
-						dragSplitterDistance = Math.Abs(splitter.pos - xr);
-						dragSplitter = splitter;
-					}
-				dragBoundsLeft = dragSplitter.left != null ? dragSplitter.left.start.pos : 0.0f;
-				dragBoundsRight = dragSplitter.right != null ? dragSplitter.right.end.pos : 1.0f;
-				/*foreach(Splitter splitter in splitters)
-					if(splitter != dragSplitter)
-					{
-						if(splitter.pos < dragSplitter.pos)
-							dragBoundsLeft = Math.max(dragBoundsLeft, splitter.pos);
+						if(splitter.left == null)
+							drawSplitter(splitter.pos, texInterjectorLeft);
+						else if(splitter.right == null)
+							drawSplitter(splitter.pos, texInterjectorRight);
 						else
-							dragBoundsRight = Math.min(dragBoundsRight, splitter.pos);
+							drawSplitter(splitter.pos, texSplitter);
 					}
-				console.log(dragBoundsLeft + " - " + dragBoundsRight);*/
-			}
-			else if(activecursor != null)
-			{
-				Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
-				xr = vpos.X / 2.0f + 0.5f;
 
-				// Find section containing xr
-				int sectionIdx;
-				for(sectionIdx = 0; sectionIdx < sections.Count; ++sectionIdx)
-					if(sections[sectionIdx].start.pos < xr && xr <= sections[sectionIdx].end.pos)
-						break;
-				if(sectionIdx == sections.Count)
-					return true;
-
-				if(activecursor == cursors[0])
+				//Common.fontText.DrawString(Bounds.Left - 10, Bounds.Top - Bounds.Height, "0%", BackbufferSize);
+				//Common.fontText.DrawString(Bounds.Right - 20, Bounds.Top - Bounds.Height, "100%", BackbufferSize);
+				for(int i = 0; i <= 100; i += 10)
 				{
-					ActionManager.Do(InsertSplitterPinAction, new object[] { xr });
-					/*// Insert splitter at xr
-					Splitter newSplitter = new Splitter {
-						isfixed = false,
-						interjector = false,
-						pos = xr,
-						left = null,
-						right = null
-					};
-					splitters.Add(newSplitter);
-					Section newSection = new Section {
-						colorMap = sections[sectionIdx].colorMap,
-						start = sections[sectionIdx].start,
-						end = newSplitter,
-						startValue = sections[sectionIdx].startValue,
-						endValue = sections[sectionIdx].endValue,
-						flipped = sections[sectionIdx].flipped,
-						interjector = false
-					};
-					sections[sectionIdx].start.right = newSection;
-					sections[sectionIdx].start = newSplitter;
-					newSplitter.left = newSection;
-					newSplitter.right = sections[sectionIdx];
-					sections.Insert(sectionIdx, newSection);*/
-				}
-				else
-				{
-					vpos = Vector3.Transform(new Vector3(2.0f * 10.0f / backbuffersize.Width - 1.0f, 0.0f, 0.0f), invtransform);
-					var delta = vpos.X / 2.0f + 0.5f;
-
-					// Insert interjector at xr
-					Splitter leftSplitter = new Splitter {
-						isfixed = false,
-						interjector = false,
-						pos = Math.Max(xr - delta, sections[sectionIdx].start.pos + 1e-5f),
-						left = null,
-						right = null
-					};
-					Splitter rightSplitter = new Splitter {
-						isfixed = false,
-						interjector = false,
-						pos = Math.Min(xr + delta, sections[sectionIdx].end.pos - 1e-5f),
-						left = null,
-						right = null
-					};
-					splitters.Add(leftSplitter);
-					splitters.Add(rightSplitter);
-					Section newSection = new Section {
-						colorMap = sections[sectionIdx].colorMap,
-						start = leftSplitter,
-						end = rightSplitter,
-						startValue = sections[sectionIdx].startValue,
-						endValue = sections[sectionIdx].endValue,
-						flipped = sections[sectionIdx].flipped,
-						interjector = true
-					};
-					sections.Insert(sectionIdx, newSection);
-
-					leftSplitter.right = rightSplitter.left = newSection;
+					Vector3 vpos = Vector3.Transform(new Vector3((float)i / 100.0f, 0.0f, 0.0f), trans);
+					font.DrawString((int)((vpos.X + 1.0f) * BackbufferSize.Width / 2.0f), Bounds.Top, i.ToString() + "%", BackbufferSize);
 				}
 
-				activecursor = null;
-				//ColormapChanged();
-			}
-			else
-			{
-				xr = 1.0f - 2.0f * xr;
-
-				SetCursor(Cursors.SizeAll);
-
-				Matrix4 transform_noscale = transform;
-				transform_noscale.M11 = 1.0f;
-
-				tmd0 = Vector3.Transform(new Vector3(xr, 0.0f, 0.0f), transform_noscale);
+				GL.Disable(EnableCap.ScissorTest);
 			}
 
-			return true;
-		}
-		public bool MouseMove(MouseEventArgs e)
-		{
-			if(pickerVisible && picker.MouseMove(e))
-				return true;
-			
-			bool inside = bounds.Contains(e.Location);
-
-			if(inside && activecursor != null)
+			private void drawSplitter(float pos, GLTexture2D tex) // pos = 0.0f ... 1.0f
 			{
-				//Cursor.Hide();
-				activecursor.visible = true;
+				Vector3 vpos = Vector3.Transform(new Vector3(2.0f * pos - 1.0f, -1.0f, 0.0f), transform);
+				vpos.X *= (float)Bounds.Width / (float)BackbufferSize.Width;
+				//vpos.X += (float)Bounds.Left / (float)BackbufferSize.Width;
+
+				vpos.Y *= (float)Bounds.Height / (float)BackbufferSize.Height;
+				vpos.Y -= (float)Bounds.Top / (float)BackbufferSize.Height;
+
+				Matrix4 mattrans;
+				mattrans = Matrix4.Identity;
+				mattrans *= Matrix4.CreateTranslation(-0.5f, 0.3f, 0.0f);
+				mattrans *= Matrix4.CreateScale((float)tex.width / (float)BackbufferSize.Width, (float)tex.height / (float)BackbufferSize.Height, 1.0f);
+				mattrans *= Matrix4.CreateTranslation(vpos);
+				Common.sdrTextured.Bind(mattrans);
+
+				Common.meshQuad.Bind(Common.sdrTextured, tex);
+				Common.meshQuad.Draw();
 			}
-			else if(!inside)
+
+			private Vector3 tmd0 = new Vector3();
+			public new bool MouseDown(MouseEventArgs e)
 			{
-				//Cursor.Show();
-				if(activecursor != null)
-					activecursor.visible = false;
-			}
+				if(!Bounds.Contains(e.Location))
+					return false;
 
-			float xr = Math.Min(Math.Max((float)(e.X - bounds.X) / (float)bounds.Width, 0.0f), 1.0f);
+				float xr = Math.Min(Math.Max((float)(e.X - Bounds.X) / (float)Bounds.Width, 0.0f), 1.0f);
 
-			if(dragSplitter != null)
-			{
-				Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
-				xr = vpos.X / 2.0f + 0.5f;
-
-				//xr = Math.min(Math.max(xr, 0.0), 1.0);
-				/*if(dragSplitter.left !== null)
-					xr = Math.max(xr, dragSplitter.left.start.pos);
-				if(dragSplitter.right !== null)
-				{
-					xr = Math.min(xr, dragSplitter.right.end.pos);
-					console.log(dragSplitter.right.end.pos);
-				}*/
-
-				xr = Math.Max(xr, dragBoundsLeft);
-				xr = Math.Min(xr, dragBoundsRight);
-
-				//foo = xr.ToString();
-
-				dragSplitter.pos = xr;
-				ColormapChanged();
-			}
-			else if(glcontrol.Cursor == Cursors.Hand)
-			{
-				Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
-				xr = vpos.X / 2.0f + 0.5f;
-
-				xr = (xr - dragPointSection.start.pos) / (dragPointSection.end.pos - dragPointSection.start.pos);
-				xr -= dragOffset;
-
-				if(dragPoint == DragPoint.Start)
-				{
-					xr = Math.Min(xr, 0.0f);
-					dragPointSection.startValue = xr;
-				}
-				else if(dragPoint == DragPoint.End)
-				{
-					xr = Math.Max(xr, 1.0f);
-					dragPointSection.endValue = xr;
-				}
-				ColormapChanged();
-			}
-			else if(activecursor == null)
-			{
-				if(glcontrol.Cursor == Cursors.SizeAll)
-				{
-					xr = 1.0f - 2.0f * xr;
-
-					Matrix4 transform_noscale = transform;
-					transform_noscale.M11 = 1.0f;
-
-					Vector3 t0, tm, tm0 ;
-					tm0 = Vector3.Transform(new Vector3(xr, 0.0f, 0.0f), transform_noscale);
-					t0 = Vector3.Transform(new Vector3(0.0f, 0.0f, 0.0f), transform_noscale);
-
-
-					tm0 = Vector3.Subtract(tmd0, tm0);
-					tm0 = Vector3.Add(tm0, t0);
-
-					tm0 = Vector3.Transform(tm0, invtransform);
-
-					transform *= Matrix4.CreateTranslation(tm0);
-					restrictTransform(ref transform);
-					Matrix4.Invert(ref transform, out invtransform);
-
-//					repositionHistogramLabels();
-				}
-				else
+				if(colorTableMgr.GetCursor() == CursorType.MovePin)
 				{
 					Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
 					xr = vpos.X / 2.0f + 0.5f;
 
-					Section oldDragPointSection = dragPointSection;
-					dragPointSection = null;
+					//EDIT: Show trash button
 
-					DragPoint oldDragPoint = dragPoint;
-					dragPoint = DragPoint.None;
-
-					// Set move mouse cursor if a splitter is close to xr
-					var tolearance = 10.0f * invtransform.M11 / (float)backbuffersize.Width; // Grab tolerance is +- 10 pixels
-					int splitterIdx;
-					for(splitterIdx = 0; splitterIdx < splitters.Count; ++splitterIdx)
-						if(!splitters[splitterIdx].isfixed && Math.Abs(splitters[splitterIdx].pos - xr) < tolearance)
-							break;
-
-					if(splitterIdx == splitters.Count)
-					{
-						// Show drag points on section underneath mouse cursor
-						foreach(Section section in sections)
-							if(dragPointSection == null && section.start.pos < xr && xr < section.end.pos)
-								dragPointSection = section;
-
-						if(dragPointSection != null)
+					float dragSplitterDistance = float.MaxValue;
+					int splitterIndex = 0;
+					foreach(Splitter splitter in splitters)
+						if(!splitter.isfixed && Math.Abs(splitter.pos - xr) < dragSplitterDistance)
 						{
-							// Compute visible section width in pixels
-							float sectionwidth = (dragPointSection.end.pos - dragPointSection.start.pos) * (float)backbuffersize.Width / invtransform.M11;
-							if(sectionwidth >= 56.0f) // 56 = 2 * drag_point_width (16 pixels) + 3 * drag_point_distance (8 pixels)
-							{
-								float yr = (float)e.Y / (float)backbuffersize.Height;
-								float tolearance_x = 16.0f * invtransform.M11 / (float)backbuffersize.Width, tolearance_y = 16.0f / (2.0f * (float)backbuffersize.Height); // Grab tolerance is +- 16 pixels
+							dragSplitterDistance = Math.Abs(splitter.pos - xr);
+							dragSplitterIndex = splitterIndex++;
+						} else
+							++splitterIndex;
+				}
+				else if(colorTableMgr.GetCursor() == CursorType.InsertSplitterPin || colorTableMgr.GetCursor() == CursorType.InsertNestedPin)
+				{
+					Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
+					xr = vpos.X / 2.0f + 0.5f;
 
-								// Set move grab cursor if a drag point is close to xr
-								if(Math.Abs(dragPointSection.end.pos - xr - 8.0f * invtransform.M11 / (float)backbuffersize.Width) < tolearance_x && Math.Abs(0.95f - yr) < tolearance_y)
-								{
-									dragPoint = DragPoint.End;
-									SetCursor(Cursors.Hand);
-								}
-								else if(Math.Abs(dragPointSection.start.pos - xr + 8.0f * invtransform.M11 / (float)backbuffersize.Width) < tolearance_x && Math.Abs(0.95f - yr) < tolearance_y)
-								{
-									dragPoint = DragPoint.Start;
-									SetCursor(Cursors.Hand);
-								}
-								else
-									SetCursor(Cursors.Default);
-							}
-							else
-							{
-								dragPointSection = null;
-								SetCursor(Cursors.Default);
-							}
-						}
-						else
-							SetCursor(Cursors.Default);
+					// Find section containing xr
+					int sectionIdx;
+					for(sectionIdx = 0; sectionIdx < sections.Count; ++sectionIdx)
+						if(sections[sectionIdx].start.pos < xr && xr <= sections[sectionIdx].end.pos)
+							break;
+					if(sectionIdx == sections.Count)
+						return true;
+
+					if(colorTableMgr.GetCursor() == CursorType.InsertSplitterPin)
+						ActionManager.Do(InsertSplitterPinAction, new object[] { xr });
+					else
+						ActionManager.Do(InsertNestedPinAction, new object[] { xr });
+
+					colorTableMgr.SetCursor(CursorType.Default);
+				}
+				else
+				{
+					xr = 1.0f - 2.0f * xr;
+
+					colorTableMgr.SetCursor(CursorType.MoveView);
+
+					Matrix4 transform_noscale = transform;
+					transform_noscale.M11 = 1.0f;
+
+					tmd0 = Vector3.Transform(new Vector3(xr, 0.0f, 0.0f), transform_noscale);
+				}
+
+				return true;
+			}
+			public bool MouseMove(MouseEventArgs e)
+			{
+				float xr = Math.Min(Math.Max((float)(e.X - Bounds.X) / (float)Bounds.Width, 0.0f), 1.0f);
+
+				if(dragSplitterIndex != -1)
+				{
+					Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
+					xr = vpos.X / 2.0f + 0.5f;
+
+					ActionManager.Do(MovePinAction, new object[] { dragSplitterIndex, xr });
+				}
+				else if(colorTableMgr.GetCursor() == CursorType.DragPoint)
+				{
+					Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
+					xr = vpos.X / 2.0f + 0.5f;
+
+					xr = (xr - dragPointSection.start.pos) / (dragPointSection.end.pos - dragPointSection.start.pos);
+					xr -= dragOffset;
+
+					if(dragPoint == DragPoint.Start)
+					{
+						xr = Math.Min(xr, 0.0f);
+						dragPointSection.startValue = xr;
+					}
+					else if(dragPoint == DragPoint.End)
+					{
+						xr = Math.Max(xr, 1.0f);
+						dragPointSection.endValue = xr;
+					}
+					ColormapChanged(dragPointSection.start.pos, dragPointSection.end.pos);
+				}
+				else if(colorTableMgr.GetCursor() != CursorType.InsertSplitterPin && colorTableMgr.GetCursor() != CursorType.InsertNestedPin)
+				{
+					if(colorTableMgr.GetCursor() == CursorType.MoveView)
+					{
+						xr = 1.0f - 2.0f * xr;
+
+						Matrix4 transform_noscale = transform;
+						transform_noscale.M11 = 1.0f;
+
+						Vector3 t0, tm, tm0 ;
+						tm0 = Vector3.Transform(new Vector3(xr, 0.0f, 0.0f), transform_noscale);
+						t0 = Vector3.Transform(new Vector3(0.0f, 0.0f, 0.0f), transform_noscale);
+
+
+						tm0 = Vector3.Subtract(tmd0, tm0);
+						tm0 = Vector3.Add(tm0, t0);
+
+						tm0 = Vector3.Transform(tm0, invtransform);
+
+						transform *= Matrix4.CreateTranslation(tm0);
+						restrictTransform(ref transform);
+						Matrix4.Invert(ref transform, out invtransform);
+
+						//					repositionHistogramLabels();
 					}
 					else
-						SetCursor(Cursors.SizeWE);
+					{
+						Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
+						xr = vpos.X / 2.0f + 0.5f;
 
-					/*if(dragPointSection != oldDragPointSection || dragPoint != oldDragPoint)
+						Section oldDragPointSection = dragPointSection;
+						dragPointSection = null;
+
+						DragPoint oldDragPoint = dragPoint;
+						dragPoint = DragPoint.None;
+
+						// Set move mouse cursor if a splitter is close to xr
+						var tolearance = 10.0f * invtransform.M11 / (float)BackbufferSize.Width; // Grab tolerance is +- 10 pixels
+						int splitterIdx;
+						for(splitterIdx = 0; splitterIdx < splitters.Count; ++splitterIdx)
+							if(!splitters[splitterIdx].isfixed && Math.Abs(splitters[splitterIdx].pos - xr) < tolearance)
+								break;
+
+						if(splitterIdx == splitters.Count)
+						{
+							// Show drag points on section underneath mouse cursor
+							foreach(Section section in sections)
+								if(dragPointSection == null && section.start.pos < xr && xr < section.end.pos)
+									dragPointSection = section;
+
+							if(dragPointSection != null)
+							{
+								// Compute visible section width in pixels
+								float sectionwidth = (dragPointSection.end.pos - dragPointSection.start.pos) * (float)BackbufferSize.Width / invtransform.M11;
+								if(sectionwidth >= 56.0f) // 56 = 2 * drag_point_width (16 pixels) + 3 * drag_point_distance (8 pixels)
+								{
+									float yr = (float)e.Y / (float)BackbufferSize.Height;
+									float tolearance_x = 16.0f * invtransform.M11 / (float)BackbufferSize.Width, tolearance_y = 16.0f / (2.0f * (float)BackbufferSize.Height); // Grab tolerance is +- 16 pixels
+
+									// Set move grab cursor if a drag point is close to xr
+									if(Math.Abs(dragPointSection.end.pos - xr - 8.0f * invtransform.M11 / (float)BackbufferSize.Width) < tolearance_x && Math.Abs(0.95f - yr) < tolearance_y)
+									{
+										dragPoint = DragPoint.End;
+										colorTableMgr.SetCursor(CursorType.HoverOverPoint);
+									}
+									else if(Math.Abs(dragPointSection.start.pos - xr + 8.0f * invtransform.M11 / (float)BackbufferSize.Width) < tolearance_x && Math.Abs(0.95f - yr) < tolearance_y)
+									{
+										dragPoint = DragPoint.Start;
+										colorTableMgr.SetCursor(CursorType.HoverOverPoint);
+									}
+									else
+										colorTableMgr.SetCursor(CursorType.Default);
+								}
+								else
+								{
+									dragPointSection = null;
+									colorTableMgr.SetCursor(CursorType.Default);
+								}
+							}
+							else
+								colorTableMgr.SetCursor(CursorType.Default);
+						}
+						else
+							colorTableMgr.SetCursor(CursorType.MovePin);
+
+						/*if(dragPointSection != oldDragPointSection || dragPoint != oldDragPoint)
 						requestAnimFrame(render);*/
+					}
 				}
+
+				return Bounds.Contains(e.Location);
 			}
-
-			return inside;
-		}
-		public bool MouseUp(MouseEventArgs e)
-		{
-			if(!bounds.Contains(e.Location))
+			public bool MouseUp(MouseEventArgs e)
 			{
-				draggedColormap = null;
-				return false;
-			}
+				if(!Bounds.Contains(e.Location))
+				{
+					colorTableMgr.draggedColormap = null;
+					return false;
+				}
 
-			if(draggedColormap != null)
-			{
-				OnColormapDrop(draggedColormap, e);
+				if(colorTableMgr.draggedColormap != null)
+				{
+					OnColormapDrop(colorTableMgr.draggedColormap, e);
 
-				/*sections[0].colorMap = draggedColormap;
+					/*sections[0].colorMap = colorTableMgr.draggedColormap;
 				ColormapChanged();*/
-				draggedColormap = null;
-			}
+					colorTableMgr.draggedColormap = null;
+				}
 
-			if(dragSplitter != null)
-			{
-				//EDIT: Hide trash button
+				if(dragSplitterIndex != -1)
+				{
+					//EDIT: Hide trash button
 
-				/*if(false)//(target == document.getElementById('cmdTrash')) // If splitter is released above trash
+					/*if(false)//(target == document.getElementById('cmdTrash')) // If splitter is released above trash
 				{
 					// Remove dragSplitter
 					splitters.splice(splitters.indexOf(dragSplitter), 1);
@@ -1059,69 +836,65 @@ public static string foo = "";
 					requestAnimFrame(render);
 					onColorTableChanged(sections);
 				}*/
-				dragSplitter = null;
+					dragSplitterIndex = -1;
+				}
+				else
+					colorTableMgr.SetCursor(CursorType.Default);
+
+				return true;
 			}
-			else
+
+			public bool MouseWheel(MouseEventArgs e)
 			{
-				SetCursor(Cursors.Default);
-				activecursor = null;
-			}
+				if(!Bounds.Contains(e.Location))
+					return false;
 
-			return true;
-		}
+				float xr = Math.Min(Math.Max((float)(e.X - Bounds.X) / (float)Bounds.Width, 0.0f), 1.0f);
+				xr = 1.0f - 2.0f * xr; // xr = mouse position in device space ([-1, 1])
 
-		public bool MouseWheel(MouseEventArgs e)
-		{
-			if(!bounds.Contains(e.Location))
-				return false;
+				// >>> Mouse centered zoom
+				// tm0 = vector from coordinate system center to mouse position in transform space
+				// Algorithm:
+				// 1) Translate image center to mouse cursor
+				// 2) Zoom
+				// 3) Translate back
 
-			float xr = Math.Min(Math.Max((float)(e.X - bounds.X) / (float)bounds.Width, 0.0f), 1.0f);
-			xr = 1.0f - 2.0f * xr; // xr = mouse position in device space ([-1, 1])
+				Matrix4 transform_noscale = transform;
+				transform_noscale.M11 = 1.0f; transform_noscale.M22 = 1.0f;
 
-			// >>> Mouse centered zoom
-			// tm0 = vector from coordinate system center to mouse position in transform space
-			// Algorithm:
-			// 1) Translate image center to mouse cursor
-			// 2) Zoom
-			// 3) Translate back
+				Vector3 t0, tm, tm0, tm0n;
+				t0 = Vector3.Transform(new Vector3(0.0f, 0.0f, 0.0f), transform_noscale);
+				tm = Vector3.Transform(new Vector3(xr, 0.0f, 0.0f), transform_noscale);
+				tm0 = Vector3.Subtract(t0, tm);
+				tm0 = Vector3.Transform(tm0, invtransform);
+				tm0n = Vector3.Multiply(tm0, -1.0f);
 
-			Matrix4 transform_noscale = transform;
-			transform_noscale.M11 = 1.0f; transform_noscale.M22 = 1.0f;
+				foo = tm.X.ToString();
 
-			Vector3 t0, tm, tm0, tm0n;
-			t0 = Vector3.Transform(new Vector3(0.0f, 0.0f, 0.0f), transform_noscale);
-			tm = Vector3.Transform(new Vector3(xr, 0.0f, 0.0f), transform_noscale);
-			tm0 = Vector3.Subtract(t0, tm);
-			tm0 = Vector3.Transform(tm0, invtransform);
-			tm0n = Vector3.Multiply(tm0, -1.0f);
-
-			foo = tm.X.ToString();
-
-			float zoom = 1.0f + (float)Math.Sign(e.Delta) / 50.0f;
-			transform *= Matrix4.CreateTranslation(tm0n);
-			transform *= Matrix4.CreateScale(new Vector3(zoom, 1.0f, 1.0f));
-			transform *= Matrix4.CreateTranslation(tm0);
-			restrictTransform(ref transform);
-			invtransform = Matrix4.Invert(transform);
-			/*requestAnimFrame(render);
+				float zoom = 1.0f + (float)Math.Sign(e.Delta) / 50.0f;
+				transform *= Matrix4.CreateTranslation(tm0n);
+				transform *= Matrix4.CreateScale(new Vector3(zoom, 1.0f, 1.0f));
+				transform *= Matrix4.CreateTranslation(tm0);
+				restrictTransform(ref transform);
+				invtransform = Matrix4.Invert(transform);
+				/*requestAnimFrame(render);
 			repositionHistogramLabels();*/
 
-			// Trigger mouse move event, because the relative mouse position might have changed
-			this.MouseMove(e);
+				// Trigger mouse move event, because the relative mouse position might have changed
+				this.MouseMove(e);
 
-			return true;
-		}
+				return true;
+			}
 
-		private void OnColormapDrop(NamedColorTable colormap, MouseEventArgs e)
-		{
-			ActionManager.Do(HideColormapPickerAction);
-			float xr = Math.Min(Math.Max((float)(e.X - bounds.X) / (float)bounds.Width, 0.0f), 1.0f);
+			private void OnColormapDrop(NamedColorTable colormap, MouseEventArgs e)
+			{
+				float xr = Math.Min(Math.Max((float)(e.X - Bounds.X) / (float)Bounds.Width, 0.0f), 1.0f);
 
-			Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
-			xr = vpos.X / 2.0f + 0.5f;
+				Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
+				xr = vpos.X / 2.0f + 0.5f;
 
-//			highlightArea = null;
-			/*bool done = false; 
+				//			highlightArea = null;
+				/*bool done = false; 
 			foreach(Section section in sections)
 				if(!done && section.start.pos <= xr && xr < section.end.pos)
 				{
@@ -1132,135 +905,470 @@ public static string foo = "";
 					done = true;
 				}
 			ColormapChanged();*/
-			for(int sectionIndex = 0; sectionIndex < sections.Count; ++sectionIndex)
-				if(sections[sectionIndex].start.pos <= xr && xr < sections[sectionIndex].end.pos)
-					ActionManager.Do(SetSectionColormapAction, new object[] { sectionIndex, colormap.name });
+				for(int sectionIndex = 0; sectionIndex < sections.Count; ++sectionIndex)
+					if(sections[sectionIndex].start.pos <= xr && xr < sections[sectionIndex].end.pos)
+					{
+						ActionManager.Do(SetSectionColormapAction, new object[] { sectionIndex, colormap.name });
+						break;
+					}
+			}
+
+			private void restrictTransform(ref Matrix4 transform)
+			{
+				// Restrict transformations to keep the whole canvas (-1 ... 1) filled with (part of) the color map
+
+				if(transform.M11 < 1.0f) // If zoomed out more than zoom == 1.0f
+					transform.M11 = 1.0f;
+				if(-1.0f * transform.M11 + transform.M41 > -1.0f) // If out of bounds left
+					transform.M41 = 1.0f * transform.M11 - 1.0f;
+				else if(1.0 * transform.M11 + transform.M41 < 1.0f) // If out of bounds right
+					transform.M41 = 1.0f - 1.0f * transform.M11;
+			}
+
+			private void ColormapChanged(float updateRegion_start, float updateRegion_end)
+			{
+				colormapUpdateStart = Math.Min(colormapUpdateStart, updateRegion_start);
+				colormapUpdateEnd = Math.Max(colormapUpdateEnd, updateRegion_end);
+			}
+
+			private void InsertSplitterPin(float splitterPosition)
+			{
+				// Find section containing splitterPosition
+				int sectionIdx;
+				for(sectionIdx = 0; sectionIdx < sections.Count; ++sectionIdx)
+					if(sections[sectionIdx].start.pos < splitterPosition && splitterPosition <= sections[sectionIdx].end.pos)
+						break;
+				if(sectionIdx == sections.Count)
+					return;
+
+				// >>> Insert splitter at splitterPosition
+
+				Splitter newSplitter = new Splitter {
+					isfixed = false,
+					interjector = false,
+					pos = splitterPosition,
+					left = null,
+					right = null
+				};
+				splitters.Add(newSplitter);
+				Section newSection = new Section {
+					colorMap = sections[sectionIdx].colorMap,
+					start = sections[sectionIdx].start,
+					end = newSplitter,
+					startValue = sections[sectionIdx].startValue,
+					endValue = sections[sectionIdx].endValue,
+					flipped = sections[sectionIdx].flipped,
+					interjector = false
+				};
+				sections[sectionIdx].start.right = newSection;
+				sections[sectionIdx].start = newSplitter;
+				newSplitter.left = newSection;
+				newSplitter.right = sections[sectionIdx];
+				sections.Insert(sectionIdx, newSection);
+
+				ColormapChanged(newSplitter.left.start.pos, newSplitter.right.end.pos);
+			}
+			private void InsertNestedPin(float splitterPosition)
+			{
+				// Find section containing splitterPosition
+				int sectionIdx;
+				for(sectionIdx = 0; sectionIdx < sections.Count; ++sectionIdx)
+					if(sections[sectionIdx].start.pos < splitterPosition && splitterPosition <= sections[sectionIdx].end.pos)
+						break;
+				if(sectionIdx == sections.Count)
+					return;
+
+				// >>> Insert interjector at splitterPosition
+
+				Vector3 vpos = Vector3.Transform(new Vector3(2.0f * 10.0f / BackbufferSize.Width - 1.0f, 0.0f, 0.0f), invtransform);
+				var delta = vpos.X / 2.0f + 0.5f;
+
+				Splitter leftSplitter = new Splitter {
+					isfixed = false,
+					interjector = false,
+					pos = Math.Max(splitterPosition - delta, sections[sectionIdx].start.pos + 1e-5f),
+					left = null,
+					right = null
+				};
+				Splitter rightSplitter = new Splitter {
+					isfixed = false,
+					interjector = false,
+					pos = Math.Min(splitterPosition + delta, sections[sectionIdx].end.pos - 1e-5f),
+					left = null,
+					right = null
+				};
+				splitters.Add(leftSplitter);
+				splitters.Add(rightSplitter);
+				Section newSection = new Section {
+					colorMap = sections[sectionIdx].colorMap,
+					start = leftSplitter,
+					end = rightSplitter,
+					startValue = sections[sectionIdx].startValue,
+					endValue = sections[sectionIdx].endValue,
+					flipped = sections[sectionIdx].flipped,
+					interjector = true
+				};
+				sections.Insert(sectionIdx, newSection);
+
+				leftSplitter.right = rightSplitter.left = newSection;
+
+				ColormapChanged(newSection.start.pos, newSection.end.pos);
+			}
+			private void MovePin(int splitterIndex, float splitterPosition)
+			{
+				if(splitterIndex < 0 || splitterIndex >= splitters.Count || splitters[splitterIndex].isfixed)
+					return;
+				Splitter dragSplitter = splitters[splitterIndex];
+
+				// >>> Move pin to splitterPosition
+
+				float dragBoundsLeft = dragSplitter.left != null ? dragSplitter.left.start.pos : 0.0f;
+				float dragBoundsRight = dragSplitter.right != null ? dragSplitter.right.end.pos : 1.0f;
+
+				//xr = Math.min(Math.max(xr, 0.0), 1.0);
+				/*if(dragSplitter.left !== null)
+					xr = Math.max(xr, dragSplitter.left.start.pos);
+				if(dragSplitter.right !== null)
+				{
+					xr = Math.min(xr, dragSplitter.right.end.pos);
+					console.log(dragSplitter.right.end.pos);
+				}*/
+
+				splitterPosition = Math.Max(splitterPosition, dragBoundsLeft);
+				splitterPosition = Math.Min(splitterPosition, dragBoundsRight);
+
+				ColormapChanged(dragSplitter.left == null ? dragSplitter.pos : dragSplitter.left.start.pos, dragSplitter.right == null ? dragSplitter.pos : dragSplitter.right.end.pos);
+				dragSplitter.pos = splitterPosition;
+				ColormapChanged(dragSplitter.left == null ? dragSplitter.pos : dragSplitter.left.start.pos, dragSplitter.right == null ? dragSplitter.pos : dragSplitter.right.end.pos);
+			}
+			private void SetSectionColormap(int sectionIndex, string colormapName)
+			{
+				if(sectionIndex < 0 || sectionIndex >= sections.Count)
+					return;
+				Section section = sections[sectionIndex];
+
+				NamedColorTable colormap;
+				if(!colorTableMgr.colormaps.TryGetValue(colormapName, out colormap))
+					return;
+
+				section.colorMap = colormap;
+				section.flipped = false;//colormap.flipped;
+				section.startValue = 0.0f;
+				section.endValue = 1.0f;
+
+				ColormapChanged(section.start.pos, section.end.pos);
+			}
+			private void ResetColorTable()
+			{
+				splitters = new List<Splitter>() {
+					new Splitter {isfixed=true, interjector=false, pos=0.0f, left=null, right=null},
+					new Splitter {isfixed=true, interjector=false, pos=1.0f, left=null, right=null}
+				};
+				sections = new List<Section>() {
+					new Section {colorMap=(NamedColorTable)colorTableMgr.colormaps["_default"], start=splitters[0], end=splitters[1], startValue=0.0f, endValue=1.0f, flipped=false, interjector=false}
+				};
+				ColormapChanged(0.0f, 1.0f);
+			}
 		}
+		private InputSection input;
 
-		private void restrictTransform(ref Matrix4 transform)
+		private readonly GLWindow glcontrol;
+		private readonly GLButton[] buttons;
+		private readonly GLCursor[] cursors;
+		private GLCursor activecursor = null;
+
+		public Dictionary<string, NamedColorTable> colormaps = new Dictionary<string, NamedColorTable>();
+
+		public GLTexture1D Colormap { get { return input.Colormap;} }
+
+		private Action ShowColormapPickerAction, HideColormapPickerAction;
+
+		public ColorTableManager(GLWindow glcontrol, FlowLayoutPanel pnlImageControls)
 		{
-			// Restrict transformations to keep the whole canvas (-1 ... 1) filled with (part of) the color map
+			this.glcontrol = glcontrol;
+			this.Bounds = new Rectangle(Point.Empty, glcontrol.Size);
+			SetCursor(CursorType.Default);
 
-			if(transform.M11 < 1.0f) // If zoomed out more than zoom == 1.0f
-				transform.M11 = 1.0f;
-			if(-1.0f * transform.M11 + transform.M41 > -1.0f) // If out of bounds left
-				transform.M41 = 1.0f * transform.M11 - 1.0f;
-			else if(1.0 * transform.M11 + transform.M41 < 1.0f) // If out of bounds right
-				transform.M41 = 1.0f - 1.0f * transform.M11;
+			ShowColormapPickerAction = ActionManager.CreateAction("Show colormap picker", "show picker", delegate(object[] parameters) {
+				pickerVisible = true;
+			});
+			HideColormapPickerAction = ActionManager.CreateAction("Hide colormap picker", "hide picker", delegate(object[] parameters) {
+				pickerVisible = false;
+			});
+
+			// Create shaders as singleton
+			/*if(colortableshader == null)
+				colortableshader = new GLShader(new string[] {COLOR_TABLE_SHADER.VS}, new string[] {COLOR_TABLE_SHADER.FS});*/
+			if(lineshader == null)
+				lineshader = new GLShader(new string[] {LINE_SHADER.VS}, new string[] {LINE_SHADER.FS});
+			if(cmpreviewshader == null)
+				cmpreviewshader = new GLShader(new string[] {COLORMAP_PREVIEW_SHADER.VS}, new string[] {COLORMAP_PREVIEW_SHADER.FS});
+
+			// Create input section
+			input = new InputSection(this, new GLFont(new Font("Lucida Sans Unicode", 12.0f)));
+			input.Bounds = new Rectangle(130, 60, glcontrol.Width - 260, 200);//new Rectangle(100, glcontrol.Height - 60, glcontrol.Width - 400, 40);
+			input.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
+			this.Controls.Add(input);
+
+			// Create colormap picker
+			picker = new ColorMapPicker(new GLFont(new Font("Lucida Sans Unicode", 12.0f/*, FontStyle.Bold*/)));
+			picker.bounds = new Rectangle(0, 0, glcontrol.Width, input.Bounds.Top);
+			picker.ColormapDragStart += ColorMapPicker_ColormapDragStart;
+
+			// Create/load colormaps
+			AddColormap(ColorTableFromSolidColor(Color4.Red, Vector3.Zero, "Red"));
+			AddColormap(ColorTableFromSolidColor(Color4.Orange, Vector3.Zero, "Orange"));
+			AddColormap(ColorTableFromSolidColor(Color4.Yellow, Vector3.Zero, "Yellow"));
+			AddColormap(ColorTableFromSolidColor(Color4.Green, Vector3.Zero, "Green"));
+			AddColormap(ColorTableFromSolidColor(Color4.Blue, Vector3.Zero, "Blue"));
+			AddColormap(ColorTableFromSolidColor(Color4.White, Vector3.Zero, "White"));
+			AddColormap(ColorTableFromSolidColor(Color4.Gray, Vector3.Zero, "Gray"));
+			AddColormap(ColorTableFromSolidColor(Color4.Black, Vector3.Zero, "Black"));
+			/*ColorMapCreator.Vector3 C0 = new ColorMapCreator.Vector3(58.650f, 76.245f, 192.270f);
+			ColorMapCreator.Vector3 C1 = new ColorMapCreator.Vector3(180.030f, 4.080f, 38.250f);
+			AddColormap(ColorTableFromRange(C0, C1, new Vector3(65.0f / 255.0f, 68.0f / 255.0f, 91.0f / 255.0f), "Moreland cool/warm", "Divergent"));*/
+			AddColormaps(ColorTableFromXml("ColorMaps.xml"));
+			AddColormap(NamedColorTable.None);
+
+			ActionManager.Do(HideColormapPickerAction);
+			Reset();
+
+			// Create buttons
+			buttons = new GLButton[4];
+			buttons[0] = new GLButton("splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateSplitter", "Create colormap splitter");
+			buttons[0].Click = SplitterButton_Click;
+			buttons[1] = new GLButton("interjectorButton.png", new Rectangle(4, 100 - buttons[0].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateInterjector", "Create colormap interjector");
+			buttons[1].Click = InterjectorButton_Click;
+			buttons[2] = new GLButton("colorMapButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "ShowColormapPicker", "Show colormap picker");
+			buttons[2].Click = ColorMapButton_Click;
+			buttons[3] = new GLButton("saveColorMapButton.png", new Rectangle(4, 100 - buttons[2].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "SaveColormap", "Save colormap to disk");
+			buttons[3].Click = SplitterButton_Click;
+
+			// Create cursors
+			cursors = new GLCursor[2];
+			cursors[0] = new GLCursor("splitterCursor.png", new Point(2, 54));
+			cursors[1] = new GLCursor("interjectorCursor.png", new Point(8, 51));
+
+			/*HISTORY_PATH = System.Reflection.Assembly.GetEntryAssembly().Location;
+			HISTORY_PATH = HISTORY_PATH.Substring(0, Math.Max(HISTORY_PATH.LastIndexOf('/'), HISTORY_PATH.LastIndexOf('\\')) + 1);
+			HISTORY_PATH += ".colormap";
+
+			if(System.IO.File.Exists(HISTORY_PATH))
+			{
+				System.IO.StreamReader sr = new System.IO.StreamReader(HISTORY_PATH);
+				while(sr.Peek() != -1)
+					history.Add(sr.ReadLine());
+				sr.Close();
+				history_idx = history.Count;
+			}*/
 		}
-
-		private void ColormapChanged()
+		/*~ColorTableManager()
 		{
-			settingsChanged = true;
-		}
-
-		private void InsertSplitterPin(float splitterPosition)
-		{
-			// Find section containing splitterPosition
-			int sectionIdx;
-			for(sectionIdx = 0; sectionIdx < sections.Count; ++sectionIdx)
-				if(sections[sectionIdx].start.pos < splitterPosition && splitterPosition <= sections[sectionIdx].end.pos)
-					break;
-			if(sectionIdx == sections.Count)
-				return;
-
-			// Insert splitter at splitterPosition
-			Splitter newSplitter = new Splitter {
-				isfixed = false,
-				interjector = false,
-				pos = splitterPosition,
-				left = null,
-				right = null
-			};
-			splitters.Add(newSplitter);
-			Section newSection = new Section {
-				colorMap = sections[sectionIdx].colorMap,
-				start = sections[sectionIdx].start,
-				end = newSplitter,
-				startValue = sections[sectionIdx].startValue,
-				endValue = sections[sectionIdx].endValue,
-				flipped = sections[sectionIdx].flipped,
-				interjector = false
-			};
-			sections[sectionIdx].start.right = newSection;
-			sections[sectionIdx].start = newSplitter;
-			newSplitter.left = newSection;
-			newSplitter.right = sections[sectionIdx];
-			sections.Insert(sectionIdx, newSection);
-		}
-		private void InsertNestedPin(float splitterPosition)
-		{
-			//EDIT
-		}
-		private void SetSectionColormap(int sectionIndex, string colormapName)
-		{
-			if(sectionIndex < 0 || sectionIndex >= sections.Count)
-				return;
-			Section section = sections[sectionIndex];
-
-			NamedColorTable colormap;
-			if(!colormaps.TryGetValue(colormapName, out colormap))
-				return;
-
-			section.colorMap = colormap;
-			section.flipped = false;//colormap.flipped;
-			section.startValue = 0.0f;
-			section.endValue = 1.0f;
-
-			ColormapChanged();
-		}
-		/*private void SetInnerColorTable(int index)
-		{
-			if(cbInnerColorTable.SelectedIndex != index)
-				cbInnerColorTable.SelectedIndex = index;
-
-			settings.innerColorTable = ((NamedColorTable)((ComboBox)cbInnerColorTable).SelectedItem).tex;
-			settings.nanColor = ((NamedColorTable)((ComboBox)cbInnerColorTable).SelectedItem).nanColor;
-
-			settingsChanged = true;
-		}
-		private void SetOuterColorTable(int index)
-		{
-			if(cbOuterColorTable.SelectedIndex != index)
-				cbOuterColorTable.SelectedIndex = index;
-
-			settings.outerColorTable = ((NamedColorTable)((ComboBox)cbOuterColorTable).SelectedItem).tex;
-
-			settingsChanged = true;
-		}
-		private void SetMinValue(float value)
-		{
-			settings.minValue = value;
-			if(settings.minValue > settings.maxValue)
-				settings.maxValue = value;
-
-			settingsChanged = true;
-		}
-		private void SetMaxValue(float value)
-		{
-			settings.maxValue = value;
-			if(settings.maxValue < settings.minValue)
-				settings.minValue = value;
-
-			settingsChanged = true;
+			System.IO.StreamWriter sw = new System.IO.StreamWriter(HISTORY_PATH);
+			foreach(string h in history)
+				sw.WriteLine(h);
+			sw.Close();
 		}*/
-		private void ResetColorTable()
+
+		private void AddColormap(NamedColorTable colormap)
 		{
-			splitters = new List<Splitter>() {
-				new Splitter {isfixed=true, interjector=false, pos=0.0f, left=null, right=null},
-				new Splitter {isfixed=true, interjector=false, pos=1.0f, left=null, right=null}
-			};
-			sections = new List<Section>() {
-				new Section {colorMap=(NamedColorTable)cbInnerColorTable.Items[0], start=splitters[0], end=splitters[1], startValue=0.0f, endValue=1.0f, flipped=false, interjector=false}
-			};
-			ColormapChanged();
+			colormaps.Add(colormap.name, colormap);
+			if(colormap.groupname != "Solid" && !colormaps.ContainsKey("_default"))
+				colormaps.Add("_default", colormap);
+
+			picker.AddColorMap(colormap);
 		}
+		private void AddColormaps(IEnumerable<NamedColorTable> colormaps)
+		{
+			NamedColorTable defaultColormap;
+			this.colormaps.TryGetValue("_default", out defaultColormap);
+
+			foreach(NamedColorTable colormap in colormaps)
+			{
+				this.colormaps.Add(colormap.name, colormap);
+				if(defaultColormap == null && colormap.groupname != "Solid")
+				{
+					defaultColormap = colormap;
+					this.colormaps.Add("_default", colormap);
+				}
+
+				picker.AddColorMap(colormap);
+			}
+		}
+
+		/*public void SelectImage(HashSet<int>[] selection, Dictionary<int[], TransformedImage> images)
+		{
+			TransformedImage selection;
+			images.TryGetValue(selectionkey, out selection);
+
+			if(selection != null && selection.meta.ContainsKey("histogram"))
+			{
+				List<Vector3> positions = new List<Vector3>();
+				Newtonsoft.Json.Linq.JContainer histogram = (Newtonsoft.Json.Linq.JContainer)selection.meta["histogram"];
+				const float xscale = -50.0f;
+				float yscale = (float)1.0f / (float)histogram.Count, i = 0.0f;
+				positions.Add(new Vector3(0.0f, 1.0f, 0.0f));
+				foreach(double value in histogram)
+					positions.Add(new Vector3((float)value * xscale, 1.0f - i++ * yscale, 0.0f));
+				positions.Add(new Vector3(0.0f, 0.0f, 0.0f));
+
+				meshHistogram = new GLMesh(positions.ToArray(), null, null, null, null, null, PrimitiveType.LineLoop);
+			}
+			else
+				meshHistogram = null;
+		}*/
+
+		private void SplitterButton_Click(object sender, EventArgs e)
+		{
+			SetCursor(CursorType.InsertSplitterPin);
+		}
+		private void InterjectorButton_Click(object sender, EventArgs e)
+		{
+			SetCursor(CursorType.InsertNestedPin);
+		}
+		private void ColorMapButton_Click(object sender, EventArgs e)
+		{
+			if(pickerVisible)
+				ActionManager.Do(HideColormapPickerAction);
+			else
+				ActionManager.Do(ShowColormapPickerAction);
+		}
+
+		private void ColorMapPicker_ColormapDragStart(NamedColorTable colormap)
+		{
+			draggedColormap = colormap;
+		}
+
+		public void OnSizeChanged(Size backbuffersize)
+		{
+			foreach(GLButton button in buttons)
+				button.OnParentSizeChanged(backbuffersize, backbuffersize);
+			foreach(GLCursor cursor in cursors)
+				cursor.OnSizeChanged(backbuffersize);
+			picker.OnSizeChanged(backbuffersize);
+		}
+
+		public void Draw(float dt)
+		{
+			foreach(GLButton button in buttons)
+				button.Draw(dt);
+
+			if(pickerVisible)
+				picker.Draw();
+
+			if(activecursor != null)
+				activecursor.Draw(glcontrol.PointToClient(Control.MousePosition));
+		}
+
+		public enum CursorType
+		{
+			Default, InsertSplitterPin, InsertNestedPin, MovePin, MoveView, HoverOverPoint, DragPoint
+		}
+		private CursorType currentCursor = CursorType.Default;
+public static string foo = "";
+		public CursorType GetCursor()
+		{
+			return currentCursor;
+		}
+		public void SetCursor(CursorType cursor)
+		{
+			if(cursor != currentCursor)
+			{
+				switch(cursor)
+				{
+				case CursorType.InsertSplitterPin:
+					Cursor.Current = Cursors.Default;
+					activecursor = cursors[0];
+					activecursor.visible = true;
+					break;
+				case CursorType.InsertNestedPin:
+					Cursor.Current = Cursors.Default;
+					activecursor = cursors[1];
+					activecursor.visible = true;
+					break;
+				case CursorType.MovePin:
+					Cursor.Current = Cursors.VSplit;
+					activecursor = null;
+					break;
+				case CursorType.MoveView:
+					Cursor.Current = Cursors.SizeAll;
+					activecursor = null;
+					break;
+				case CursorType.HoverOverPoint:
+					Cursor.Current = Cursors.Hand;
+					activecursor = null;
+					break;
+				case CursorType.DragPoint:
+					Cursor.Current = Cursors.Hand;
+					activecursor = null;
+					break;
+				default:
+					Cursor.Current = Cursors.Default;
+					activecursor = null;
+					break;
+				}
+				currentCursor = cursor;
+			}
+		}
+
+		public new bool MouseDown(MouseEventArgs e)
+		{
+			if(pickerVisible && picker.MouseDown(e))
+				return true;
+			foreach(GLButton button in buttons)
+				if(button.OnMouseDown(e))
+					return true;
+
+			return input.MouseDown(e);
+		}
+		public bool MouseMove(MouseEventArgs e)
+		{
+			if(pickerVisible && picker.MouseMove(e))
+				return true;
+
+			/*bool inside = bounds.Contains(e.Location);
+
+			if(inside && activecursor != null)
+			{
+				//Cursor.Hide();
+				activecursor.visible = true;
+			}
+			else if(!inside)
+			{
+				//Cursor.Show();
+				if(activecursor != null)
+					activecursor.visible = false;
+			}*/
+			
+			return input.MouseMove(e);
+		}
+		public bool MouseUp(MouseEventArgs e)
+		{
+			if(pickerVisible && draggedColormap != null)
+				ActionManager.Do(HideColormapPickerAction);
+			
+			return input.MouseUp(e);
+		}
+
+		public bool MouseWheel(MouseEventArgs e)
+		{
+			return input.MouseWheel(e);
+		}
+
 		public void Reset()
 		{
-			ActionManager.Do(ResetColorTableAction, new object[] {});
+			ActionManager.Do(input.ResetColorTableAction, new object[] {});
 		}
 
 #region "ColorTable creation/loading"
+		private static NamedColorTable ColorTableFromSolidColor(Color4 color, Vector3 nanColor, string name)
+		{
+			byte[] colormapBytes = new byte[3];
+			colormapBytes[0] = (byte)(color.R * 255.0f);
+			colormapBytes[1] = (byte)(color.G * 255.0f);
+			colormapBytes[2] = (byte)(color.B * 255.0f);
+			return new NamedColorTable(new GLTexture1D(colormapBytes, 1, false), nanColor, name, "Solid");
+		}
 		private static NamedColorTable ColorTableFromRange(ColorMapCreator.Vector3 cmin, ColorMapCreator.Vector3 cmax, Vector3 nanColor, string name, string groupname)
 		{
 			byte[] colorTable = new byte[COLOR_TABLE_SIZE * 3];

@@ -22,13 +22,23 @@ namespace csharp_viewer
 		}*/
 		private Size parentSize = Size.Empty;
 
-		/*private Size backbuffersize = Size.Empty;
+		private Size backbufferSize = Size.Empty;
 		public Size BackbufferSize
 		{
-			get { return backbuffersize; }
-		}*/
+			get { return backbufferSize; }
+		}
 
-		public Rectangle bounds = new Rectangle(0, 0, 100, 100);
+		private Rectangle bounds = new Rectangle(0, 0, 100, 100);
+		public Rectangle Bounds
+		{
+			get { return bounds; }
+			set
+			{
+				bounds = value;
+				foreach(GLControl control in Controls)
+					OnParentSizeChanged(backbufferSize, bounds.Size);
+			}
+		}
 		public Size Size { get { return bounds.Size; } }
 		public int Width { get { return bounds.Width; } }
 		public int Height { get { return bounds.Height; } }
@@ -37,15 +47,17 @@ namespace csharp_viewer
 		public AnchorStyles Anchor
 		{
 			get { return anchor; }
-			set { anchor = value; OnParentSizeChanged(parentSize); }
+			set { anchor = value; OnParentSizeChanged(backbufferSize, parentSize); }
 		}
 
 		private DockStyle dock = DockStyle.None;
 		public DockStyle Dock
 		{
 			get { return dock; }
-			set { dock = value; OnParentSizeChanged(parentSize); }
+			set { dock = value; OnParentSizeChanged(backbufferSize, parentSize); }
 		}
+
+		public bool Visible = true;
 
 		protected virtual void Draw(float dt, Matrix4 transform) {}
 		protected virtual void SizeChanged() {}
@@ -57,12 +69,12 @@ namespace csharp_viewer
 		}
 		private void Controls_ControlAdded(GLControl control)
 		{
-			control.OnParentSizeChanged(this.Size);
+			control.OnParentSizeChanged(backbufferSize, this.Size);
 		}
 
 		public void Draw(float dt)
 		{
-			if(parentSize.Width == 0)
+			if(!Visible || parentSize.Width == 0)
 				return;
 
 			Matrix4 transform = Matrix4.Identity;
@@ -71,11 +83,16 @@ namespace csharp_viewer
 			Draw(dt, transform);
 
 			foreach(GLControl control in Controls)
+			{
+				if(control.BackbufferSize.Width != backbufferSize.Width || control.BackbufferSize.Height != backbufferSize.Height) //EDIT: Might be slow
+					control.OnParentSizeChanged(backbufferSize, parentSize); //EDIT: Might be slow
 				control.Draw(dt);
+			}
 		}
 
-		public void OnParentSizeChanged(Size parentSize)
+		public void OnParentSizeChanged(Size backbufferSize, Size parentSize)
 		{
+			this.backbufferSize = backbufferSize;
 			if(parentSize.Width == this.parentSize.Width && parentSize.Height == this.parentSize.Height)
 				return;
 
@@ -85,7 +102,12 @@ namespace csharp_viewer
 			{
 				// Adjust bounds to top-left anchor
 				if((anchor & AnchorStyles.Right) != 0)
-					bounds.X = this.parentSize.Width - bounds.Right;
+				{
+					if((anchor & AnchorStyles.Left) != 0)
+						bounds.Width += parentSize.Width - this.parentSize.Width;
+					else
+						bounds.X = this.parentSize.Width - bounds.Right;
+				}
 				if((anchor & AnchorStyles.Bottom) != 0)
 					bounds.Y = this.parentSize.Height - bounds.Bottom;
 			}
@@ -96,7 +118,7 @@ namespace csharp_viewer
 			{
 			case DockStyle.None:
 				// Adjust bounds to anchor
-				if((anchor & AnchorStyles.Right) != 0)
+				if((anchor & AnchorStyles.Right) != 0 && (anchor & AnchorStyles.Left) == 0)
 					bounds.X = parentSize.Width - bounds.Right;
 				if((anchor & AnchorStyles.Bottom) != 0)
 					bounds.Y = parentSize.Height - bounds.Bottom;
@@ -134,7 +156,7 @@ namespace csharp_viewer
 			{
 				SizeChanged();
 				foreach(GLControl control in Controls)
-					control.OnParentSizeChanged(this.Size);
+					control.OnParentSizeChanged(backbufferSize, this.Size);
 			}
 		}
 
@@ -219,7 +241,7 @@ namespace csharp_viewer
 		private void OnSizeChanged(object sender, EventArgs e)
 		{
 			foreach(GLControl control in Controls)
-				control.OnParentSizeChanged(this.Size);
+				control.OnParentSizeChanged(this.Size, this.Size);
 		}
 		private void OnMouseDown(object sender, MouseEventArgs e)
 		{
@@ -257,7 +279,11 @@ namespace csharp_viewer
 			MakeCurrent();
 			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 			foreach(GLControl control in Controls)
+			{
+				if(control.BackbufferSize.Width != this.Width || control.BackbufferSize.Height != this.Height) //EDIT: Might be slow
+					control.OnParentSizeChanged(this.Size, this.Size); //EDIT: Might be slow
 				control.Draw(dt);
+			}
 		}
 	}
 
@@ -279,11 +305,12 @@ namespace csharp_viewer
 				bounds.Width = tex.width;
 			if(bounds.Height <= 0)
 				bounds.Height = tex.height;
-			this.bounds = bounds;
+			this.Bounds = bounds;
 		}
 
 		protected override void Draw(float dt, Matrix4 transform)
 		{
+			transform *= Matrix4.CreateTranslation(0.5f / BackbufferSize.Width, 0.5f / BackbufferSize.Height, 0.0f);
 			Common.sdrTextured.Bind(transform);
 			Common.meshQuad.Bind(Common.sdrTextured, tex);
 			Common.meshQuad.Draw();
@@ -311,7 +338,7 @@ namespace csharp_viewer
 
 		protected override void Draw(float dt, Matrix4 transform)
 		{
-			Common.fontText.DrawString(bounds.Left, bounds.Top, Text, new Size(1024, 1024));
+			Common.fontText.DrawString(Bounds.Left, Bounds.Top, Text, new Size(1024, 1024));
 		}
 	}
 }

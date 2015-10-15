@@ -163,10 +163,11 @@ namespace csharp_viewer
 			imageCloud.Dock = DockStyle.Fill;
 			glImageCloud.Controls.Add(imageCloud);
 
-			pnlImageControls = new FlowLayoutPanel();
+			/*pnlImageControls = new FlowLayoutPanel();
 			pnlImageControls.BackColor = SystemColors.Control;
 			pnlImageControls.TabIndex = 1;
-			this.Controls.Add(pnlImageControls);
+			this.Controls.Add(pnlImageControls);*/
+			pnlImageControls = null;
 
 			#if !DISABLE_DATAVIZ
 			pnlPCView = new Panel();
@@ -663,7 +664,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private static void SetControlSize(Control control, int x, int y, int width, int height)
 		{
-			control.SetBounds(x, y, width > 0 ? width : 0, height > 0 ? height : 0);
+			if(control != null)
+				control.SetBounds(x, y, width > 0 ? width : 0, height > 0 ? height : 0);
 		}
 		private void this_SizeChanged(object sender, EventArgs e)
 		{
@@ -671,7 +673,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			int w = this.ClientSize.Width, h = this.ClientSize.Height;
 #if DISABLE_DATAVIZ
-			SetControlSize(glImageCloud, 0, 0, w, h - 200);
+			SetControlSize(glImageCloud, 0, 0, w, pnlImageControls == null ? h : h - 200);
 			if(ctrlConsole != null)
 			{
 				SetControlSize(pnlImageControls, 0, h - 200, w, 32);
@@ -911,7 +913,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		private void glImageCloud_KeyDown(object sender, KeyEventArgs e)
 		{
 			if(e.KeyCode == Keys.P)
-				actMgr.Play(1.0);
+				actMgr.Play(2.0);
 			else if(e.KeyCode == Keys.R)
 				actMgr.CaptureFrames(20.0);
 			else if(e.KeyCode == Keys.X)

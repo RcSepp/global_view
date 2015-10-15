@@ -760,3 +760,7 @@ load("/Users/sklaassen/Desktop/work/mpas_060km/")
 load("/Users/sklaassen/Desktop/work/mpas_060km/")
 exit
 exit
+load("mpas_single")
+focus all
+spread all
+exit
