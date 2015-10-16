@@ -538,3 +538,138 @@ none
 load("cosmo")
 all
 focus
+load("cinema")
+ls
+load("bunyy")
+load("bunny")
+spread random
+spread random
+all
+focus
+spread random
+spread all
+clear
+spread random
+spread random
+all
+all
+focus
+spread all
+clear
+spread random
+all
+load("cosmo")
+spread random
+focus
+all
+focus
+load("cosmo")
+spread all
+focus
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+none
+none
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("mpas2")
+spread all
+load("mpas2")
+unload
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+
+spread all
+
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+load("cosmo")
+spread all
+unload()
+exit
+load("mpas2")
+spread all
+focus
+load("mpas2")
+spread all
+spread all
+clear
+animate $time
+xy
+x $theta
+y $phi
+focus all
+load("mpas2")
+animate $time
+theta-phi-view $theta $phi
+all
+theta-phi-view $theta $phi
+animate $time
+focus
+none

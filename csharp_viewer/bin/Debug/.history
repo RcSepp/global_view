@@ -764,3 +764,61 @@ load("mpas_single")
 focus all
 spread all
 exit
+load("bunny")
+animate $theta
+animate $phi
+clear
+clear
+animate $theta
+clear
+x $theta
+y $phi
+focus
+clear
+y $phi
+clear
+y $phi
+x $theta
+exit
+x $theta
+y $phi
+focus
+y $phi
+all
+y $phi
+x $theta
+focus
+spread random
+spread random
+spread random
+spread random
+spread random
+focus
+all
+focus
+none
+spread random
+spread random
+spread random
+all
+focus
+spread random
+focus
+all
+focus
+all
+focus
+spread random
+all
+focus
+all
+all
+all
+focus
+spread all
+spread all
+clear
+spread random
+spread random
+spread random
+spread random

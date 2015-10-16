@@ -160,7 +160,7 @@ namespace csharp_viewer
 		{
 			//tex.Load();
 
-			//if(tex.tex == -1)
+			//if(tex.tex < 0)
 			//	return;
 
 			Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -322,6 +322,15 @@ namespace csharp_viewer
 
 			return aabb;
 		}
+	}
+
+	/*public class TransformedImageCollection : Dictionary<int[], TransformedImage>
+	{
+
+	}*/
+	public class TransformedImageCollection : List<TransformedImage>
+	{
+		public List<TransformedImage> Values { get { return this; } }
 	}
 }
 

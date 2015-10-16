@@ -15,17 +15,24 @@ namespace csharp_viewer
 	{
 		public class CinemaArgument
 		{
-			public object[] values;
-			public object defaultValue;
+			public float[] values;
+			public string[] strValues;
+			public SortedDictionary<float, List<TransformedImage>> images = new SortedDictionary<float, List<TransformedImage>>();
+
+			public float defaultValue;
 			public string name, label;
 		}
 
 		public class CinemaImage
 		{
-			public object[] values;
 			public string filename;
 			public string depth_filename;
+
+			public float[] values;
+			public CinemaArgument[] args;
+
 			public Dictionary<string, object> meta;
+
 			public OpenTK.Matrix4 invview; // Required to recreate 3D pixel locations from depth image
 		}
 
@@ -89,9 +96,25 @@ namespace csharp_viewer
 				// Create CinemaArgument from JToken
 				CinemaArgument carg = arguments[matchidx++] = new CinemaArgument();
 				carg.name = argumentStr;
-				carg.values = argumentMeta["values"].ToObject<object[]>();
-				carg.defaultValue = argumentMeta["default"].ToObject<object>();
 				carg.label = argumentMeta["label"].ToObject<string>();
+				carg.strValues = argumentMeta["values"].ToObject<string[]>();
+
+				object[] values = argumentMeta["values"].ToObject<object[]>();
+				object defaultValue = argumentMeta["default"].ToObject<object>();
+
+				carg.values = new float[values.Length];
+				for(int i = 0; i < values.Length; ++i)
+				{
+					if(values[i].GetType() == typeof(string))
+						float.TryParse((string)values[i], out carg.values[i]);
+					else if(values[i].GetType() == typeof(long))
+						carg.values[i] = (float)(long)values[i];
+				}
+
+				if(defaultValue.GetType() == typeof(string))
+					float.TryParse((string)defaultValue, out carg.defaultValue);
+				else if(defaultValue.GetType() == typeof(long))
+					carg.defaultValue = (float)(long)defaultValue;
 
 //if(matchidx == 1)
 //	Array.Resize<object>(ref carg.values, 1);

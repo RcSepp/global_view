@@ -3,25 +3,54 @@ using System.Collections.Generic;
 
 namespace csharp_viewer
 {
-	public abstract class Selection : IEnumerable<KeyValuePair<int[], TransformedImage>>
+	public abstract class _Selection : IEnumerable<TransformedImage>
 	{
 		public delegate void ChangedDelegate(Selection selection);
 
-		public abstract Selection Clone();
-		public abstract bool Contains(int[] key);
+		public abstract _Selection Clone();
+		public abstract bool Contains(TransformedImage image);
 		public abstract int Count { get;}
 		public virtual bool IsEmpty { get { return Count == 0; } }
 
-		public abstract IEnumerator<KeyValuePair<int[], TransformedImage>> GetEnumerator();
+		public abstract IEnumerator<TransformedImage> GetEnumerator();
 		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
 		{
 			return this.GetEnumerator();
 		}
+
+		public _Selection Values()
+		{
+			return this;
+		}
+		/*public ValueCollection Values()
+		{
+			return new ValueCollection(this);
+		}
+
+		public class ValueCollection : IEnumerable<TransformedImage>
+		{
+			private Selection s;
+
+			public ValueCollection(Selection s)
+			{
+				this.s = s;
+			}
+			
+			public IEnumerator<TransformedImage> GetEnumerator()
+			{
+				foreach(KeyValuePair<int[], TransformedImage> image in s)
+					yield return image.Value;
+			}
+			System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+			{
+				return this.GetEnumerator();
+			}
+		}*/
 	}
 
-	public class IndexProductSelection : Selection
+	/*public class IndexProductSelection : Selection
 	{
-		private readonly Dictionary<int[], TransformedImage> images;
+		private readonly TransformedImageCollection images;
 
 		private HashSet<int>[] indices;
 		private KeyValuePair<string, HashSet<object>>[] constraints;
@@ -31,7 +60,7 @@ namespace csharp_viewer
 			get { return index < indices.Length ? indices[index] : null; }  
 		} 
 
-		public IndexProductSelection(int numdimensions, int numconstraints, Dictionary<int[], TransformedImage> images)
+		public IndexProductSelection(int numdimensions, int numconstraints, TransformedImageCollection images)
 		{
 			this.images = images;
 
@@ -50,12 +79,12 @@ namespace csharp_viewer
 			for(int i = 0; i < indices.Length; ++i)
 				foreach(int entry in indices[i])
 					clone.indices[i].Add(entry);
-			/*for(int i = 0; i < constraints.Length; ++i)
-			{
-				clone.constraints[i].Key = constraints[i].Key;
-				foreach(object entry in constraints[i].Value)
-					clone.constraints[i].Value.Add(entry);
-			}*/ //TODO: Deep copy constraints
+			//for(int i = 0; i < constraints.Length; ++i)
+			//{
+			//	clone.constraints[i].Key = constraints[i].Key;
+			//	foreach(object entry in constraints[i].Value)
+			//		clone.constraints[i].Value.Add(entry);
+			//} //TODO: Deep copy constraints
 			return clone;
 		}
 
@@ -77,12 +106,12 @@ namespace csharp_viewer
 				{
 					object value;
 					bool satisfiesConstraints = true;
-					/*foreach(KeyValuePair<string, HashSet<object>> constraint in constraints)
-						if(selectionimg.meta.TryGetValue(constraint.Key, out value) && !constraint.Value.Contains(value))
-						{
-							satisfiesConstraints = false;
-							break;
-						}*/
+					//foreach(KeyValuePair<string, HashSet<object>> constraint in constraints)
+					//	if(selectionimg.meta.TryGetValue(constraint.Key, out value) && !constraint.Value.Contains(value))
+					//	{
+					//		satisfiesConstraints = false;
+					//		break;
+					//	}
 						
 					if(satisfiesConstraints)
 						yield return new KeyValuePair<int[], TransformedImage>(selectionkey, selectionimg);
@@ -134,32 +163,32 @@ namespace csharp_viewer
 				return false;
 			}
 		}
-	}
+	}*/
 
-	public class ArraySelection : Selection
+	public class _ArraySelection : _Selection
 	{
-		private readonly Dictionary<int[], TransformedImage> images;
-		private Dictionary<int[], TransformedImage> selection;
+		private readonly TransformedImageCollection images;
+		private HashSet<TransformedImage> selection;
 
-		public ArraySelection(Dictionary<int[], TransformedImage> images)
+		public _ArraySelection(TransformedImageCollection images)
 		{
 			this.images = images;
-			this.selection = new Dictionary<int[], TransformedImage>();
+			this.selection = new HashSet<TransformedImage>();
 		}
-		public override Selection Clone()
+		public override _Selection Clone()
 		{
-			ArraySelection clone = new ArraySelection(images);
-			foreach(KeyValuePair<int[], TransformedImage> entry in selection)
-				clone.selection.Add(entry.Key, entry.Value);
+			_ArraySelection clone = new _ArraySelection(images);
+			foreach(TransformedImage entry in selection)
+				clone.selection.Add(entry);
 			return clone;
 		}
 
-		public void Add(int[] key, TransformedImage value)
+		public void Add(TransformedImage image)
 		{
-			if(!selection.ContainsKey(key))
-				selection.Add(key, value);
+			if(!selection.Contains(image))
+				selection.Add(image);
 		}
-		public void Add(int[] key)
+		/*public void Add(int[] key)
 		{
 			if(!selection.ContainsKey(key))
 			{
@@ -167,15 +196,15 @@ namespace csharp_viewer
 				images.TryGetValue(key, out value);
 				selection.Add(key, value);
 			}
-		}
+		}*/
 		public void Clear()
 		{
 			selection.Clear();
 		}
 
-		public override bool Contains(int[] key)
+		public override bool Contains(TransformedImage image)
 		{
-			return selection.ContainsKey(key);
+			return selection.Contains(image);
 		}
 
 		public override int Count
@@ -183,10 +212,149 @@ namespace csharp_viewer
 			get { return selection.Count; }
 		}
 
-		public override IEnumerator<KeyValuePair<int[], TransformedImage>> GetEnumerator()
+		public override IEnumerator<TransformedImage> GetEnumerator()
 		{
 			return selection.GetEnumerator();
 		}
 	}
+
+
+
+
+
+
+	public class Selection
+	{
+		public delegate void ChangedDelegate(Selection selection);
+
+		protected readonly TransformedImageCollection images;
+		protected HashSet<TransformedImage> selection;
+
+		public Selection(TransformedImageCollection images)
+		{
+			this.images = images;
+			this.selection = new HashSet<TransformedImage>();
+		}
+		public Selection Clone()
+		{
+			Selection clone = new Selection(images);
+			foreach(TransformedImage entry in selection)
+				clone.selection.Add(entry);
+			return clone;
+		}
+
+		public void Add(TransformedImage image)
+		{
+			if(!selection.Contains(image))
+				selection.Add(image);
+		}
+		public void Clear()
+		{
+			selection.Clear();
+		}
+
+		public bool Contains(TransformedImage image)
+		{
+			return selection.Contains(image);
+		}
+
+		public int Count
+		{
+			get { return selection.Count; }
+		}
+
+		public bool IsEmpty { get { return selection.Count == 0; } }
+
+		public IEnumerator<TransformedImage> GetEnumerator()
+		{
+			return selection.GetEnumerator();
+		}
+	}
+
+	/*public class ConstraintSelection : Selection
+	{
+		private readonly TransformedImageCollection images;
+		private HashSet<TransformedImage> selection;
+		public List<Constraint> constraints; // read-only!
+
+		public ConstraintSelection(TransformedImageCollection images) : base(images)
+		{
+			this.images = images;
+			this.selection = new HashSet<TransformedImage>();
+			//constraintGroups = new List<ConstraintGroup>();
+		}
+		public Selection Clone()
+		{
+			Selection clone = new Selection(images);
+			foreach(TransformedImage entry in selection)
+				clone.selection.Add(entry);
+			return clone;
+		}
+
+		public void Add(TransformedImage image)
+		{
+			if(!selection.Contains(image))
+				selection.Add(image);
+		}
+		public void Clear()
+		{
+			selection.Clear();
+			constraints.Clear();
+		}
+
+		public bool Contains(TransformedImage image)
+		{
+			return selection.Contains(image);
+		}
+
+		public int Count
+		{
+			get { return selection.Count; }
+		}
+
+		public bool IsEmpty { get { return selection.Count == 0; } }
+
+		public IEnumerator<TransformedImage> GetEnumerator()
+		{
+			return selection.GetEnumerator();
+		}
+
+
+		public struct Constraint
+		{
+			public int argidx;
+			public float min, max;
+
+			public bool Satisfies(TransformedImage image)
+			{
+				float value = image.values[argidx];
+				return value >= min && value <= max;
+			}
+			public bool Fails(TransformedImage image)
+			{
+				float value = image.values[argidx];
+				return value < min || value > max;
+			}
+		}
+
+		public void AddGroup(List<Constraint> constraints)
+		{
+			foreach(TransformedImage image in images)
+			{
+				bool satisfiesConstraints = true;
+				foreach(Constraint constraint in constraints)
+					if(constraint.Fails(image))
+					{
+						satisfiesConstraints = false;
+						break;
+					}
+
+				if(satisfiesConstraints)
+					Add(image);
+			}
+
+			this.constraints = constraints;
+		}
+	}*/
 }
 

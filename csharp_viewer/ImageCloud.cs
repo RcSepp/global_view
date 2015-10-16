@@ -1,6 +1,7 @@
 ﻿#define USE_DEPTH_SORTING
 //#define USE_GS_QUAD
 //#define USE_2D_VIEW_CONTROL
+#define USE_ARG_IDX
 
 using System;
 using System.Windows.Forms;
@@ -200,7 +201,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		private const float Z_NEAR = 0.1f;
 		private const float Z_FAR = 1000.0f;
 
-		private Dictionary<int[], TransformedImage> images;
+		private TransformedImageCollection images;
 		private Cinema.CinemaArgument[] arguments;
 
 		//public List<_ImageTransform> transforms = new List<_ImageTransform>();
@@ -402,13 +403,18 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		GLTexture2D texdot;
 
 		ColorTableManager colorTableMgr;
+
+		#if USE_ARG_IDX
+		ArgumentIndex argIndex = new ArgumentIndex();
+		#endif
+
 		bool floatimages;
 		GLTextureStream texstream;
 		CoordinateSystem coordsys;
 		ImageContextMenu ContextMenu;
 		ImageContextMenu.MenuGroup cmImage;
 
-		private ArraySelection selection;
+		private Selection selection;
 
 		//GLTexture1D tex2, tex3; //TODO: Bad style (tex2 and tex3 are activated at the beginning of the draw call)
 
@@ -423,6 +429,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			// Define actions
 			FocusSelectionAction = ActionManager.CreateAction("Focus Selection", this, "FocusSelection");
+			ActionManager.CreateAction("Focus selection", "focus", this, "FocusSelection");
 			MoveSelectionAction = ActionManager.CreateAction("Move Selection", this, "MoveSelection");
 			SetViewControlAction = ActionManager.CreateAction("Set View Control", this, "SetViewControl");
 			EnableDepthRenderingAction = ActionManager.CreateAction("Enable Depth Rendering", "enable depth", this, "EnableDepthRendering");
@@ -440,6 +447,19 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
+			#if USE_ARG_IDX
+			argIndex.Bounds = new Rectangle(30, 10, 600, 16);
+			argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+			argIndex.Init();
+			this.Controls.Add(argIndex);
+
+			ActionManager.CreateAction("Select all", "all", this, "SelectAll");
+			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
+				argIndex.SelectAll();
+				this.FocusSelection();
+			});
+			#endif
+
 			colorTableMgr = new ColorTableManager(glcontrol, pnlImageControls);
 			colorTableMgr.Visible = false;
 			this.Controls.Add(colorTableMgr);
@@ -454,7 +474,7 @@ lbl.Text = "TEST";
 this.Controls.Add(lbl);*/
 		}
 
-		public void Load(Cinema.CinemaArgument[] arguments, Dictionary<int[], TransformedImage> images, Size imageSize, bool floatimages = false, bool depthimages = false)
+		public void Load(Cinema.CinemaArgument[] arguments, TransformedImageCollection images, Dictionary<string, HashSet<object>> valuerange, Size imageSize, bool floatimages = false, bool depthimages = false)
 		{
 			int i;
 
@@ -462,7 +482,7 @@ this.Controls.Add(lbl);*/
 			this.arguments = arguments;
 			this.floatimages = floatimages;
 
-			selection = new ArraySelection(images);
+			selection = new Selection(images);
 
 			if(floatimages)
 			{
@@ -494,7 +514,7 @@ this.Controls.Add(lbl);*/
 			GL.ActiveTexture(TextureUnit.Texture0);
 
 			texstream = new GLTextureStream(-1, imageSize.Width, imageSize.Height, depthimages);
-			//texstream = new GLTextureStream(16, imageSize.Width, imageSize.Height, depthimages);
+			//texstream = new GLTextureStream(32, imageSize.Width, imageSize.Height, depthimages);
 
 			// Create mesh for depth rendering
 			Size depthimagesize = new Size(imageSize.Width / GLTextureStream.DEPTH_IMAGE_DIV, imageSize.Height / GLTextureStream.DEPTH_IMAGE_DIV);
@@ -524,6 +544,12 @@ this.Controls.Add(lbl);*/
 			mesh3D = new GLMesh(positions, null, null, null, texcoords, indices);*/
 			mesh3D = new GLMesh(positions, null, null, null, texcoords, null, PrimitiveType.Points);
 			//GL.PointSize(2.0f);
+
+			#if USE_ARG_IDX
+			argIndex.Load(images, arguments, valuerange);
+			/*argIndex.SelectionChanged += CallSelectionChangedHandlers;
+			argIndex.ArgumentLabelMouseDown += ArgumentIndex_ArgumentLabelMouseDown;*/
+			#endif
 
 			cmImage = new ImageContextMenu.MenuGroup("");
 			i = 0;
@@ -564,6 +590,10 @@ this.Controls.Add(lbl);*/
 				colorTableMgr = null;
 			}*/
 			cmImage = null;
+
+			#if USE_ARG_IDX
+			argIndex.Unload();
+			#endif
 		}
 
 		private void FocusAABB(AABB aabb)
@@ -627,6 +657,11 @@ this.Controls.Add(lbl);*/
 
 		public void OnSelectionChanged(Selection _selection)
 		{
+			#if USE_ARG_IDX
+			if(argIndex != null)
+				argIndex.OnSelectionChanged(selection);
+			#endif
+
 			status_str = "Selection changed: " + (_selection == null ? "null" : _selection.Count.ToString());
 			status_timer = 1.0f;
 
@@ -634,8 +669,8 @@ this.Controls.Add(lbl);*/
 				return;
 
 			// Unselect all images
-			foreach(KeyValuePair<int[], TransformedImage> image in images)
-				image.Value.selected = false;
+			foreach(TransformedImage image in images.Values)
+				image.selected = false;
 
 			OnSelectionMoved(_selection);
 		}
@@ -647,15 +682,15 @@ this.Controls.Add(lbl);*/
 			else
 			{
 				selectionAabb = new AABB();
-				foreach(KeyValuePair<int[], TransformedImage> selectedimage in _selection)
+				foreach(TransformedImage selectedimage in _selection)
 				{
-					selectedimage.Value.selected = true;
+					selectedimage.selected = true;
 					#if USE_2D_VIEW_CONTROL
-					AABB selectedimageBounds = selectedimage.Value.GetBounds().Clone();
+					AABB selectedimageBounds = selectedimage.GetBounds().Clone();
 					selectedimageBounds.min.Z = selectedimageBounds.max.Z = (selectedimageBounds.min.Z + selectedimageBounds.max.Z) / 2.0f;
 					selectionAabb.Include(selectedimageBounds);
 					#else
-					selectionAabb.Include(selectedimage.Value.GetBounds());
+					selectionAabb.Include(selectedimage.GetBounds());
 					#endif
 				}
 				/*#if USE_2D_VIEW_CONTROL
@@ -709,7 +744,7 @@ this.Controls.Add(lbl);*/
 			{
 				bool viewChanged = false;
 				#if USE_2D_VIEW_CONTROL
-				Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, camera_speed * 10.0f * InputDevices.mdz);
+				Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, camera_speed * 1.0f * InputDevices.mdz / dt);
 
 				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle))
 				{
@@ -762,9 +797,6 @@ this.Controls.Add(lbl);*/
 			}
 			else
 				freeview.Update(camera_speed * dt);
-
-			if(texstream != null)
-				texstream.Update();
 
 			// >>> Render
 
@@ -828,10 +860,10 @@ this.Controls.Add(lbl);*/
 #if USE_DEPTH_SORTING
 			SortedList<TransformedImageAndMatrix> renderlist = new SortedList<TransformedImageAndMatrix>();
 #endif
-				foreach(KeyValuePair<int[], TransformedImage> iter in images)
+				foreach(TransformedImage iter in images.Values)
 				{
 					// Make sure texture is loaded
-					iter.Value.LoadTexture(texstream);
+					iter.LoadTexture(texstream);
 
 					/*bool skip = false;
 				foreach(_ImageTransform transform in transforms)
@@ -857,16 +889,16 @@ this.Controls.Add(lbl);*/
 
 					/*sdrTextured.Bind(worldmatrix * viewprojmatrix);
 				GL.Uniform4(sdrTextured_colorParam, clr);*/
-					iter.Value.Update(dt);
+					iter.Update(dt);
 					Matrix4 transform;
-					if(iter.Value.IsVisible(freeview, invvieworient, out transform))
+					if(iter.IsVisible(freeview, invvieworient, out transform))
 					{
 #if USE_DEPTH_SORTING
 						float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;
 						if(dist >= Z_NEAR && dist <= Z_FAR)
 						{
 							dist = -dist;
-							renderlist.Add(dist, new TransformedImageAndMatrix(iter.Value, transform));
+							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transform));
 						}
 #else
 						if(depthRenderingEnabled_fade > 0.0 && iter.Value.HasDepthInfo)
@@ -976,19 +1008,13 @@ this.Controls.Add(lbl);*/
 			if(selection != null)
 			{
 				int j = 2;
-				foreach(KeyValuePair<int[], TransformedImage> selectedimage in selection)
+				foreach(TransformedImage selectedimage in selection)
 				{
 					string desc = "";
-					if(arguments.Length > 0)
-					{
-						Cinema.CinemaArgument arg = arguments[0];
-						desc = arg.label + ": " + arg.values[selectedimage.Key[0]].ToString();
-					}
-					for(int i = 1; i < arguments.Length; ++i)
-					{
-						Cinema.CinemaArgument arg = arguments[i];
-						desc += "  " + arg.label + ": " + arg.values[selectedimage.Key[i]].ToString();
-					}
+					if(selectedimage.args.Length > 0)
+						desc = selectedimage.args[0].label + ": " + selectedimage.values[0].ToString();
+					for(int i = 1; i < selectedimage.args.Length; ++i)
+						desc += "  " + selectedimage.args[0].label + ": " + selectedimage.values[i].ToString();
 					Common.fontText.DrawString(0.0f, backbuffersize.Height - 20.0f * j++, desc, backbuffersize);
 					if(j >= 10)
 						break;
@@ -1116,18 +1142,18 @@ this.Controls.Add(lbl);*/
 					Vector3 vdir = (vfar - vnear).Normalized();
 
 					float dist, closest_dist = float.MaxValue;
-					KeyValuePair<int[], TransformedImage> closest_pair = default(KeyValuePair<int[], TransformedImage>);
-					foreach(KeyValuePair<int[], TransformedImage> pair in images)
-						if(pair.Value != null && (dist = pair.Value.CastRay(vnear, vdir, invvieworient)) < closest_dist)
+					TransformedImage closest_image = default(TransformedImage);
+					foreach(TransformedImage image in images.Values)
+						if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient)) < closest_dist)
 						{
 							closest_dist = dist;
-							closest_pair = pair;
+							closest_image = image;
 						}
 
 					if(closest_dist < float.MaxValue)
 					{
-						dragImage = closest_pair.Value;
-						dragImageOffset = closest_pair.Value.pos - (vnear + vdir * closest_dist);
+						dragImage = closest_image;
+						dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
 
 						// dragImagePlane = plane parallel to screen, going through point of intersection
 						Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
@@ -1135,13 +1161,13 @@ this.Controls.Add(lbl);*/
 						Vector3 vsdir = (vsfar - vsnear).Normalized();
 						dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
 
-						if(!selection.Contains(closest_pair.Key))
+						if(!selection.Contains(closest_image))
 						{
 							// Clear selection if Windows key (command key on Mac) isn't pressed
 							if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LWin) && !selection.IsEmpty)
 								selection.Clear();
 
-							selection.Add(closest_pair.Key);
+							selection.Add(closest_image);
 							SelectionChanged(selection);
 						}
 					} else
@@ -1175,10 +1201,10 @@ this.Controls.Add(lbl);*/
 
 		private void MoveSelection(Vector3 deltapos)
 		{
-			foreach(KeyValuePair<int[], TransformedImage> selectedimage in selection)
+			foreach(TransformedImage selectedimage in selection)
 			{
-				selectedimage.Value.pos += deltapos;
-				selectedimage.Value.skipPosAnimation();
+				selectedimage.pos += deltapos;
+				selectedimage.skipPosAnimation();
 			}
 			OnSelectionMoved(selection);
 		}
@@ -1298,9 +1324,9 @@ string foo = "";
 				Matrix4 invvieworient = freeview.viewmatrix;
 				invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
 				invvieworient.Transpose();
-				foreach(KeyValuePair<int[], TransformedImage> pair in images)
-					if(mouseRectFrustum.DoFrustumCulling(pair.Value.GetWorldMatrix(invvieworient), Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
-						selection.Add(pair.Key);
+				foreach(TransformedImage image in images.Values)
+					if(mouseRectFrustum.DoFrustumCulling(image.GetWorldMatrix(invvieworient), Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+						selection.Add(image);
 				SelectionChanged(selection);
 			}
 		}
@@ -1415,6 +1441,13 @@ string foo = "";
 				DisableDepthRendering();
 			else
 				EnableDepthRendering();
+		}
+
+		public void SelectAll()
+		{
+			foreach(TransformedImage image in images)
+				selection.Add(image);
+			SelectionChanged(selection);
 		}
 
 		public ImageTransform AddTransform(ImageTransform transform)

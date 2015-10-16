@@ -31,7 +31,7 @@ namespace csharp_viewer
 		";
 	}
 
-	public class ArgumentIndex
+	public class ArgumentIndex : GLControl
 	{
 		public event Selection.ChangedDelegate SelectionChanged;
 		public delegate void ArgumentLabelMouseDelegate(Cinema.CinemaArgument argument, int argumentIndex);
@@ -42,11 +42,11 @@ namespace csharp_viewer
 		private static Color4 SELECTION_COLOR = new Color4(142, 180, 247, 255);
 		private static Color4 PRESELECTION_COLOR = new Color4(142, 180, 247, 128);
 
-		private Dictionary<int[], TransformedImage> images;
+		private TransformedImageCollection images;
 		private Cinema.CinemaArgument[] arguments;
 		private GLMesh meshSelection;
 
-		private IndexProductSelection selection;
+		private Selection selection;
 
 		private class TrackBar
 		{
@@ -189,12 +189,12 @@ namespace csharp_viewer
 			meshSelection = new GLMesh(new Vector3[] {new Vector3(0.0f, -0.1f, 0.0f), new Vector3(0.0f, 1.15f, 0.0f)}, null, null, null, null, null, PrimitiveType.Lines);
 		}
 
-		public void Load(Dictionary<int[], TransformedImage> images, Cinema.CinemaArgument[] arguments, Dictionary<string, HashSet<object>> valuerange)
+		public void Load(TransformedImageCollection images, Cinema.CinemaArgument[] arguments, Dictionary<string, HashSet<object>> valuerange)
 		{
 			this.images = images;
 			this.arguments = arguments;
 
-			selection = new IndexProductSelection(arguments.Length, valuerange.Count, images);
+			selection = new Selection(images);
 
 			// Create track bars for each argument
 			foreach(Cinema.CinemaArgument argument in arguments)
@@ -221,18 +221,23 @@ namespace csharp_viewer
 			trackbars.Clear();
 		}
 			
-		public void Draw(Point mousepos, Size backbufferSize)
+		//public void Draw(Point mousepos, Size backbufferSize)
+		protected override void Draw(float dt, Matrix4 _transform)
 		{
 			GL.Disable(EnableCap.DepthTest);
 
-			Rectangle bounds = new Rectangle(backbufferSize.Width - 330, 10, 300, 16);
+			//Rectangle bounds = new Rectangle(BackbufferSize.Width - 330, 10, 300, 16);
+
+			int bounds_y = Bounds.Y;
 
 			int i = 0;
 			foreach(TrackBar trackbar in trackbars)
 			{
-				trackbar.Draw(bounds, selection[i++], backbufferSize, Common.sdrSolidColor, Common.sdrSolidColor_colorUniform); //TODO: make constraint sets indexable. Otherwise selection[i++] will crash for meta data trackbars
-				bounds.Y += bounds.Height * 3 / 2;
+				trackbar.Draw(Bounds, null/*selection[i++]*/, BackbufferSize, Common.sdrSolidColor, Common.sdrSolidColor_colorUniform); //TODO: make constraint sets indexable. Otherwise selection[i++] will crash for meta data trackbars
+				Bounds = new Rectangle(Bounds.X, Bounds.Y + Bounds.Height * 3 / 2, Bounds.Width, Bounds.Height);// Bounds.Y += Bounds.Height * 3 / 2;
 			}
+
+			Bounds = new Rectangle(Bounds.X, bounds_y, Bounds.Width, Bounds.Height);
 
 			GL.Enable(EnableCap.DepthTest);
 		}
@@ -270,16 +275,24 @@ namespace csharp_viewer
 			{
 if(tick.X == -1)
 {
-	for(tick.X = 0; tick.X < arguments[tick.Y].values.Length; ++tick.X)
+	/*for(tick.X = 0; tick.X < arguments[tick.Y].values.Length; ++tick.X)
 		selection[tick.Y].Add(tick.X);
-	capturedTick = null;
+	capturedTick = null;*/
 }
 else
 {
-				if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
+				/*if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
 					selection[tick.Y].Clear();
 				selection[tick.Y].Add(tick.X);
-				capturedTick = tick;
+				capturedTick = tick;*/
+/*if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
+	selection.Clear();
+List<Selection.Constraint> newConstraintGroup = new List<Selection.Constraint>();
+Selection.Constraint newConstraint = new Selection.Constraint();
+newConstraint.argidx = tick.Y;
+newConstraint.min = newConstraint.max = arguments[tick.Y].values[tick.X];
+newConstraintGroup.Add(newConstraint);
+selection.AddGroup(newConstraintGroup);*/
 }
 				if(SelectionChanged != null)
 					SelectionChanged(selection);
@@ -307,11 +320,11 @@ else
 					x = argument.values.Length - 1;
 				if(x != capturedTick.Value.X)
 				{
-					if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
+					/*if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
 						selection[y].Clear();
 					selection[y].Add(x);
 					if(SelectionChanged != null)
-						SelectionChanged(selection);
+						SelectionChanged(selection);*/
 				}
 			}
 			return false;
@@ -319,18 +332,18 @@ else
 
 		public void OnSelectionChanged(Selection _selection)
 		{
-			if(arguments != null && !(_selection is IndexProductSelection))
+			/*if(arguments != null && !(_selection is IndexProductSelection))
 				for(int i = 0; i < arguments.Length; ++i)
-					selection[i].Clear();
+					selection[i].Clear();*/
 		}
 
 		public void SelectAll()
 		{
-			for(int i = 0; i < arguments.Length; ++i)
+			/*for(int i = 0; i < arguments.Length; ++i)
 				for(int j = 0; j < arguments[i].values.Length; ++j)
 					selection[i].Add(j);
 			if(SelectionChanged != null)
-				SelectionChanged(selection);
+				SelectionChanged(selection);*/
 		}
 	}
 }

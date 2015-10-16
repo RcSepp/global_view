@@ -1,7 +1,11 @@
-﻿using System;
+﻿#define ASYNC_LOADS
+
+using System;
 using System.IO;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Threading;
+using System.Collections.Generic;
 
 using OpenTK;
 using OpenTK.Graphics;
@@ -61,15 +65,19 @@ namespace csharp_viewer
 				return ptr;
 			}
 
-			public V Dequeue(Object owner, out bool isnewtex, Pointer ptr = null)
+			public V Dequeue(Object owner, out Object prevowner, out bool isnewtex, Pointer ptr = null)
 			{
 				isnewtex = false;
 				if(readidx == writeidx && !isfull)
+				{
+					prevowner = null;
 					return nullvalue;
+				}
 				isfull = false;
 
 				if(ptr != null && buffer[ptr.idx].owner == owner)
 				{
+					prevowner = owner;
 					Slot slot = buffer[ptr.idx];
 					buffer[ptr.idx] = buffer[readidx++];
 					if(readidx == buffer.Length)
@@ -77,7 +85,8 @@ namespace csharp_viewer
 					return slot.value;
 				}
 
-				V value = buffer[readidx++].value;
+				V value = buffer[readidx].value;
+				prevowner = buffer[readidx++].owner;
 				if(readidx == buffer.Length)
 					readidx = 0;
 				isnewtex = true;
@@ -90,6 +99,13 @@ namespace csharp_viewer
 		private int[] textures, depth_textures;
 		private Bitmap bmpFileNotFound;
 		private int texFileNotFound;
+
+		#if ASYNC_LOADS
+		private Thread loaderThread;
+		private LinkedList<Texture> loaderQueue;
+		private Mutex loaderQueueMutex;
+		private bool closeLoaderThread, loaderThreadClosed;
+		#endif
 
 		private static int ceilBin(int v)
 		{
@@ -186,9 +202,31 @@ namespace csharp_viewer
 			GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapNearest);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+
+			#if ASYNC_LOADS
+			closeLoaderThread = loaderThreadClosed = false;
+			loaderQueue = new LinkedList<Texture>();
+			loaderQueueMutex = new Mutex();
+			loaderThread = new Thread(LoaderThread);
+			loaderThread.Start();
+			#endif
+
+
+// For debugging only:
+bmpdata = bmpFileNotFound.LockBits(new Rectangle(0, 0, bmpFileNotFound.Width, bmpFileNotFound.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+for(int i = 0; i < numtextures; ++i)
+{
+	GL.BindTexture(TextureTarget.Texture2D, textures[i]);
+	GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, bmpdata.Width, bmpdata.Height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, bmpdata.Scan0);
+}
+bmpFileNotFound.UnlockBits(bmpdata);
 		}
 		public void Free()
 		{
+			#if ASYNC_LOADS
+			closeLoaderThread = true;
+			#endif
+
 			if(textures != null)
 			{
 				GL.DeleteTextures(textures.Length, textures);
@@ -201,6 +239,11 @@ namespace csharp_viewer
 			}
 			texturebuffer = null;
 			imagebuffer = null;
+
+			#if ASYNC_LOADS
+			while(!loaderThreadClosed)
+				Thread.Sleep(1);
+			#endif
 		}
 			
 		public Texture CreateTexture(Bitmap bmp, Bitmap depth_bmp = null)
@@ -212,13 +255,6 @@ namespace csharp_viewer
 			return new Texture(this, filename, texwidth, texheight, depth_filename, depth_texwidth, depth_texheight);
 		}
 
-		private const int MAX_NUM_FRAME_LOADS = 32;
-		private int numFrameLoads = 0;
-		public void Update()
-		{
-			numFrameLoads = 0;
-		}
-
 public static int foo = 0;
 		public class Texture : GLTexture
 		{
@@ -228,6 +264,8 @@ public static int foo = 0;
 			private Bitmap bmp, depth_bmp;
 			private RingBuffer<Tuple<int, int>>.Pointer texptr;
 			private RingBuffer<Tuple<Bitmap, Bitmap>>.Pointer bmpptr;
+			private int temp_tex;
+			private Object prevtexowner, prevbmpowner;
 
 			public Texture(GLTextureStream owner, Bitmap bmp, Bitmap depth_bmp)
 				: base(TextureTarget.Texture2D, bmp.Width, bmp.Height)
@@ -268,51 +306,73 @@ public static int foo = 0;
 				if(tex == owner.texFileNotFound)
 					return true;
 
-				if(bmp == null) // If bitmap isn't loaded (implies that CPU streaming is enabled)
-				{
-					if(owner.numFrameLoads >= GLTextureStream.MAX_NUM_FRAME_LOADS)
-						return false; // Exceeded maximum number of loads from disk for this frame
+				if(tex == -2) // If texture loading is in progress (by LoaderThread)
+					return true;
 
-					bool isnewbmp;
-					Tuple<Bitmap, Bitmap> tuple = owner.imagebuffer.Dequeue(this, out isnewbmp, bmpptr); //UNFIXED BUG: LoadImage() is called twice. Shows wrong images when commenting lines 283 & 284, unless also commenting 'bmpptr' in this line. It seems bmpptr returns wrong images!
-					bmp = tuple == null ? null : tuple.Item1;
-					depth_bmp = tuple == null ? null : tuple.Item2;
-					if(isnewbmp)
-						LoadImage();
-					if(bmp == null)
+				if(tex == -3) // If texture loading has finished (by LoaderThread)
+				{
+					tex = temp_tex;
+					LoadTexture(); // Copy bmp to tex
+					return true;
+				}
+
+				if(tex == -1) // If the texture isn't loaded
+				{
+					bool isnewtex;
+					//Object prevtexowner;
+					Tuple<int, int> textuple = owner.texturebuffer.Dequeue(this, out prevtexowner, out isnewtex, texptr); // Request GPU memory for a texture
+					tex = textuple == null ? -1 : textuple.Item1;
+					depth_tex.tex = textuple == null ? -1 : textuple.Item2;
+					if(prevtexowner == this) // If the aquired GPU memory is already loaded with the proper texture
+						return true;
+					if(isnewtex) // If GPU memory has been granted
+					{
+						if(bmp == null) // If bitmap isn't loaded (implies that CPU streaming is enabled)
+						{
+							bool isnewbmp;
+							//Object prevbmpowner;
+							Tuple<Bitmap, Bitmap> bmptuple = owner.imagebuffer.Dequeue(this, out prevbmpowner, out isnewbmp, bmpptr); // Request CPU memory for an image
+							bmp = bmptuple == null ? null : bmptuple.Item1;
+							depth_bmp = bmptuple == null ? null : bmptuple.Item2;
+							if(prevbmpowner == this) // If the aquired CPU memory is already loaded with the proper image
+							{
+								LoadTexture(); // Copy bmp to tex
+								return true;
+							}
+							if(isnewbmp) // If CPU memory has been granted
+							{
+								#if ASYNC_LOADS
+								temp_tex = tex;
+								tex = -2;
+								owner.loaderQueueMutex.WaitOne();
+								owner.loaderQueue.AddLast(this);
+								owner.loaderQueueMutex.ReleaseMutex();
+								#else
+								LoadImage();
+								LoadTexture(); // Copy bmp to tex
+								#endif
+								return true;
+							}
+							else // If no CPU memory was available
+							{
+								// Return GPU memory to previous owner
+								texptr = owner.texturebuffer.Enqueue(prevtexowner, new Tuple<int, int>(tex, depth_tex.tex));
+								tex = -1;
+								depth_tex.tex = -1;
+								return false;
+							}
+						}
+						else // If bitmap is loaded
+						{
+							LoadTexture(); // Copy bmp to tex
+							return true;
+						}
+					}
+					else // If no GPU memory was available
 						return false;
 				}
 
-				if(tex == -1)
-				{
-					bool isnewtex;
-					Tuple<int, int> tuple = owner.texturebuffer.Dequeue(this, out isnewtex, texptr);
-					tex = tuple.Item1;
-					depth_tex.tex = tuple.Item2;
-					if(isnewtex)
-					{
-						//if(filename != null) //EDIT: (see line 266)
-						//	LoadImage(); //EDIT: (see line 266)
 
-						//++GLTextureStream.foo;
-						BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-						GL.BindTexture(TextureTarget.Texture2D, tex);
-						GL.TexSubImage2D(type, 0, 0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, bmpdata.Scan0);
-						bmp.UnlockBits(bmpdata);
-//						return true;
-
-						if(depth_bmp != null)
-						{
-							bmpdata = depth_bmp.LockBits(new Rectangle(0, 0, depth_bmp.Width, depth_bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-							GL.BindTexture(TextureTarget.Texture2D, depth_tex.tex);
-							GL.TexSubImage2D(type, 0, 0, 0, depth_tex.width, depth_tex.height, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, bmpdata.Scan0);
-							depth_bmp.UnlockBits(bmpdata);
-						}
-
-						return true;
-					}
-					return tex != -1;
-				}
 				return true;
 			}
 			public void Unload()
@@ -320,7 +380,46 @@ public static int foo = 0;
 				if(tex == owner.texFileNotFound)
 					return;
 
-				if(tex != -1)
+				#if ASYNC_LOADS
+				if(tex < -1) // If async texture loading is queued or in progress
+				{
+					owner.loaderQueueMutex.WaitOne();
+					LinkedListNode<Texture> node;
+					if(tex == -2 && (node = owner.loaderQueue.Find(this)) != null) // If async texture loading is still queued after aquiring mutex
+					{
+						owner.loaderQueue.Remove(this); // Remove this from queue
+						owner.loaderQueueMutex.ReleaseMutex();
+
+						if(bmp != null && filename != null) // If bitmap is loaded and CPU streaming is enabled
+						{
+							// Return GPU memory to previous owner
+							bmpptr = owner.imagebuffer.Enqueue(prevbmpowner, new Tuple<Bitmap, Bitmap>(bmp, depth_bmp));
+							bmp = null;
+							depth_bmp = null;
+						}
+					}
+					else
+					{
+						owner.loaderQueueMutex.ReleaseMutex();
+
+						if(bmp != null && filename != null) // If bitmap is loaded and CPU streaming is enabled
+						{
+							// Return GPU memory without owner (since a load operation might be in progress EDIT: make sure it finishes)
+							bmpptr = owner.imagebuffer.Enqueue(null, new Tuple<Bitmap, Bitmap>(bmp, depth_bmp));
+							bmp = null;
+							depth_bmp = null;
+						}
+					}
+
+					// Return GPU memory to previous owner
+					texptr = owner.texturebuffer.Enqueue(prevtexowner, new Tuple<int, int>(temp_tex, depth_tex.tex)); // temp_tex ... Use restored tex
+					tex = -1;
+					depth_tex.tex = -1;
+					return;
+				}
+				#endif
+
+				if(tex > -1) // If a texture is loaded
 				{
 					texptr = owner.texturebuffer.Enqueue(this, new Tuple<int, int>(tex, depth_tex.tex));
 					tex = -1;
@@ -329,17 +428,15 @@ public static int foo = 0;
 
 				if(bmp != null && filename != null) // If bitmap is loaded and CPU streaming is enabled
 				{
-					bmpptr = owner.imagebuffer.Enqueue(this, new Tuple<Bitmap, Bitmap>(bmp, depth_bmp));
+					bmpptr = owner.imagebuffer.Enqueue(null, new Tuple<Bitmap, Bitmap>(bmp, depth_bmp)); //EDIT: Replacing null with this crashes. Why?
 					bmp = null;
 					depth_bmp = null;
 				}
 			}
 
 
-			private void LoadImage()
+			public void LoadImage() //EDIT: Make private
 			{
-				++owner.numFrameLoads;
-
 				++GLTextureStream.foo;
 
 				if(bmp != null)
@@ -351,6 +448,37 @@ public static int foo = 0;
 				if(IMAGE_DIV == 1)
 				{
 					bmp = (Bitmap)Image.FromFile(filename);
+
+					int w = bmp.Width, h = bmp.Height;
+					if(w > width || h > height)
+					{
+						float sw = (float)width / (float)w;
+						float sh = (float)height / (float)h;
+
+						if(sw < sh)
+						{
+							w = width;
+							h = (int)((float)height * sw);
+						}
+						else
+						{
+							w = (int)((float)width * sh);
+							h = height;
+						}
+					}
+					if(w > width || h > height)
+						throw new Exception();
+					
+					if(w != width || h != height)
+					{
+						Bitmap bmp2 = new Bitmap(width, height, bmp.PixelFormat);
+						Graphics gfx = Graphics.FromImage(bmp2);
+						gfx.DrawImage(bmp, new Rectangle((width - w) / 2, (height - h) / 2, w, h));
+						gfx.Flush();
+						bmp.Dispose();
+
+						bmp = bmp2;
+					}
 
 					if(depth_filename != null)
 						depth_bmp = (Bitmap)Image.FromFile(depth_filename);
@@ -375,7 +503,48 @@ public static int foo = 0;
 					}
 				}
 			}
+
+			private void LoadTexture()
+			{
+				BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+				GL.BindTexture(TextureTarget.Texture2D, tex);
+				GL.TexSubImage2D(type, 0, 0, 0, width, height, OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelType.UnsignedByte, bmpdata.Scan0);
+				bmp.UnlockBits(bmpdata);
+
+				if(depth_bmp != null)
+				{
+					bmpdata = depth_bmp.LockBits(new Rectangle(0, 0, depth_bmp.Width, depth_bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+					GL.BindTexture(TextureTarget.Texture2D, depth_tex.tex);
+					GL.TexSubImage2D(type, 0, 0, 0, depth_tex.width, depth_tex.height, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelType.Float, bmpdata.Scan0);
+					depth_bmp.UnlockBits(bmpdata);
+				}
+			}
 		}
+
+		#if ASYNC_LOADS
+		private void LoaderThread()
+		{
+			while(!closeLoaderThread)
+			{
+				Thread.Sleep(1);
+				if(loaderQueueMutex.WaitOne(1) == false)
+					continue;
+				if(loaderQueue.Count == 0)
+				{
+					loaderQueueMutex.ReleaseMutex();
+					continue;
+				}
+				Texture tex = loaderQueue.First.Value;
+				loaderQueue.RemoveFirst();
+				loaderQueueMutex.ReleaseMutex();
+
+				tex.LoadImage();
+				tex.tex = -3; // Sinal that the image has been loaded
+			}
+
+			loaderThreadClosed = true;
+		}
+		#endif
 	}
 }
 

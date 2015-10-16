@@ -19,7 +19,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
     <ConsolePause>false</ConsolePause>
-    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/mpas_single/</Commandlineparameters>
+    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/mpas_ani/</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <Optimize>true</Optimize>
@@ -46,7 +46,6 @@
     <Compile Include="GLTexture1D.cs" />
     <Compile Include="GLFont.cs" />
     <Compile Include="InputDevices.cs" />
-    <Compile Include="ArgumentIndex.cs" />
     <Compile Include="Common.cs" />
     <Compile Include="TransformedImage.cs" />
     <Compile Include="TranslationTransform.cs" />
@@ -66,6 +65,7 @@
     <Compile Include="Console.cs" />
     <Compile Include="StdConsole.cs" />
     <Compile Include="GLControls.cs" />
+    <Compile Include="ArgumentIndex.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
