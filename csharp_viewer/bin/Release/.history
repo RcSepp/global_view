@@ -673,3 +673,18 @@ theta-phi-view $theta $phi
 animate $time
 focus
 none
+load("mpas2")
+load("mpas_ani")
+all
+spread random
+none
+load("mpas2_ani")
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random

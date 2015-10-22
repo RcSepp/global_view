@@ -138,6 +138,8 @@ namespace csharp_viewer
 		}*/
 		public Viewer(string[] cmdline)
 		{
+			Control.CheckForIllegalCrossThreadCalls = false;
+
 			this.cmdline = cmdline;
 
 			OnSelectionChangedAction = ActionManager.CreateAction("Change Selection", this, "OnSelectionChanged");
@@ -145,12 +147,12 @@ namespace csharp_viewer
 
 			// >>> Initialize Components
 
-			Rectangle screenbounds = Screen.PrimaryScreen.Bounds;
+			Rectangle screenbounds = Screen.PrimaryScreen.WorkingArea;
 
 			this.Text = "csharp_viewer";
 			this.StartPosition = FormStartPosition.Manual;
-			//this.Bounds = new Rectangle(screenbounds.Left, screenbounds.Top + 22, screenbounds.Width * 2 / 3, screenbounds.Height - 200);
-			this.Bounds = new Rectangle(0, 22, 1608, 1251); // Results in backbuffersize == (1600, 1024)
+			this.Bounds = new Rectangle(screenbounds.Left, screenbounds.Top + 22, screenbounds.Width * 2 / 3, screenbounds.Height - 200);
+			//this.Bounds = new Rectangle(0, 22, 1608, 1251); // Results in backbuffersize == (1600, 1024)
 			this.BackColor = Color.White;
 			this.FormClosing += form_Closing;
 
@@ -201,7 +203,8 @@ namespace csharp_viewer
 			frmConsole.Show();
 #endif
 
-			scrCle.workingDirectory = "/Users/sklaassen/Desktop/work/db/";
+			if(Directory.Exists("/Users/sklaassen/Desktop/work/db/"))
+				scrCle.workingDirectory = "/Users/sklaassen/Desktop/work/db/";
 
 			this_SizeChanged(null, null);
 
@@ -320,15 +323,13 @@ namespace csharp_viewer
 				if(arguments != null)
 				{
 					Random rand = new Random();
+					images_mutex.WaitOne();
 					foreach(TransformedImage image in images)
-					{
-						images_mutex.WaitOne();
 						image.pos = new Vector3((float)rand.Next(-1000, 1000) / 100.0f, (float)rand.Next(-1000, 1000) / 100.0f, (float)0.0f);
-						images_mutex.ReleaseMutex();
+					images_mutex.ReleaseMutex();
 
-						// Update selection (bounds may have changed due to added transform)
-						CallSelectionChangedHandlers(selection);
-					}
+					// Update selection (bounds may have changed due to added transform)
+					CallSelectionChangedHandlers(selection);
 				}
 			});
 
@@ -358,7 +359,7 @@ namespace csharp_viewer
 			}
 
 			if(!dirname.EndsWith("/") && !dirname.EndsWith("\\"))
-				dirname += '/';
+				dirname += Path.DirectorySeparatorChar;
 		}
 
 		private void PreLoad()
@@ -446,6 +447,66 @@ namespace csharp_viewer
 			bar.SetArguments(arguments); bar.SetIndex(0, 2);
 			imageCloud.AddTransform(bar);
 			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });*/
+
+
+
+			/*imageCloud.SelectAll();
+			ImageTransform bar = new XYTransform();
+			bar.SetArguments(arguments); bar.SetIndex(0, 0); bar.SetIndex(1, 1);
+			imageCloud.AddTransform(bar);
+			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });*/
+		}
+
+		private void LoadAny(string[] argv)
+		{
+			if(argv == null | argv.Length == 0)
+				return;
+
+			List<string> filenames = new List<string>();
+			bool recursive = false;
+			string name_pattern = null;
+			for(int i = 0; i < argv.Length; ++i)
+			{
+				string arg = argv[i];
+				if(arg.StartsWith("-"))
+				{
+					if(arg == "-r" || arg == "--recursive")
+						recursive = true;
+					else if(arg == "-p" || arg == "--pattern")
+					{
+						if(i == argv.Length - 1)
+							throw new ArgumentException("missing argument after " + arg);
+						name_pattern = argv[++i];
+					}
+				}
+				else
+					filenames.Add(arg);
+			}
+
+			if(filenames.Count == 0)
+				throw new ArgumentException("no files specified");
+
+			if(filenames.Count == 1)
+			{
+				if(Directory.Exists(argv[0]))
+				{
+					if(File.Exists(argv[0] + "/image/info.json"))
+						LoadCinemaDatabase(argv[0]);
+					else
+						LoadDatabaseFromDirectory(argv[0], name_pattern, recursive);
+				}
+				else if(File.Exists(argv[0]))
+				{
+					if(argv[0].EndsWith(".png", StringComparison.OrdinalIgnoreCase) || argv[0].EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
+						LoadDatabaseFromImages(new string[] { argv[0] }, name_pattern);
+					else
+						throw new FileLoadException(argv[0] + " is not a PNG image");
+				}
+				else
+					throw new FileNotFoundException(argv[0] + " not found");
+			}
+			else
+				throw new NotImplementedException("Multiple file load not implemented yet");
 		}
 
 		private void LoadCinemaDatabase(string filename)
@@ -566,22 +627,18 @@ namespace csharp_viewer
 			foreach(string subdirname in Directory.GetDirectories(dirname))
 				FindImagesRecursive(subdirname, ref filenames);
 		}
-		private void LoadDatabaseFromDirectory(string dirname, bool recursive = false)
+		private void LoadDatabaseFromDirectory(string dirname, string name_pattern = null, bool recursive = false)
 		{
 			FindDirectory(ref dirname);
 
-			if(recursive)
-			{
-				List<string> filenames = new List<string>();
-				FindImagesRecursive(dirname, ref filenames);
-
-				LoadDatabaseFromImages(filenames.ToArray());
-			}
-			else
-				LoadDatabaseFromImages(Directory.GetFiles(dirname, "*.png"));
+			List<string> filenames = new List<string>();
+			foreach(string filename in Directory.EnumerateFiles(dirname, "*.*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+				if(filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
+					filenames.Add(filename);
+			LoadDatabaseFromImages(filenames.ToArray(), dirname + name_pattern);
 		}
 
-		private void LoadDatabaseFromImages(string[] filenames)
+		private void LoadDatabaseFromImages(string[] filenames, string name_pattern = null)
 		{
 			if(filenames.Length == 0)
 				return;
@@ -589,25 +646,105 @@ namespace csharp_viewer
 			PreLoad();
 
 			// Parse meta data from info.json
-			arguments = new Cinema.CinemaArgument[0];
-			name_pattern = "";
+			string[] name_pattern_splitters = null;
+			Dictionary<string, int>[] strValueIndices = null;
+			if(name_pattern != null && name_pattern != "")
+			{
+				System.Text.RegularExpressions.MatchCollection matches = System.Text.RegularExpressions.Regex.Matches(name_pattern, "{\\w*}");
+				arguments = new Cinema.CinemaArgument[matches.Count];
+				name_pattern_splitters = new string[matches.Count + 1];
+				strValueIndices = new Dictionary<string, int>[matches.Count];
+				int last_match_end = 0, i = 0;
+				foreach(System.Text.RegularExpressions.Match match in matches)
+				{
+					string argumentStr = match.Value.Substring(1, match.Value.Length - 2);
+					name_pattern_splitters[i] = name_pattern.Substring(last_match_end, match.Index - last_match_end);
+					last_match_end = match.Index + match.Length;
+
+					Cinema.CinemaArgument carg = arguments[i] = new Cinema.CinemaArgument();
+					carg.name = argumentStr;
+					carg.label = argumentStr;
+					carg.strValues = new string[0];
+					carg.values = new float[0];
+					carg.defaultValue = float.NaN;
+
+					strValueIndices[i++] = new Dictionary<string, int>();
+				}
+				name_pattern_splitters[i] = name_pattern.Substring(last_match_end);
+				this.name_pattern = name_pattern;
+			}
+			else
+			{
+				arguments = new Cinema.CinemaArgument[0];
+				this.name_pattern = "";
+			}
 			depth_name_pattern = "";
-			image_pixel_format = "I24";
+			image_pixel_format = "";//"I24";
 
 			// >>> Load images and image meta
 
 			// Load images and image meta data by iterating over all argument combinations
 			foreach(string imagepath in filenames)
 			{
-				// Load CinemaImage
+				// >>> Load CinemaImage
+
+				// Get values through name_pattern
+				string[] strValues = new string[arguments.Length];
+				float[] values = new float[arguments.Length];
+				int[] key = new int[arguments.Length];
+				if(arguments.Length > 0)
+				{
+					// Make sure name_pattern starts with name_pattern_splitters[0]
+					if(!imagepath.StartsWith(name_pattern_splitters[0]))
+					{
+						System.Console.Error.WriteLine("image path " + imagepath + " does not match pattern " + name_pattern);
+						continue; // Skip image
+					}
+
+					bool err = false;
+					int valueend = 0;
+					for(int i = 0; i < arguments.Length; ++i)
+					{
+						// Find start of next name pattern splitter (== end of value)
+						int valuestart = valueend + name_pattern_splitters[i].Length;
+						valueend = name_pattern_splitters[i + 1] == "" ? imagepath.Length : imagepath.IndexOf(name_pattern_splitters[i + 1], valuestart);
+						if(valueend == -1)
+						{
+							System.Console.Error.WriteLine("image path " + imagepath + " does not match pattern " + name_pattern);
+							err = true;
+							break;
+						}
+
+						strValues[i] = imagepath.Substring(valuestart, valueend - valuestart);
+						float.TryParse(strValues[i], out values[i]);
+					}
+					if(err)
+						continue; // Skip image
+
+					for(int i = 0; i < arguments.Length; ++i)
+					{
+						int strValueindex;
+						if(!strValueIndices[i].TryGetValue(strValues[i], out strValueindex))
+						{
+							strValueIndices[i].Add(strValues[i], strValueindex = strValueIndices[i].Count);
+
+							for(int j = i + 1; j < arguments.Length; ++j) //DELETE
+								strValueIndices[j].Clear(); //DELETE
+						}
+						key[i] = strValueindex;
+					}
+				}
+
 				TransformedImage cimg = new TransformedImage();
 				cimg.LocationChanged += imageCloud.InvalidateOverallBounds;
-				cimg.values = new float[0];
+
+				cimg.values = values;
 				cimg.args = arguments;
 				cimg.filename = imagepath;
 				cimg.depth_filename = null;
 				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
-				cimg.key = new int[0];
+
+				cimg.key = key;
 				images_mutex.WaitOne();
 				images.Add(cimg);
 				images_mutex.ReleaseMutex();
@@ -624,6 +761,19 @@ namespace csharp_viewer
 						range.Add(meta.Value);
 					}
 			}
+
+			// >>> Update argument values
+			for(int i = 0; i < arguments.Length; ++i)
+			{
+				arguments[i].strValues = new string[strValueIndices[i].Count];
+				arguments[i].values = new float[strValueIndices[i].Count];
+				foreach(KeyValuePair<string, int> pair in strValueIndices[i])
+				{
+					arguments[i].strValues[pair.Value] = pair.Key;
+					float.TryParse(pair.Key, out arguments[i].values[pair.Value]);
+				}
+			}
+
 			#if !DISABLE_DATAVIZ
 			if(dataviz != null)
 			dataviz.ImagesAdded();
@@ -951,8 +1101,9 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			glImageCloud_loaded = true;
 
-			if(cmdline.Length == 1)
-				LoadCinemaDatabase(cmdline[0]);
+			//if(cmdline.Length == 1)
+			//	LoadCinemaDatabase(cmdline[0]);
+			LoadAny(cmdline);
 //LoadDatabaseFromImages(new string[] {"/Users/sklaassen/Desktop/work/db/cinema_debug/image/1.000000/-30/-30.png"});
 //if(cmdline.Length == 1)
 //	LoadDatabaseFromDirectory(cmdline[0], false);

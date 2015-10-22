@@ -478,8 +478,8 @@ namespace csharp_viewer
 
 				// Create textures
 				texSplitter = GLTexture2D.FromFile("splitter.png", false);
-				texInterjectorLeft = GLTexture2D.FromFile("InterjectorLeft.png", false);
-				texInterjectorRight = GLTexture2D.FromFile("InterjectorRight.png", false);
+				texInterjectorLeft = GLTexture2D.FromFile("interjectorLeft.png", false);
+				texInterjectorRight = GLTexture2D.FromFile("interjectorRight.png", false);
 
 				// Create number font
 				//font = new GLNumberFont("HelveticaNeue_12.png", new FontDefinition(new int[] {0, 14, 26, 39, 53, 67, 80, 93, 106, 120, 133}, new int[] {0, 19}), Common.meshQuad, true);
@@ -1105,13 +1105,13 @@ namespace csharp_viewer
 				cmpreviewshader = new GLShader(new string[] {COLORMAP_PREVIEW_SHADER.VS}, new string[] {COLORMAP_PREVIEW_SHADER.FS});
 
 			// Create input section
-			input = new InputSection(this, new GLFont(new Font("Lucida Sans Unicode", 12.0f)));
+			input = new InputSection(this, new GLTextFont2(new Font("Lucida Sans Unicode", 12.0f)));
 			input.Bounds = new Rectangle(130, 60, glcontrol.Width - 260, 200);//new Rectangle(100, glcontrol.Height - 60, glcontrol.Width - 400, 40);
 			input.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
 			this.Controls.Add(input);
 
 			// Create colormap picker
-			picker = new ColorMapPicker(new GLFont(new Font("Lucida Sans Unicode", 12.0f/*, FontStyle.Bold*/)));
+			picker = new ColorMapPicker(new GLTextFont2(new Font("Lucida Sans Unicode", 12.0f/*, FontStyle.Bold*/)));
 			picker.bounds = new Rectangle(0, 0, glcontrol.Width, input.Bounds.Top);
 			picker.ColormapDragStart += ColorMapPicker_ColormapDragStart;
 

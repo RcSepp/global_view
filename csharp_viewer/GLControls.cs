@@ -291,15 +291,30 @@ namespace csharp_viewer
 	{
 		private GLTexture2D tex;
 
-		private Action clickAction;
+		private Action clickAction = null;
 		public EventHandler Click;
 
-		public GLButton(string texfilename, Rectangle bounds, AnchorStyles anchor, string actionname, string actiondesc)
+		public GLButton(string texfilename, Rectangle bounds, AnchorStyles anchor = AnchorStyles.Top | AnchorStyles.Left, string actionname = null, string actiondesc = null)
 		{
 			this.Anchor = anchor;
 
 			this.tex = GLTexture2D.FromFile(texfilename, false);
-			clickAction = ActionManager.CreateAction(actiondesc, actionname, this, "ClickInternal");
+			if(actionname != null)
+				clickAction = ActionManager.CreateAction(actiondesc == null ? "" : actiondesc, actionname, this, "ClickInternal");
+
+			if(bounds.Width <= 0)
+				bounds.Width = tex.width;
+			if(bounds.Height <= 0)
+				bounds.Height = tex.height;
+			this.Bounds = bounds;
+		}
+		public GLButton(GLTexture2D texture, Rectangle bounds, AnchorStyles anchor = AnchorStyles.Top | AnchorStyles.Left, string actionname = null, string actiondesc = null)
+		{
+			this.Anchor = anchor;
+
+			this.tex = texture;
+			if(actionname != null)
+				clickAction = ActionManager.CreateAction(actiondesc == null ? "" : actiondesc, actionname, this, "ClickInternal");
 
 			if(bounds.Width <= 0)
 				bounds.Width = tex.width;
@@ -323,7 +338,10 @@ namespace csharp_viewer
 
 		public void PerformClick()
 		{
-			ActionManager.Do(clickAction);
+			if(clickAction != null)
+				ActionManager.Do(clickAction);
+			else
+				ClickInternal();
 		}
 		private void ClickInternal()
 		{
@@ -334,11 +352,12 @@ namespace csharp_viewer
 
 	public class GLLabel : GLControl
 	{
-		public string Text;
+		public string Text = "";
+		public GLFont Font = Common.fontText;
 
 		protected override void Draw(float dt, Matrix4 transform)
 		{
-			Common.fontText.DrawString(Bounds.Left, Bounds.Top, Text, new Size(1024, 1024));
+			Common.fontText.DrawString(Bounds.Left, Bounds.Top, Text, BackbufferSize);
 		}
 	}
 }

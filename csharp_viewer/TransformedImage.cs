@@ -29,19 +29,6 @@ namespace csharp_viewer
 		{
 			if(tex == null && texstream != null)
 				tex = texstream.CreateTexture(filename, depth_filename);
-			/*{
-				if(depth_filename != null)
-				{
-					System.Drawing.Bitmap bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(filename);
-					System.Drawing.Bitmap depth_bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(depth_filename);
-					tex = texstream.CreateTexture(bmp, depth_bmp);
-				}
-				else
-				{
-					System.Drawing.Bitmap bmp = (System.Drawing.Bitmap)System.Drawing.Image.FromFile(filename);
-					tex = texstream.CreateTexture(bmp);
-				}
-			}*/
 		}
 
 		public void Update(float dt)
@@ -131,7 +118,7 @@ namespace csharp_viewer
 					transform *= invvieworient;
 				transform *= Matrix4.CreateTranslation(animatedPos);
 
-				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
 					transform *= freeview.viewprojmatrix;
 					return true;

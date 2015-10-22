@@ -47,7 +47,17 @@ namespace csharp_viewer
 			";
 	}
 
-	public class GLNumberFont
+	public abstract class GLFont
+	{
+		public abstract void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color);
+		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize)
+		{
+			DrawString(x, y, text, backbufferSize, Color4.White);
+		}
+		public abstract Vector2 MeasureString(string text);
+	}
+
+	public class GLNumberFont : GLFont
 	{
 		readonly GLTexture2D texture;
 		readonly GLMesh meshquad;
@@ -84,7 +94,7 @@ namespace csharp_viewer
 				0.0f, 0.0f, 1.0f);
 		}
 
-		public void DrawString(float x, float y, int number, System.Drawing.Size backbufferSize, Color4 color)
+		public override void DrawString(float x, float y, string strnumber, System.Drawing.Size backbufferSize, Color4 color)
 		{
 			// Fonts look best when they are drawn on integer positions (so they don't have to be interpolated over multiple pixels)
 			x = (float)(int)x;
@@ -97,7 +107,6 @@ namespace csharp_viewer
 			/*if(sdr.InvTexSizeUniform)
 				gl.uniform2f(sdr.InvTexSizeUniform, 1.0 / texture.image.width, 1.0 / texture.image.height);*/
 
-			string strnumber = number.ToString(); // Convert number to string
 			for(int i = 0; i < strnumber.Length; ++i)
 			{
 				int digit = strnumber[i] - '0';
@@ -128,13 +137,18 @@ namespace csharp_viewer
 				x += digit_size.X;
 			}
 		}
-		public void DrawString(float x, float y, int number, System.Drawing.Size backbufferSize)
+		public void DrawString(float x, float y, int number, System.Drawing.Size backbufferSize, Color4 color)
 		{
-			DrawString(x, y, number, backbufferSize, Color4.White);
+			DrawString(x, y, number.ToString(), backbufferSize, color);
+		}
+
+		public override Vector2 MeasureString(string strnumber)
+		{
+			return new Vector2(fixedwidth * strnumber.Length, fontdef.charpos_y[1] - fontdef.charpos_y[0]);
 		}
 	}
 
-	public class GLTextFont
+	public class GLTextFont : GLFont
 	{
 		readonly GLTexture2D texture;
 		readonly GLMesh meshquad;
@@ -170,7 +184,7 @@ namespace csharp_viewer
 				0.0f, 0.0f, 1.0f);
 		}
 
-		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
+		public override void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
 		{
 			// Fonts look best when they are drawn on integer positions (so they don't have to be interpolated over multiple pixels)
 			float linestart = x = (float)(int)x;
@@ -235,12 +249,8 @@ namespace csharp_viewer
 				x += charsize.X;
 			}
 		}
-		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize)
-		{
-			DrawString(x, y, text, backbufferSize, Color4.White);
-		}
 
-		public Vector2 MeasureString(string text)
+		public override Vector2 MeasureString(string text)
 		{
 			Vector2 size = new Vector2(0.0f, charsize.Y);
 			float x = 0.0f;
@@ -260,7 +270,7 @@ namespace csharp_viewer
 		}
 	}
 
-	public class GLFont
+	public class GLTextFont2 : GLFont
 	{
 		private const int CHARMAP_PADDING = 2;
 		private const int CHARMAP_CHAR_SIZE_INFLATE = 2;
@@ -273,7 +283,7 @@ namespace csharp_viewer
 		private static GLShader fontshader = null;
 		private static int fontshader_coloruniform;
 
-		public GLFont(Font font)
+		public GLTextFont2(Font font)
 		{
 			if(fontshader == null)
 			{
@@ -327,16 +337,17 @@ namespace csharp_viewer
 
 			bmp = new Bitmap(1024, y + lineMaxHeight);
 			gfx = Graphics.FromImage(bmp);
+			gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; // Do not use ClearType
 			for(int i = 0; i < 255; ++i)
 				if(!char.IsControl((char)i))
 					gfx.DrawString(new string((char)i, 1), font, Brushes.White, new RectangleF((float)charBounds[i].X - 1, (float)charBounds[i].Y - 2, (float)charBounds[i].Width, (float)charBounds[i].Height));
 			gfx.Flush();
-			bmp.Save("charmap.png"); // For debugging
+			//bmp.Save("charmap.png"); // For debugging
 
 			texture = new GLTexture2D(bmp);
 		}
 
-		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
+		public override void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
 		{
 			// Fonts look best when they are drawn on integer positions (so they don't have to be interpolated over multiple pixels)
 			float linestart = x = (float)(int)x;
@@ -385,12 +396,8 @@ namespace csharp_viewer
 					x += blankWidth;
 			}
 		}
-		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize)
-		{
-			DrawString(x, y, text, backbufferSize, Color4.White);
-		}
 
-		public Vector2 MeasureString(string text)
+		public override Vector2 MeasureString(string text)
 		{
 			Vector2 size = new Vector2(0.0f, (float)lineHeight);
 			float x = 0.0f;

@@ -65,6 +65,12 @@ namespace csharp_viewer
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
 		}
+
+		public GLTexture2D(int tex, int width, int height)
+			: base(TextureTarget.Texture2D, width, height)
+		{
+			this.tex = tex;
+		}
 	}
 }
 

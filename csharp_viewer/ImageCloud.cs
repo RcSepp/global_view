@@ -1,6 +1,6 @@
 ﻿#define USE_DEPTH_SORTING
 //#define USE_GS_QUAD
-//#define USE_2D_VIEW_CONTROL
+#define USE_2D_VIEW_CONTROL
 #define USE_ARG_IDX
 
 using System;
@@ -241,7 +241,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			{
 				MoveAction = ActionManager.CreateAction("Move View", this, "Move");
 				AnimatePositionAction = ActionManager.CreateAction("Animate View Position", this, "AnimateCam");
-				ActionManager.Do(MoveAction, new object[] {new Vector3(0.0f, 0.0f, 1.0f), rot});
+				//ActionManager.Do(MoveAction, new object[] {new Vector3(0.0f, 0.0f, 1.0f), rot});
+				ActionManager.Do(MoveAction, new object[] {new Vector3(0.0f, 0.0f, 10.0f), rot});
+
 			}
 
 			public void AnimatePosition(float target_x, float target_y, float target_z)
@@ -304,7 +306,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			public void OnSizeChanged(float aspectRatio)
 			{
 				_projmatrix = Matrix4.CreatePerspectiveFieldOfView(FOV_Y, aspectRatio, Z_NEAR, Z_FAR);
-				_viewprojmatrix = _viewmatrix * _projmatrix;
+				OnViewMatrixChanged();
 			}
 
 			public void Update(float dt)
@@ -514,7 +516,6 @@ this.Controls.Add(lbl);*/
 			GL.ActiveTexture(TextureUnit.Texture0);
 
 			texstream = new GLTextureStream(-1, imageSize.Width, imageSize.Height, depthimages);
-			//texstream = new GLTextureStream(32, imageSize.Width, imageSize.Height, depthimages);
 
 			// Create mesh for depth rendering
 			Size depthimagesize = new Size(imageSize.Width / GLTextureStream.DEPTH_IMAGE_DIV, imageSize.Height / GLTextureStream.DEPTH_IMAGE_DIV);
@@ -740,13 +741,13 @@ this.Controls.Add(lbl);*/
 
 			// >>> Update free-view matrix
 
-			if(glcontrol.Focused)
+			if(true)//(glcontrol.ParentForm.Focused)//(glcontrol.Focused)
 			{
 				bool viewChanged = false;
 				#if USE_2D_VIEW_CONTROL
 				Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, camera_speed * 1.0f * InputDevices.mdz / dt);
 
-				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle))
+				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right))
 				{
 					Vector2 dm = new Vector2(4.0f * (Control.MousePosition.X - oldmousepos.X) / backbuffersize.Width, 4.0f * (oldmousepos.Y - Control.MousePosition.Y) / backbuffersize.Height);
 					Vector3 vnear = new Vector3(dm.X, dm.Y, 0.0f);
@@ -776,7 +777,7 @@ this.Controls.Add(lbl);*/
 					freeview.Translate(Vector3.Multiply(freeViewTranslation, camera_speed * dt));
 					viewChanged = true;
 				}
-				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle))
+				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle) | InputDevices.mstate.IsButtonDown(MouseButton.Right))
 				{
 					if(viewControl == ViewControl.ViewCentric)
 						freeview.Rotate(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx));
@@ -917,8 +918,8 @@ this.Controls.Add(lbl);*/
 
 #if USE_DEPTH_SORTING
 				foreach(TransformedImageAndMatrix iter in renderlist)
-					if(!iter.image.Load())
-						break;
+					iter.image.Load();//if(!iter.image.Load())
+					//	break;
 				renderlist.reversed = true;
 				foreach(TransformedImageAndMatrix iter in renderlist)
 				{
@@ -995,6 +996,9 @@ this.Controls.Add(lbl);*/
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
 			Common.fontText.DrawString(0.0f, 40.0f, foo.ToString(), backbuffersize);
 			Common.fontText.DrawString(0.0f, 80.0f, ColorTableManager.foo.ToString(), backbuffersize);
+
+			if(texstream != null)
+				texstream.DrawDebugInfo(backbuffersize);
 
 			if(status_timer > 0.0f)
 			{
