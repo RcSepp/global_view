@@ -139,16 +139,18 @@ namespace csharp_viewer
 			else
 				return false;
 		}
-		public bool Load()
+		public bool Load(Matrix4 transform, System.Drawing.Size backbuffersize)
 		{
-			return tex.Load();
+			Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
+			//int pixelsize = Math.Max((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height)); // max(width, height) of image size in pixel
+			return tex.Load((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height));
 		}
 		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, int sdr_imageViewInv, int sdr_DepthScale, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
 		{
 			//tex.Load();
 
-			//if(tex.tex < 0)
-			//	return;
+			if(tex.tex == null)
+				return;
 
 			Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
 			if(selected)
@@ -166,7 +168,7 @@ namespace csharp_viewer
 			//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
 			if(sdr_DepthScale != -1)
 				GL.Uniform1(sdr_DepthScale, depthscale);
-			mesh.Bind(sdr, tex, tex.depth_tex);
+			mesh.Bind(sdr, tex.tex, tex.depth_tex);
 			mesh.Draw();
 
 			foreach(ImageTransform t in transforms)

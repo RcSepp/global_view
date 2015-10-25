@@ -65,6 +65,27 @@ namespace csharp_viewer
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
 		}
+		public GLTexture2D(int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
+			: base(TextureTarget.Texture2D, width, height)
+		{
+			tex = GL.GenTexture();
+			GL.BindTexture(TextureTarget.Texture2D, tex);
+			GL.TexImage2D(TextureTarget.Texture2D, 0, destformat, width, height, 0, sourceformat, sourcetype, IntPtr.Zero);
+
+			if(genmipmaps)
+			{
+				GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapNearest);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+			}
+			else
+			{
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+			}
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
+			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
+		}
 
 		public GLTexture2D(int tex, int width, int height)
 			: base(TextureTarget.Texture2D, width, height)

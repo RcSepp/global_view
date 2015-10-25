@@ -688,3 +688,18 @@ spread random
 load("mpas_ani")
 all
 spread random
+load("mpas2")
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+focus
+load("mpas2")
+all
+spread random
+load("mpas2")
+load("mpas2")
+all
+spread random

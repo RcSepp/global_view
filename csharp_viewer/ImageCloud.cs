@@ -515,10 +515,10 @@ this.Controls.Add(lbl);*/
 			}
 			GL.ActiveTexture(TextureUnit.Texture0);
 
-			texstream = new GLTextureStream(-1, imageSize.Width, imageSize.Height, depthimages);
+			texstream = new GLTextureStream(1024*1024, depthimages);
 
 			// Create mesh for depth rendering
-			Size depthimagesize = new Size(imageSize.Width / GLTextureStream.DEPTH_IMAGE_DIV, imageSize.Height / GLTextureStream.DEPTH_IMAGE_DIV);
+			Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
 			Vector3[] positions = new Vector3[depthimagesize.Width * depthimagesize.Height];
 			Vector2[] texcoords = new Vector2[depthimagesize.Width * depthimagesize.Height];
 			i = 0;
@@ -918,7 +918,7 @@ this.Controls.Add(lbl);*/
 
 #if USE_DEPTH_SORTING
 				foreach(TransformedImageAndMatrix iter in renderlist)
-					iter.image.Load();//if(!iter.image.Load())
+					iter.image.Load(iter.matrix, backbuffersize);//if(!iter.image.Load())
 					//	break;
 				renderlist.reversed = true;
 				foreach(TransformedImageAndMatrix iter in renderlist)
