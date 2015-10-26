@@ -515,7 +515,8 @@ this.Controls.Add(lbl);*/
 			}
 			GL.ActiveTexture(TextureUnit.Texture0);
 
-			texstream = new GLTextureStream(1024*1024, depthimages);
+			texstream = new GLTextureStream(images, 1024*1024, depthimages);
+			//texstream = new GLTextureStream(images, 128*1024, depthimages);
 
 			// Create mesh for depth rendering
 			Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
@@ -892,7 +893,7 @@ this.Controls.Add(lbl);*/
 				GL.Uniform4(sdrTextured_colorParam, clr);*/
 					iter.Update(dt);
 					Matrix4 transform;
-					if(iter.IsVisible(freeview, invvieworient, out transform))
+					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out transform))
 					{
 #if USE_DEPTH_SORTING
 						float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;

@@ -703,3 +703,27 @@ load("mpas2")
 load("mpas2")
 all
 spread random
+ls
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random
+none
+none
+load("mpas_ani")
+all
+spread random
+none
+load("mpas_ani")
+all
+spread random
+none
+load("mpas_ani")
+all
+spread random
+none
+load("mpas2")
+clear
+spread random

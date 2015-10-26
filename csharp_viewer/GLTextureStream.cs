@@ -1,5 +1,4 @@
 ﻿#define IMAGE_STREAMING
-#define ASYNC_LOADS // Async loads are only in effect with image streaming
 //#define DEBUG_GLTEXTURESTREAM
 
 using System;
@@ -22,12 +21,219 @@ namespace csharp_viewer
 
 		private int currentmemorysize, memorysizelimit;
 
-		#if ASYNC_LOADS
-		private Thread loaderThread;
-		private LinkedList<Texture> loaderQueue;
-		private Mutex loaderQueueMutex;
-		private bool closeLoaderThread, loaderThreadClosed;
-		#endif
+		private class AsyncImageLoader
+		{
+			private class Image : IComparable<Image>
+			{
+				private TransformedImage image;
+				private int width, height;
+				private int memory;
+
+				public Image(TransformedImage image)
+				{
+					this.image = image;
+					memory = 0;
+				}
+
+				public int RequiredMemory()
+				{
+					// Computes width & height. Returns (guessed) memory required for Load()
+
+					if(image.renderPriority == 0) // If image doesn't need to be loaded
+					{
+						return -memory; // Return memory gain achieved by unloading this image
+					}
+
+					if(memory > 0) // If image already loaded
+						return 0; // Return no extra memory required. EDIT: Implement switching resolutions here
+
+					if(image.originalWidth == 0) // If original size is unknown (because image hasn't been loaded so far)
+						return image.renderWidth * image.renderHeight;
+
+					if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+					{
+						width = image.originalWidth;
+						height = image.originalHeight;
+					}
+					else
+					{
+						float fw = (float)image.renderWidth / (float)image.originalWidth;
+						float fh = (float)image.renderHeight / (float)image.originalHeight;
+
+						if(fw > fh)
+						{
+							width = image.renderWidth;
+							height = (int)((float)image.originalHeight * fw);
+						}
+						else
+						{
+							height = image.renderHeight;
+							width = (int)((float)image.originalWidth * fh);
+						}
+					}
+
+					return width * height;
+				}
+
+				public int Load()
+				{
+					image.renderMutex.WaitOne();
+
+					// Load image from disk
+					image.bmp = (Bitmap)Bitmap.FromFile(image.filename);
+
+					// Compute width & height if not computed inside RequiredMemory()
+					if(image.originalWidth == 0) // If original size is unknown (because image hasn't been loaded so far)
+					{
+						image.originalWidth = image.bmp.Width;
+						image.originalHeight = image.bmp.Height;
+						image.originalAspectRatio = (float)image.originalWidth / (float)image.originalHeight;
+
+						if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+						{
+							width = image.originalWidth;
+							height = image.originalHeight;
+						}
+						else
+						{
+							float fw = (float)image.renderWidth / (float)image.originalWidth;
+							float fh = (float)image.renderHeight / (float)image.originalHeight;
+
+							if(fw > fh)
+							{
+								width = image.renderWidth;
+								height = (int)((float)image.originalHeight * fw);
+							}
+							else
+							{
+								height = image.renderHeight;
+								width = (int)((float)image.originalWidth * fh);
+							}
+						}
+					}
+
+					// Downscale image from originalWidth/originalHeight to width/height
+					if(width != image.originalWidth || height != image.originalHeight)
+					{
+						Bitmap originalBmp = image.bmp;
+						image.bmp = new Bitmap(width, height, originalBmp.PixelFormat);
+						Graphics gfx = Graphics.FromImage(image.bmp);
+						gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+						gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+						gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+						gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
+						gfx.Flush();
+						originalBmp.Dispose();
+						originalBmp = null;
+					}
+
+					image.renderMutex.ReleaseMutex();
+
+					return (memory = width * height);
+				}
+
+				public int Unload()
+				{
+					if(image.bmp == null)
+						throw new Exception("assert(bmp != null) triggered inside Unload()");
+
+					image.renderMutex.WaitOne();
+
+					// Unload image from RAM
+					image.bmp.Dispose();
+					image.bmp = null;
+
+					image.renderMutex.ReleaseMutex();
+
+					int m = memory;
+					memory = 0;
+					return m;
+				}
+
+				public int CompareTo(Image other)
+				{
+					return image.renderPriority.CompareTo(other.image.renderPriority);
+				}
+			}
+
+			private readonly TransformedImageCollection images;
+			private int availablememory;
+
+			private Thread loaderThread;
+			private bool closeLoaderThread, loaderThreadClosed;
+
+			private List<Image> prioritySortedImages;
+
+			public AsyncImageLoader(TransformedImageCollection images, int memorysizelimit)
+			{
+				this.images = images;
+				this.availablememory = memorysizelimit;
+
+				prioritySortedImages = new List<Image>(images.Count);
+				foreach(TransformedImage image in images)
+					prioritySortedImages.Add(new Image(image));
+
+				closeLoaderThread = loaderThreadClosed = false;
+				loaderThread = new Thread(LoaderThread);
+				loaderThread.Start();
+			}
+
+			public void CloseThread()
+			{
+				closeLoaderThread = true;
+			}
+
+			public void WaitForThreadClose()
+			{
+				while(!loaderThreadClosed)
+					Thread.Sleep(1);
+			}
+
+			private void LoaderThread()
+			{
+				while(!closeLoaderThread)
+				{
+					Thread.Sleep(1);
+
+					prioritySortedImages.Sort();
+
+					// Load highest priority image
+					for(int i = prioritySortedImages.Count - 1; i > 0; --i)
+					{
+						Image img = prioritySortedImages[i];
+						int requiredmemory = img.RequiredMemory();
+
+						if(requiredmemory <= 0) // If image is already loaded
+							continue; // continue checking next-highest priority image
+						if(requiredmemory <= availablememory) // If we have enough memory to load img
+						{
+							availablememory -= img.Load(); // Load image and update available memory
+							break; // Done
+						}
+						else // If we don't have enough memory to load img
+						{
+							// Unload lower priority images to regain memory and retry loading img
+							for(int j = 0; j < i; ++j)
+							{
+								Image u_img = prioritySortedImages[j];
+								if(u_img.RequiredMemory() < 0) // If image is loaded, but doesn't need to be (renderPriority == 0)
+								{
+									availablememory += u_img.Unload(); // Unload image and update available memory
+									if(requiredmemory <= availablememory) // If we now have enough memory to load img
+									{
+										availablememory -= img.Load(); // Load image and update available memory
+										break; // Done
+									}
+								}
+							}
+						}
+					}
+				}
+
+				loaderThreadClosed = true;
+			}
+		}
+		private AsyncImageLoader loader;
 
 		private static int ceilBin(int v)
 		{
@@ -36,10 +242,10 @@ namespace csharp_viewer
 			return b;
 		}
 
-		public GLTextureStream(int memorysize, bool depthimages = false)
+		public GLTextureStream(TransformedImageCollection images, int memorysize, bool depthimages = false)
 		{
 			#if DEBUG_GLTEXTURESTREAM
-			memorysize = 8 * 256 * 256;
+			memorysize = 8 * 79 * 79;
 			#endif
 
 			this.currentmemorysize = 0;
@@ -75,24 +281,15 @@ namespace csharp_viewer
 			// Load texture
 			texFileNotFound = new GLTexture2D(bmpFileNotFound, true);
 
-			#if ASYNC_LOADS
-			closeLoaderThread = loaderThreadClosed = false;
-			loaderQueue = new LinkedList<Texture>();
-			loaderQueueMutex = new Mutex();
-			loaderThread = new Thread(LoaderThread);
-			loaderThread.Start();
-			#endif
+			loader = new AsyncImageLoader(images, memorysize);
 		}
 		public void Free()
 		{
-			#if ASYNC_LOADS
-			closeLoaderThread = true;
-			#endif
+			loader.CloseThread();
 
-			#if ASYNC_LOADS
-			while(!loaderThreadClosed)
-				Thread.Sleep(1);
-			#endif
+			// Free local resources ...
+
+			loader.WaitForThreadClose();
 		}
 
 		#if DEBUG_GLTEXTURESTREAM
@@ -191,7 +388,7 @@ public static int foo = 0;
 			}
 
 			public bool Load(int w, int h)
-			{
+			{return true; // Deprecated
 				if(tex == owner.texFileNotFound)
 					return true;
 
@@ -215,26 +412,21 @@ public static int foo = 0;
 					texstatus = LoadStatus.Queued;
 					requiredwidth = w;
 					requiredheight = h;
-					owner.loaderQueueMutex.WaitOne();
-					owner.loaderQueue.AddLast(this);
-					owner.loaderQueueMutex.ReleaseMutex();
+					//owner.loader.Queue(this);
 				}
 
 				return true;
 			}
 			public void Unload()
-			{
+			{return; // Deprecated
 				if(tex == owner.texFileNotFound)
 					return;
 
 				texstatus = LoadStatus.None;
 
-				#if ASYNC_LOADS
 				if(tex != null && texstatus != LoadStatus.None) // If async texture loading is queued or in progress
 				{
-					owner.loaderQueueMutex.WaitOne();
-					owner.loaderQueue.Remove(this);
-					owner.loaderQueueMutex.ReleaseMutex();
+					//owner.loader.Unqueue(this);
 
 					if(tex != null)
 					{
@@ -243,7 +435,6 @@ public static int foo = 0;
 					}
 					return;
 				}
-				#endif
 
 				if(tex != null)
 				{
@@ -261,57 +452,6 @@ public static int foo = 0;
 				#endif
 			}
 
-
-			public void LoadImage() //EDIT: Make private
-			{
-				++GLTextureStream.foo;
-
-				/*bmp = (Bitmap)Image.FromFile(filename);
-				width = bmp.Width;
-				height = bmp.Height;*/
-
-				Image img = Image.FromFile(filename);
-
-				if(requiredwidth >= img.Width || requiredheight >= img.Height)
-				{
-					bmp = (Bitmap)img;
-					width = bmp.Width;
-					height = bmp.Height;
-				}
-				else
-				{
-					float fw = (float)requiredwidth / (float)img.Width;
-					float fh = (float)requiredheight / (float)img.Height;
-
-					if(fw > fh)
-					{
-						width = requiredwidth;
-						height = (int)((float)img.Height * fw);
-					}
-					else
-					{
-						height = requiredheight;
-						width = (int)((float)img.Width * fh);
-					}
-
-					bmp = new Bitmap(width, height, img.PixelFormat);
-					Graphics gfx = Graphics.FromImage(bmp);
-					gfx.DrawImage(img, new Rectangle(0, 0, width, height));
-					gfx.Flush();
-
-					img.Dispose();
-				}
-
-				if(depth_filename != null)
-				{
-					/*img = Image.FromFile(depth_filename);
-					gfx = Graphics.FromImage(depth_bmp);
-					gfx.DrawImage(img, new Rectangle(0, 0, depth_tex.width, depth_tex.height));
-					gfx.Flush();
-					img.Dispose();*/
-				}
-			}
-
 			private void LoadTexture()
 			{
 				tex = new GLTexture2D(bmp, false);
@@ -325,36 +465,6 @@ public static int foo = 0;
 				}
 			}
 		}
-
-		#if ASYNC_LOADS
-		private void LoaderThread()
-		{
-			while(!closeLoaderThread)
-			{
-				Thread.Sleep(1);
-				if(loaderQueueMutex.WaitOne(1) == false)
-					continue;
-				if(loaderQueue.Count == 0)
-				{
-					loaderQueueMutex.ReleaseMutex();
-					continue;
-				}
-				Texture tex = loaderQueue.First.Value;
-				loaderQueue.RemoveFirst();
-				loaderQueueMutex.ReleaseMutex();
-
-				tex.LoadImage();
-				#if DEBUG_GLTEXTURESTREAM
-				Thread.Sleep(1000);
-				#endif
-
-				if(tex.bmp != null)
-					tex.texstatus = Texture.LoadStatus.Loaded; // Sinal that the image has been loaded
-			}
-
-			loaderThreadClosed = true;
-		}
-		#endif
 	}
 }
 

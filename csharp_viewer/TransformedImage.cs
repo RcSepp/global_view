@@ -9,7 +9,8 @@ namespace csharp_viewer
 {
 	public class TransformedImage : Cinema.CinemaImage
 	{
-		private GLTextureStream.Texture tex;
+		//private GLTextureStream.Texture tex;
+		private GLTexture2D tex;
 		public int[] key;
 
 		public bool visible = true, selected = false;
@@ -23,12 +24,19 @@ namespace csharp_viewer
 
 		private List<ImageTransform> transforms = new List<ImageTransform>();
 
+		public int originalWidth = 0, originalHeight = 0;
+		public float originalAspectRatio = 1.0f;
+		public int renderWidth, renderHeight;
+		public byte renderPriority = 0;
+		public System.Drawing.Bitmap bmp = null;
+		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
+
 		public bool HasDepthInfo { get {return depth_filename != null;} }
 
 		public void LoadTexture(GLTextureStream texstream)
 		{
-			if(tex == null && texstream != null)
-				tex = texstream.CreateTexture(filename, depth_filename);
+			//if(tex == null && texstream != null)
+			//	tex = texstream.CreateTexture(filename, depth_filename);
 		}
 
 		public void Update(float dt)
@@ -91,7 +99,7 @@ namespace csharp_viewer
 				tex.Unload();
 		}*/
 
-		public bool IsVisible(ImageCloud.FreeView freeview, Matrix4 invvieworient, out Matrix4 transform)
+		public bool IsVisible(ImageCloud.FreeView freeview, Matrix4 invvieworient, System.Drawing.Size backbuffersize, out Matrix4 transform)
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
 			bool _visible = visible;
@@ -104,6 +112,13 @@ namespace csharp_viewer
 					hasDynamicLocationTransform = true;
 			}
 
+			if(bmp == null && tex != null)
+			{
+				// Unload texture
+				GL.DeleteTexture(tex.tex);
+				tex = null;
+			}
+
 			transform = invview; //Matrix4.Identity
 			if(_visible)
 			{
@@ -111,8 +126,7 @@ namespace csharp_viewer
 					ComputeLocation();
 
 				//transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-				if(tex != null)
-					transform *= Matrix4.CreateScale((float)tex.width / (float)tex.height, 1.0f, 1.0f);
+				transform *= Matrix4.CreateScale(originalAspectRatio, 1.0f, 1.0f);
 				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 				if(depth_filename == null) // Do not always face screen when rendering volume images
 					transform *= invvieworient;
@@ -121,35 +135,63 @@ namespace csharp_viewer
 				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
 					transform *= freeview.viewprojmatrix;
+
+					// Set render priority and dimensions (thread safety: priority has to be set after width/height)
+					Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
+					renderWidth = (int)(vsize.X * (float)backbuffersize.Width);
+					renderHeight = (int)(vsize.Y * (float)backbuffersize.Height);
+					renderPriority = (byte)100;
+
 					return true;
 				}
 				else if(tex != null)
 				{
-					tex.Unload();
+					renderPriority = (byte)0;
+					//tex.Unload();
 					return false;
 				}
 				else
+				{
+					renderPriority = (byte)0;
 					return false;
+				}
 			}
 			else if(tex != null)
 			{
-				tex.Unload();
+				renderPriority = (byte)0;
+				//tex.Unload();
 				return false;
 			}
 			else
+			{
+				renderPriority = (byte)0;
 				return false;
+			}
 		}
 		public bool Load(Matrix4 transform, System.Drawing.Size backbuffersize)
 		{
-			Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
+			/*Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
 			//int pixelsize = Math.Max((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height)); // max(width, height) of image size in pixel
-			return tex.Load((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height));
+			return tex.Load((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height));*/
+			return true;
 		}
 		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, int sdr_imageViewInv, int sdr_DepthScale, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
 		{
-			//tex.Load();
-
-			if(tex.tex == null)
+			if(renderMutex.WaitOne(0))
+			{
+				if(bmp != null)
+				{
+					if(tex == null)
+						tex = new GLTexture2D(bmp, false); // Load texture
+					renderMutex.ReleaseMutex();
+				}
+				else
+				{
+					renderMutex.ReleaseMutex();
+					return;
+				}
+			}
+			else
 				return;
 
 			Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -168,7 +210,8 @@ namespace csharp_viewer
 			//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
 			if(sdr_DepthScale != -1)
 				GL.Uniform1(sdr_DepthScale, depthscale);
-			mesh.Bind(sdr, tex.tex, tex.depth_tex);
+
+			mesh.Bind(sdr, tex);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
 			mesh.Draw();
 
 			foreach(ImageTransform t in transforms)
@@ -225,7 +268,7 @@ namespace csharp_viewer
 
 			//System.Windows.Forms.MessageBox.Show(dest.ToString());
 
-			float halfwidth = 0.5f * (float)tex.width / (float)tex.height, halfheight = 0.5f;
+			float halfwidth = 0.5f * originalAspectRatio, halfheight = 0.5f;
 			return -halfwidth < dest.X && dest.X < halfwidth && -halfheight < dest.Y && dest.Y < halfheight ? from.Z : float.MaxValue;
 		}
 
@@ -305,9 +348,8 @@ namespace csharp_viewer
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 			worldmatrix *= Matrix4.CreateTranslation(pos);
 
-			float aspectRatio = tex == null ? 1.0f : ((float)tex.width / (float)tex.height);
-			aabb.Include(Vector3.TransformPosition(new Vector3(-0.5f * aspectRatio, -0.5f, -0.5f * aspectRatio), worldmatrix));
-			aabb.Include(Vector3.TransformPosition(new Vector3( 0.5f * aspectRatio,  0.5f,  0.5f * aspectRatio), worldmatrix));
+			aabb.Include(Vector3.TransformPosition(new Vector3(-0.5f * originalAspectRatio, -0.5f, -0.5f * originalAspectRatio), worldmatrix));
+			aabb.Include(Vector3.TransformPosition(new Vector3( 0.5f * originalAspectRatio,  0.5f,  0.5f * originalAspectRatio), worldmatrix));
 
 			return aabb;
 		}
