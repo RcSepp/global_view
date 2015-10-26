@@ -27,8 +27,9 @@ namespace csharp_viewer
 		public int originalWidth = 0, originalHeight = 0;
 		public float originalAspectRatio = 1.0f;
 		public int renderWidth, renderHeight;
-		public byte renderPriority = 0;
+		public int renderPriority = 0;
 		public System.Drawing.Bitmap bmp = null;
+		private System.Drawing.Bitmap oldbmp = null;
 		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
 
 		public bool HasDepthInfo { get {return depth_filename != null;} }
@@ -112,12 +113,13 @@ namespace csharp_viewer
 					hasDynamicLocationTransform = true;
 			}
 
-			if(bmp == null && tex != null)
+			if(tex != null && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
 			{
 				// Unload texture
 				GL.DeleteTexture(tex.tex);
 				tex = null;
 			}
+			oldbmp = bmp;
 
 			transform = invview; //Matrix4.Identity
 			if(_visible)
@@ -140,31 +142,31 @@ namespace csharp_viewer
 					Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
 					renderWidth = (int)(vsize.X * (float)backbuffersize.Width);
 					renderHeight = (int)(vsize.Y * (float)backbuffersize.Height);
-					renderPriority = (byte)100;
+					renderPriority = 1000;
 
 					return true;
 				}
 				else if(tex != null)
 				{
-					renderPriority = (byte)0;
+					renderPriority = 0;
 					//tex.Unload();
 					return false;
 				}
 				else
 				{
-					renderPriority = (byte)0;
+					renderPriority = 0;
 					return false;
 				}
 			}
 			else if(tex != null)
 			{
-				renderPriority = (byte)0;
+				renderPriority = 0;
 				//tex.Unload();
 				return false;
 			}
 			else
 			{
-				renderPriority = (byte)0;
+				renderPriority = 0;
 				return false;
 			}
 		}
