@@ -727,3 +727,8 @@ none
 load("mpas2")
 clear
 spread random
+load("mpas2")
+load("mpas2")
+all
+spread random
+none

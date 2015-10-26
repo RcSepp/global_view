@@ -450,11 +450,11 @@ namespace csharp_viewer
 
 
 
-			imageCloud.SelectAll();
+			/*imageCloud.SelectAll();
 			ImageTransform bar = new XYTransform();
 			bar.SetArguments(arguments); bar.SetIndex(0, 0); bar.SetIndex(1, 1);
 			imageCloud.AddTransform(bar);
-			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });
+			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });*/
 		}
 
 		private void LoadAny(string[] argv)

@@ -77,16 +77,16 @@ namespace csharp_viewer
 
 				public int Load()
 				{
-					image.renderMutex.WaitOne();
+					
 
 					// Load image from disk
-					image.bmp = (Bitmap)Bitmap.FromFile(image.filename);
+					Bitmap newbmp = (Bitmap)Bitmap.FromFile(image.filename);
 
 					// Compute width & height if not computed inside RequiredMemory()
 					if(image.originalWidth == 0) // If original size is unknown (because image hasn't been loaded so far)
 					{
-						image.originalWidth = image.bmp.Width;
-						image.originalHeight = image.bmp.Height;
+						image.originalWidth = newbmp.Width;
+						image.originalHeight = newbmp.Height;
 						image.originalAspectRatio = (float)image.originalWidth / (float)image.originalHeight;
 
 						if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
@@ -115,9 +115,9 @@ namespace csharp_viewer
 					// Downscale image from originalWidth/originalHeight to width/height
 					if(width != image.originalWidth || height != image.originalHeight)
 					{
-						Bitmap originalBmp = image.bmp;
-						image.bmp = new Bitmap(width, height, originalBmp.PixelFormat);
-						Graphics gfx = Graphics.FromImage(image.bmp);
+						Bitmap originalBmp = newbmp;
+						newbmp = new Bitmap(width, height, originalBmp.PixelFormat);
+						Graphics gfx = Graphics.FromImage(newbmp);
 						gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
 						gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
 						gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
@@ -127,6 +127,8 @@ namespace csharp_viewer
 						originalBmp = null;
 					}
 
+					image.renderMutex.WaitOne();
+					image.bmp = newbmp;
 					image.renderMutex.ReleaseMutex();
 
 					return (memory = width * height);
