@@ -845,3 +845,21 @@ spread random
 all
 spread random
 focus all
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+load("mpas_ani")
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random

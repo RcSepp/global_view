@@ -732,3 +732,95 @@ load("mpas2")
 all
 spread random
 none
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+all
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+load("mpas2")
+exit
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+load("mpas2")
+all
+load("mpas2")
+exit
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+load("mpas2")
+load("mpas2")
+exit
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas2")
+all
+spread random
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random
+load("mpas_ani")
+all
+spread random
+exit
+load("mpas2")
+all
+spread random
+clear
+spread all
+load("mpas2")
+all
+spread all
+focus
+focus
+exit
+load("mpas2")
+all
+theta-phi-view $theta $phi
+x $time

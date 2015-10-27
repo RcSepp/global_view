@@ -1,5 +1,5 @@
 ﻿#define IMAGE_STREAMING
-#define DEBUG_GLTEXTURESTREAM
+//#define DEBUG_GLTEXTURESTREAM
 
 using System;
 using System.IO;
@@ -25,10 +25,10 @@ namespace csharp_viewer
 		{
 			public class Image : IComparable<Image> //EDIT: Make private
 			{
-				private TransformedImage image;
+				public TransformedImage image; //EDIT: Make private
 				private int width, height;
 				public float sizePriority; //EDIT: Make private
-				private int memory;
+				public int memory; //EDIT: Make private
 
 				public Image(TransformedImage image)
 				{
@@ -37,7 +37,7 @@ namespace csharp_viewer
 					memory = 0;
 				}
 
-				public int RequiredMemory()
+				public int RequiredMemory(float tradeoffRenderSizeFactor)
 				{
 					// Returns (guessed) memory required for Load()
 
@@ -80,66 +80,109 @@ namespace csharp_viewer
 						return 0; // Image considered unchanged. Return no extra memory required
 					}
 
+					int renderWidth = (int)((float)image.renderWidth * tradeoffRenderSizeFactor);
+					int renderHeight = (int)((float)image.renderHeight * tradeoffRenderSizeFactor);
+
 					if(image.originalWidth == 0) // If original size is unknown (because image hasn't been loaded so far)
-						return image.renderWidth * image.renderHeight;
+						return renderWidth * renderHeight;
 
 					// Compute image size
 					int width, height; // width and height are only computed locally
-					if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+					if(renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
 					{
 						width = image.originalWidth;
 						height = image.originalHeight;
 					}
 					else
 					{
-						float fw = (float)image.renderWidth / (float)image.originalWidth;
-						float fh = (float)image.renderHeight / (float)image.originalHeight;
+						float fw = (float)renderWidth / (float)image.originalWidth;
+						float fh = (float)renderHeight / (float)image.originalHeight;
 
 						if(fw > fh)
 						{
-							width = image.renderWidth;
+							width = renderWidth;
 							height = (int)((float)image.originalHeight * fw);
 						}
 						else
 						{
-							height = image.renderHeight;
+							height = renderHeight;
 							width = (int)((float)image.originalWidth * fh);
 						}
 					}
 
 					return width * height;
 				}
+				public bool MemoryDisposable()
+				{
+					return memory > 0 && image.renderPriority <= 0;
+				}
+				public bool MemoryShrinkable()
+				{
+					if(memory > 0)
+					{
+						int newwidth;
+						if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+							newwidth = image.originalWidth;
+						else
+						{
+							float fw = (float)image.renderWidth / (float)image.originalWidth;
+							float fh = (float)image.renderHeight / (float)image.originalHeight;
 
-				public int Load()
+							if(fw > fh)
+								newwidth = image.renderWidth;
+							else
+								newwidth = (int)((float)image.originalWidth * fh);
+						}
+
+						float size_diff_factor = (float)newwidth / (float)this.width;
+						return size_diff_factor < 0.5f;
+					}
+
+					return false;
+				}
+
+				public int Load(float tradeoffRenderSizeFactor)
 				{
 					// Load image from disk
 					Bitmap newbmp = (Bitmap)Bitmap.FromFile(image.filename);
-					//++GLTextureStream.foo;
+					++GLTextureStream.foo;
 
 					// Compute original dimensions
 					image.originalWidth = newbmp.Width;
 					image.originalHeight = newbmp.Height;
 					image.originalAspectRatio = (float)image.originalWidth / (float)image.originalHeight;
 
+					int renderWidth, renderHeight;
+					if(memory > 0)
+					{
+						renderWidth = image.renderWidth;
+						renderHeight = image.renderHeight;
+					}
+					else
+					{
+						renderWidth = (int)((float)image.renderWidth * tradeoffRenderSizeFactor);
+						renderHeight = (int)((float)image.renderHeight * tradeoffRenderSizeFactor);
+					}
+
 					// Compute width & height
-					if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+					if(renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
 					{
 						width = image.originalWidth;
 						height = image.originalHeight;
 					}
 					else
 					{
-						float fw = (float)image.renderWidth / (float)image.originalWidth;
-						float fh = (float)image.renderHeight / (float)image.originalHeight;
+						float fw = (float)renderWidth / (float)image.originalWidth;
+						float fh = (float)renderHeight / (float)image.originalHeight;
 
 						if(fw > fh)
 						{
-							width = image.renderWidth;
+							width = renderWidth;
 							height = (int)((float)image.originalHeight * fw);
 						}
 						else
 						{
-							height = image.renderHeight;
+							height = renderHeight;
 							width = (int)((float)image.originalWidth * fh);
 						}
 					}
@@ -188,12 +231,13 @@ namespace csharp_viewer
 
 					sizePriority = (float)image.originalWidth / (float)width;
 
-					return (memory = width * height - memory); // New memory = memory for new image minus memory for old image (== old memory)
+					int memorydiff = width * height - memory;
+					memory = width * height;
+					return memorydiff;
 				}
 
 				public int Unload()
 				{
-					GLTextureStream.foo = (int)sizePriority;
 					if(image.bmp == null)
 						throw new Exception("assert(bmp != null) triggered inside Unload()");
 
@@ -220,6 +264,7 @@ namespace csharp_viewer
 			}
 
 			private readonly TransformedImageCollection images;
+			private readonly int memorysize;
 			private int availablememory;
 
 			private Thread loaderThread;
@@ -227,10 +272,13 @@ namespace csharp_viewer
 
 			public List<Image> prioritySortedImages; //EDIT: Make private
 
-			public AsyncImageLoader(TransformedImageCollection images, int memorysizelimit)
+			private float tradeoffRenderSizeFactor = 1.0f;
+
+			public AsyncImageLoader(TransformedImageCollection images, int memorysize)
 			{
 				this.images = images;
-				this.availablememory = memorysizelimit;
+				this.memorysize = memorysize;
+				this.availablememory = memorysize;
 
 				prioritySortedImages = new List<Image>(images.Count);
 				foreach(TransformedImage image in images)
@@ -262,38 +310,72 @@ namespace csharp_viewer
 
 					// Load highest priority image
 					int unloadidx = 0, len = prioritySortedImages.Count, loadidx = len - 1;
+					bool outofmemory = false;
 					for(; loadidx >= 0; --loadidx)
 					{
 						Image img = prioritySortedImages[loadidx];
-						int requiredmemory = img.RequiredMemory();
+						int requiredmemory = img.RequiredMemory(tradeoffRenderSizeFactor);
 
 						if(requiredmemory <= 0) // If image is already loaded
 							continue; // continue checking next-highest priority image
 						if(requiredmemory <= availablememory) // If we have enough memory to load img
 						{
-							availablememory -= img.Load(); // Load image and update available memory
+							availablememory -= img.Load(tradeoffRenderSizeFactor); // Load image and update available memory
 							break; // Done
 						}
 						else // If we don't have enough memory to load img
 						{
 							// Unload lower priority images to regain memory and retry loading img
-							/*for(int j = 0; j < i; ++j)
-							{*/
+							bool imageLoaded = false;
 							for(; unloadidx < len; ++unloadidx)
 							{
 								Image u_img = prioritySortedImages[unloadidx];
-								if(u_img.RequiredMemory() < 0) // If image is loaded, but doesn't need to be (renderPriority <= 0)
+								if(u_img.MemoryDisposable()) // If image is loaded, but doesn't need to be (renderPriority <= 0)
 								{
 									availablememory += u_img.Unload(); // Unload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
 									{
-										availablememory -= img.Load(); // Load image and update available memory
+										availablememory -= img.Load(tradeoffRenderSizeFactor); // Load image and update available memory
+										imageLoaded = true;
+										break; // Done
+									}
+								}
+								else if(u_img.MemoryShrinkable()) // If image is loaded, but can be shrinked
+								{
+									availablememory -= u_img.Load(tradeoffRenderSizeFactor); // Reload image and update available memory
+									if(requiredmemory <= availablememory) // If we now have enough memory to load img
+									{
+										availablememory -= img.Load(tradeoffRenderSizeFactor); // Load image and update available memory
+										imageLoaded = true;
 										break; // Done
 									}
 								}
 							}
+
+							if(imageLoaded)
+								break;
+
+							outofmemory = true;
 						}
 					}
+
+					int theoreticalusedmemory = 0;
+					foreach(Image img in prioritySortedImages)
+						if(img.image.renderPriority > 0)
+							theoreticalusedmemory += img.memory;
+
+					/*if(availablememory > 0)
+					{
+						if(outofmemory)
+							tradeoffRenderSizeFactor = Math.Max(0.5f, tradeoffRenderSizeFactor * 0.9f);
+						else
+							tradeoffRenderSizeFactor = Math.Min(1.0f, tradeoffRenderSizeFactor / 0.9f);
+						GLTextureStream.foo2 = tradeoffRenderSizeFactor;
+					}*/
+
+					tradeoffRenderSizeFactor = Math.Max(0.1f, (float)(memorysize - theoreticalusedmemory) / (float)memorysize);
+					//tradeoffRenderSizeFactor = (float)availablememory / (float)memorysize;
+					GLTextureStream.foo2 = tradeoffRenderSizeFactor;
 				}
 
 				loaderThreadClosed = true;
@@ -379,7 +461,7 @@ namespace csharp_viewer
 				
 			for(int i = 0; i < loader.prioritySortedImages.Count; ++i)
 			{
-				lblDebug[i].Text = loader.prioritySortedImages[i].sizePriority.ToString();
+				lblDebug[i].Text = loader.prioritySortedImages[i].memory.ToString();
 				lblDebug[i].Draw(0.0f);
 			}
 		}
@@ -388,6 +470,7 @@ namespace csharp_viewer
 		#endif
 
 public static int foo = 0;
+public static float foo2 = 0.0f;
 	}
 }
 

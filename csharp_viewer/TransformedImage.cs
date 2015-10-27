@@ -140,8 +140,8 @@ namespace csharp_viewer
 
 					// Set render priority and dimensions (thread safety: priority has to be set after width/height)
 					Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
-					renderWidth = (int)(vsize.X * (float)backbuffersize.Width);
-					renderHeight = (int)(vsize.Y * (float)backbuffersize.Height);
+					renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
+					renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
 					renderPriority = 1000;
 
 					return true;

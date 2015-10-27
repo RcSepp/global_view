@@ -469,11 +469,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			coordsys = new CoordinateSystem();
 
 			ContextMenu = new ImageContextMenu();
-
-/*this.Controls.Add(new GLButton("splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Top | AnchorStyles.Left, "XXX", "yyy"));
-GLLabel lbl = new GLLabel();
-lbl.Text = "TEST";
-this.Controls.Add(lbl);*/
 		}
 
 		public void Load(Cinema.CinemaArgument[] arguments, TransformedImageCollection images, Dictionary<string, HashSet<object>> valuerange, Size imageSize, bool floatimages = false, bool depthimages = false)
@@ -515,7 +510,8 @@ this.Controls.Add(lbl);*/
 			}
 			GL.ActiveTexture(TextureUnit.Texture0);
 
-			texstream = new GLTextureStream(images, 1024*1024, depthimages);
+			texstream = new GLTextureStream(images, 256*1024*1024, depthimages); // Optimize for 1GB of VRAM
+			//texstream = new GLTextureStream(images, 1024*1024, depthimages);
 			//texstream = new GLTextureStream(images, 128*1024, depthimages);
 
 			// Create mesh for depth rendering
@@ -995,8 +991,9 @@ this.Controls.Add(lbl);*/
 			//Common.fontText.DrawString(0.0f, 20.0f, freeview.GetViewDirection().ToString(), backbuffersize);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
-			Common.fontText.DrawString(0.0f, 40.0f, foo.ToString(), backbuffersize);
-			Common.fontText.DrawString(0.0f, 80.0f, ColorTableManager.foo.ToString(), backbuffersize);
+			Common.fontText.DrawString(60.0f, 40.0f, GLTextureStream.foo2.ToString(), backbuffersize);
+			//Common.fontText.DrawString(0.0f, 40.0f, foo.ToString(), backbuffersize);
+			//Common.fontText.DrawString(0.0f, 80.0f, ColorTableManager.foo.ToString(), backbuffersize);
 
 			if(texstream != null)
 				texstream.DrawDebugInfo(backbuffersize);
@@ -1451,7 +1448,7 @@ string foo = "";
 		public void SelectAll()
 		{
 			foreach(TransformedImage image in images)
-				selection.Add(image);
+				selection.Add(image); //EDIT: should be inside mutex
 			SelectionChanged(selection);
 		}
 
