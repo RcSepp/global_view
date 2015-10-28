@@ -320,57 +320,6 @@ namespace csharp_viewer
 					return stdout;
 				}
 
-				/*string new_action_name = null;
-				foreach(Cinema.CinemaArgument arg in arguments)
-					if(action_name.Contains(arg.label))
-					{
-						new_action_name = action_name.Replace(arg.label, "%a");
-
-						// Add arg to args as first argument
-						if(args == null)
-							args = new object[] { arg };
-						else
-						{
-							object[] newargs = new object[args.Length + 1];
-							Array.Copy(args, 0, newargs, 1, args.Length);
-							newargs[0] = arg;
-							args = newargs;
-						}
-						break;
-					}
-
-				if(new_action_name == null || !registered_actions.TryGetValue(new_action_name, out action))
-				{
-					stdout += "Command not found " + action_name;
-return stdout;
-				}*/
-
-				/*string[] labels = new string[arguments.Length];
-				for(int i = 0; i < arguments.Length; ++i)
-					labels[i] = "$" + arguments[i].label;
-
-				string new_action_name = action_name;
-				int index;
-				while((index = String_ReverseReplaceEx(ref new_action_name, labels, "%a")) != -1)
-				{
-					// Add index to args as first argument
-					if(args == null)
-						args = new object[] { index };
-					else
-					{
-						object[] newargs = new object[args.Length + 1];
-						Array.Copy(args, 0, newargs, 1, args.Length);
-						newargs[0] = index;
-						args = newargs;
-					}
-				}
-
-				if(!registered_actions.TryGetValue(new_action_name, out action))
-				{
-					stdout += "Command not found " + action_name;
-					return stdout;
-				}*/
-
 				string new_action_name = action_name;
 				int c;
 				while((c = new_action_name.LastIndexOf('$')) != -1)

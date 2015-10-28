@@ -10,6 +10,7 @@ namespace csharp_viewer
 	public class GLShader
 	{
 		private int shaderprogram, vertexshader, fragmentshader, geometryshader;
+		public int ShaderProgram { get { return shaderprogram; } }
 		public struct DefaultParameters
 		{
 			public int world, worldarray, view, proj, viewproj, worldviewproj, worldviewprojarray, worldinvtrans, worldinvtransarray, textransform; // Matrices
@@ -258,6 +259,23 @@ namespace csharp_viewer
 		{
 			return GL.GetUniformLocation(shaderprogram, name);
 		}
+	}
+
+	public class GLUniform
+	{
+		protected readonly int location;
+
+		public GLUniform(GLShader sdr, string name)
+		{
+			location = GL.GetUniformLocation(sdr.ShaderProgram, name);
+			if(location < 0)
+				throw new Exception("Uniform location '" + name + "' could not be resolved");
+		}
+	}
+	public class GLUniformVector3 : GLUniform
+	{
+		public GLUniformVector3(GLShader sdr, string name) : base(sdr, name) {}
+		public void Set(Vector3 value) { GL.Uniform3(location, value); }
 	}
 }
 

@@ -1,5 +1,5 @@
-﻿#define IMAGE_STREAMING
-//#define DEBUG_GLTEXTURESTREAM
+﻿//#define DEBUG_GLTEXTURESTREAM
+#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory
 
 using System;
 using System.IO;
@@ -197,24 +197,17 @@ namespace csharp_viewer
 						gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
 						gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
 						gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
-
-						#if DEBUG_GLTEXTURESTREAM
-						gfx.Clear(Color.WhiteSmoke);
-						sizePriority = (float)image.originalWidth / (float)width;
-						gfx.DrawString(sizePriority.ToString(), new Font("Consolas", height / 3.0f), Brushes.Black, 0.0f, 0.0f);
-						#endif
-
 						gfx.Flush();
 						originalBmp.Dispose();
 						originalBmp = null;
 					}
 
-					/*#if DEBUG_GLTEXTURESTREAM
+					#if DEBUG_GLTEXTURESTREAM
 					Graphics gfxDebug = Graphics.FromImage(newbmp);
 					gfxDebug.Clear(Color.WhiteSmoke);
 					gfxDebug.DrawString(((float)image.originalWidth / (float)width).ToString(), new Font("Consolas", height / 3.0f), Brushes.Black, 0.0f, 0.0f);
 					gfxDebug.Flush();
-					#endif*/
+					#endif
 
 					image.renderMutex.WaitOne();
 
@@ -359,23 +352,16 @@ namespace csharp_viewer
 						}
 					}
 
+					#if ENABLE_TRADEOFF
 					int theoreticalusedmemory = 0;
 					foreach(Image img in prioritySortedImages)
 						if(img.image.renderPriority > 0)
 							theoreticalusedmemory += img.memory;
 
-					/*if(availablememory > 0)
-					{
-						if(outofmemory)
-							tradeoffRenderSizeFactor = Math.Max(0.5f, tradeoffRenderSizeFactor * 0.9f);
-						else
-							tradeoffRenderSizeFactor = Math.Min(1.0f, tradeoffRenderSizeFactor / 0.9f);
-						GLTextureStream.foo2 = tradeoffRenderSizeFactor;
-					}*/
-
 					tradeoffRenderSizeFactor = Math.Max(0.1f, (float)(memorysize - theoreticalusedmemory) / (float)memorysize);
 					//tradeoffRenderSizeFactor = (float)availablememory / (float)memorysize;
 					GLTextureStream.foo2 = tradeoffRenderSizeFactor;
+					#endif
 				}
 
 				loaderThreadClosed = true;
@@ -447,7 +433,7 @@ namespace csharp_viewer
 		{
 			if(fntDebug == null)
 			{
-				fntDebug = new GLTextFont2(new Font("Consolas", 10.0f));
+				fntDebug = Common.fontText2;
 
 				lblDebug = new GLLabel[loader.prioritySortedImages.Count];
 				for(int i = 0; i < loader.prioritySortedImages.Count; ++i)

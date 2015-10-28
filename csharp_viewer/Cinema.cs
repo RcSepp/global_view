@@ -21,6 +21,21 @@ namespace csharp_viewer
 
 			public float defaultValue;
 			public string name, label;
+
+			public static CinemaArgument Find(CinemaArgument[] arguments, string label)
+			{
+				foreach(CinemaArgument arg in arguments)
+					if(label.Equals(arg.label))
+						return arg;
+				return null;
+			}
+			public static int FindIndex(CinemaArgument[] arguments, string label)
+			{
+				for(int argidx = 0; argidx < arguments.Length; ++argidx)
+					if(label.Equals(arguments[argidx].label))
+						return argidx;
+				return -1;
+			}
 		}
 
 		public class CinemaImage

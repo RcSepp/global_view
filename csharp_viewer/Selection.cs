@@ -223,7 +223,7 @@ namespace csharp_viewer
 
 
 
-	public class Selection
+	public class Selection : IEnumerable<TransformedImage>
 	{
 		public delegate void ChangedDelegate(Selection selection);
 
@@ -266,6 +266,10 @@ namespace csharp_viewer
 		public bool IsEmpty { get { return selection.Count == 0; } }
 
 		public IEnumerator<TransformedImage> GetEnumerator()
+		{
+			return selection.GetEnumerator();
+		}
+		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
 		{
 			return selection.GetEnumerator();
 		}

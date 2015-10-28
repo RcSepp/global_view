@@ -114,23 +114,21 @@ namespace csharp_viewer
 			varying vec2 uv;
 			uniform sampler2D Texture;
 			uniform vec4 Color;
+			uniform int HasTexture;
 			varying float alpha;
 
 			vec4 shade(sampler2D sampler, in vec2 uv);
 
-			/*vec3 hsv2rgb(vec3 c)
-			{
-				// Optimized HSV to RGB function
-				// Source: http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl
-
-				vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-				vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-				return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-			}*/
-
 			void main()
 			{
-				gl_FragColor = Color * shade(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);//vec4(0.8, 0.8, 0.8, alpha);
+				/*gl_FragColor = Color * vec4(1.0, 1.0, 1.0, alpha);
+				if(HasTexture != 0)
+					gl_FragColor *= shade(Texture, uv);*/
+				
+				if(HasTexture != 0)
+					gl_FragColor = Color * shade(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);
+				else
+					gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
 			}
 		";
 		public const string FS_DEFAULT_DECODER = @"
@@ -210,8 +208,32 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		public event Selection.ChangedDelegate SelectionChanged;
 		public event DimensionMapper.TransformDelegate TransformAdded;
 
-		GLShader sdr2D, sdr3D, sdrAabb;
-		int sdr2D_colorParam, sdr3D_colorParam, sdr3D_imageViewInv, sdr3D_DepthScale;
+		public class RenderShader : GLShader
+		{
+			int colorParam, hastex, depthScale, imageViewInv;
+
+			public RenderShader(string[] vs, string[] fs, string[] gs = null)
+				: base (vs, fs, gs)
+			{
+				colorParam = GetUniformLocation("Color");
+				hastex = GetUniformLocation("HasTexture");
+				depthScale = GetUniformLocation("DepthScale");
+				imageViewInv = GetUniformLocation("ImageViewInv");
+			}
+
+			public void Bind(Matrix4 transform, Color4 clr, bool texloaded, float depthscale = 0.0f, Matrix4 invview = default(Matrix4))
+			{
+				Bind(transform);
+				GL.Uniform4(colorParam, clr);
+				GL.Uniform1(hastex, texloaded ? (int)1 : (int)0);
+				//if(sdr_imageViewInv != -1)
+				//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
+				if(depthScale != -1)
+					GL.Uniform1(depthScale, depthscale);
+			}
+		}
+		RenderShader sdr2D, sdr3D;
+		GLShader sdrAabb;
 		GLMesh mesh2D, mesh3D;
 
 		private GLWindow glcontrol;
@@ -421,7 +443,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		//GLTexture1D tex2, tex3; //TODO: Bad style (tex2 and tex3 are activated at the beginning of the draw call)
 
 		// Actions
-		private Action FocusSelectionAction, MoveSelectionAction;
+		private Action FocusAction, MoveAction, ShowAction, HideAction;
 		private Action SetViewControlAction;
 		private Action EnableDepthRenderingAction, DisableDepthRenderingAction;
 
@@ -430,12 +452,19 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			this.glcontrol = glcontrol;
 
 			// Define actions
-			FocusSelectionAction = ActionManager.CreateAction("Focus Selection", this, "FocusSelection");
-			ActionManager.CreateAction("Focus selection", "focus", this, "FocusSelection");
-			MoveSelectionAction = ActionManager.CreateAction("Move Selection", this, "MoveSelection");
+			ActionManager.CreateAction("Select images", "select", this, "Select");
+			FocusAction = ActionManager.CreateAction("Focus images", "focus", this, "Focus");
+			MoveAction = ActionManager.CreateAction("Move images", "move", this, "Move");
+			ShowAction = ActionManager.CreateAction("Show images", "show", this, "Show");
+			HideAction = ActionManager.CreateAction("Hide images", "hide", this, "Hide");
 			SetViewControlAction = ActionManager.CreateAction("Set View Control", this, "SetViewControl");
 			EnableDepthRenderingAction = ActionManager.CreateAction("Enable Depth Rendering", "enable depth", this, "EnableDepthRendering");
 			DisableDepthRenderingAction = ActionManager.CreateAction("Disable Depth Rendering", "disable depth", this, "DisableDepthRendering");
+			/*ActionManager.CreateAction("Select all", "all", this, "SelectAll");
+			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
+				this.SelectAll();
+				this.FocusSelection();
+			});*/
 
 			// Load shaders
 			sdrAabb = new GLShader(new string[] {AABB_SHADER.VS}, new string[] {AABB_SHADER.FS});
@@ -454,12 +483,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Right;
 			argIndex.Init();
 			this.Controls.Add(argIndex);
-
-			ActionManager.CreateAction("Select all", "all", this, "SelectAll");
-			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
-				argIndex.SelectAll();
-				this.FocusSelection();
-			});
 			#endif
 
 			colorTableMgr = new ColorTableManager(glcontrol, pnlImageControls);
@@ -491,15 +514,11 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				colorTableMgr.Visible = false;
 
 #if USE_GS_QUAD
-			sdr2D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
+			sdr2D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
 #else
-			sdr2D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
+			sdr2D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
 #endif
-			sdr2D_colorParam = sdr2D.GetUniformLocation("Color");
-			sdr3D = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
-			sdr3D_colorParam = sdr3D.GetUniformLocation("Color");
-			sdr3D_imageViewInv = sdr3D.GetUniformLocation("ImageViewInv");
-			sdr3D_DepthScale = sdr3D.GetUniformLocation("DepthScale");
+			sdr3D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
 
 			foreach(GLShader sdr in new GLShader[] {sdr2D, sdr3D})
 			{
@@ -511,8 +530,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			GL.ActiveTexture(TextureUnit.Texture0);
 
 			texstream = new GLTextureStream(images, 256*1024*1024, depthimages); // Optimize for 1GB of VRAM
-			//texstream = new GLTextureStream(images, 1024*1024, depthimages);
-			//texstream = new GLTextureStream(images, 128*1024, depthimages);
+			//texstream = new GLTextureStream(images, 1024*1024, depthimages); // Optimize for 4MB of VRAM
+			//texstream = new GLTextureStream(images, 128*1024, depthimages); // Optimize for 512KB of VRAM
 
 			// Create mesh for depth rendering
 			Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
@@ -691,9 +710,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					selectionAabb.Include(selectedimage.GetBounds());
 					#endif
 				}
-				/*#if USE_2D_VIEW_CONTROL
-				selectionAabb.min.Z = selectionAabb.max.Z = (selectionAabb.min.Z + selectionAabb.max.Z) / 2.0f;
-				#endif*/
 			}
 		}
 
@@ -902,12 +918,12 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 						if(depthRenderingEnabled_fade > 0.0 && iter.Value.HasDepthInfo)
 						{
 							sdr3D.Bind();
-							iter.Value.Render(mesh3D, sdr3D, sdr3D_colorParam, sdr3D_imageViewInv, sdr3D_DepthScale, depthRenderingEnabled_fade, freeview, transform);
+							iter.Value.Render(mesh3D, sdr3D, depthRenderingEnabled_fade, freeview, transform);
 						}
 						else
 						{
 							sdr2D.Bind();
-							iter.Value.Render(mesh2D, sdr2D, sdr2D_colorParam, -1, -1, 0.0f, freeview, transform);
+							iter.Value.Render(mesh2D, sdr2D, 0.0f, freeview, transform);
 						}
 #endif
 					}
@@ -923,12 +939,12 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
 					{
 						sdr3D.Bind();
-						iter.image.Render(mesh3D, sdr3D, sdr3D_colorParam, sdr3D_imageViewInv, sdr3D_DepthScale, depthRenderingEnabled_fade, freeview, iter.matrix);
+						iter.image.Render(mesh3D, sdr3D, depthRenderingEnabled_fade, freeview, iter.matrix);
 					}
 					else
 					{
 						sdr2D.Bind();
-						iter.image.Render(mesh2D, sdr2D, sdr2D_colorParam, -1, -1, 0.0f, freeview, iter.matrix);
+						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.matrix);
 					}
 				}
 #endif
@@ -1201,12 +1217,12 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				colorTableMgr.MouseUp(e);
 		}
 
-		private void MoveSelection(Vector3 deltapos)
+		private void Move(Vector3 deltapos, IEnumerable<TransformedImage> images)
 		{
-			foreach(TransformedImage selectedimage in selection)
+			foreach(TransformedImage image in images)
 			{
-				selectedimage.pos += deltapos;
-				selectedimage.skipPosAnimation();
+				image.pos += deltapos;
+				image.skipPosAnimation();
 			}
 			OnSelectionMoved(selection);
 		}
@@ -1242,7 +1258,7 @@ string foo = "";
 				// Set newpos to intersection of mouse ray and dragImagePlane
 				Vector3 newpos;
 				dragImagePlane.IntersectLine(vnear, vdir, out newpos);
-				ActionManager.Do(MoveSelectionAction, new object[] { newpos - dragImage.pos + dragImageOffset });
+				ActionManager.Do(MoveAction, new object[] { newpos - dragImage.pos + dragImageOffset, selection });
 
 				InvalidateOverallBounds();
 			}
@@ -1326,8 +1342,9 @@ string foo = "";
 				Matrix4 invvieworient = freeview.viewmatrix;
 				invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
 				invvieworient.Transpose();
+				selection.Clear();
 				foreach(TransformedImage image in images.Values)
-					if(mouseRectFrustum.DoFrustumCulling(image.GetWorldMatrix(invvieworient), Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+					if(image.IsVisible() && mouseRectFrustum.DoFrustumCulling(image.GetWorldMatrix(invvieworient), Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 						selection.Add(image);
 				SelectionChanged(selection);
 			}
@@ -1372,8 +1389,13 @@ string foo = "";
 				break;
 
 			case Keys.F:
-				//ActionManager.Do(FocusSelectionAction);
-				FocusSelectionAction.Do();
+				//ActionManager.Do(FocusAction, new object[] { selection });
+				FocusAction.Do(new object[] { selection });
+				break;
+
+			case Keys.Delete:
+				//ActionManager.Do(FocusAction, new object[] { selection });
+				ActionManager.Do(HideAction, new object[] { selection });
 				break;
 			}
 		}
@@ -1389,15 +1411,49 @@ string foo = "";
 			return bmp;
 		}
 
-		public void FocusSelection()
+		public void Focus(IEnumerable<TransformedImage> images)
 		{
-			// Focus selectionAabb
+			/*// Focus selectionAabb
 			if(selectionAabb != null)
 			{
 				FocusAABB(selectionAabb);
 				status_str = "Focus selection";
 				status_timer = 1.0f;
+			}*/ //EDIT: Focus images, instead of selectionAabb
+
+			// Select images and lay selectionAabb around selected images
+
+			AABB aabb = new AABB();
+			foreach(TransformedImage image in images)
+			{
+				#if USE_2D_VIEW_CONTROL
+				AABB imageBounds = image.GetBounds().Clone();
+				imageBounds.min.Z = imageBounds.max.Z = (imageBounds.min.Z + imageBounds.max.Z) / 2.0f;
+				aabb.Include(imageBounds);
+				#else
+				aabb.Include(image.GetBounds());
+				#endif
 			}
+			if(aabb.max.X >= aabb.min.X)
+			{
+				FocusAABB(aabb);
+				status_str = "Focus images";
+				status_timer = 1.0f;
+			}
+		}
+		public void Show(IEnumerable<TransformedImage> images)
+		{
+			foreach(TransformedImage image in images)
+				image.visible = true;
+			status_str = "Show images";
+			status_timer = 1.0f;
+		}
+		public void Hide(IEnumerable<TransformedImage> images)
+		{
+			foreach(TransformedImage image in images)
+				image.visible = false;
+			status_str = "Hide images";
+			status_timer = 1.0f;
 		}
 		private void SetViewControl(ViewControl vc)
 		{
@@ -1447,6 +1503,13 @@ string foo = "";
 
 		public void SelectAll()
 		{
+			foreach(TransformedImage image in images)
+				selection.Add(image); //EDIT: should be inside mutex
+			SelectionChanged(selection);
+		}
+		public void Select(IEnumerable<TransformedImage> images)
+		{
+			selection.Clear();
 			foreach(TransformedImage image in images)
 				selection.Add(image); //EDIT: should be inside mutex
 			SelectionChanged(selection);

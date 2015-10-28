@@ -100,6 +100,20 @@ namespace csharp_viewer
 				tex.Unload();
 		}*/
 
+		public bool IsVisible()
+		{
+			// Compute dynamic visibility and check if dynamic location updates are required
+			bool _visible = visible;
+			bool hasDynamicLocationTransform = false;
+			foreach(ImageTransform t in transforms)
+			{
+				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
+					_visible &= !t.SkipImage(key, this);
+				if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic)
+					hasDynamicLocationTransform = true;
+			}
+			return _visible;
+		}
 		public bool IsVisible(ImageCloud.FreeView freeview, Matrix4 invvieworient, System.Drawing.Size backbuffersize, out Matrix4 transform)
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
@@ -177,8 +191,9 @@ namespace csharp_viewer
 			return tex.Load((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height));*/
 			return true;
 		}
-		public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, int sdr_imageViewInv, int sdr_DepthScale, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
+		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
 		{
+			bool texloaded;
 			if(renderMutex.WaitOne(0))
 			{
 				if(bmp != null)
@@ -186,15 +201,16 @@ namespace csharp_viewer
 					if(tex == null)
 						tex = new GLTexture2D(bmp, false); // Load texture
 					renderMutex.ReleaseMutex();
+					texloaded = true;
 				}
 				else
 				{
 					renderMutex.ReleaseMutex();
-					return;
+					texloaded = false;
 				}
 			}
 			else
-				return;
+				texloaded = false;
 
 			Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
 			if(selected)
@@ -206,12 +222,12 @@ namespace csharp_viewer
 			//clr.A = selected ? 1.0f : 0.3f;
 			clr.A = 1.0f;
 
-			sdr.Bind(transform);
-			GL.Uniform4(sdr_colorParam, clr);
+			sdr.Bind(transform, clr, texloaded, depthscale);
+			/*GL.Uniform4(sdr_colorParam, clr);
 			//if(sdr_imageViewInv != -1)
 			//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
 			if(sdr_DepthScale != -1)
-				GL.Uniform1(sdr_DepthScale, depthscale);
+				GL.Uniform1(sdr_DepthScale, depthscale);*/
 
 			mesh.Bind(sdr, tex);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
 			mesh.Draw();

@@ -1,4 +1,6 @@
-﻿using System;
+﻿//#define DEBUG_GLFONT
+
+using System;
 using System.Drawing;
 
 using OpenTK;
@@ -115,7 +117,8 @@ namespace csharp_viewer
 
 				// Transform texture quad texture coordinates to select the letter
 				Matrix3 texcoordtrans = Matrix3.Identity;
-				texcoordtrans *= Matrix3_CreateScale(digit_size.X / texture.width, digit_size.Y / texture.height);
+				//texcoordtrans *= Matrix3_CreateScale(digit_size.X / texture.width, digit_size.Y / texture.height);
+				texcoordtrans *= GLTextFont.Matrix3_CreateScale(digit_size.X / texture.width, (digit_size.Y - 2.0f) / texture.height);
 				texcoordtrans *= Matrix3_CreateTranslation(digit_pos.X / texture.width, digit_pos.Y / texture.height);
 				GL.UniformMatrix3(fontshader.defparams.textransform, false, ref texcoordtrans);
 
@@ -229,7 +232,8 @@ namespace csharp_viewer
 
 					// Transform texture quad texture coordinates to select the letter
 					Matrix3 texcoordtrans = Matrix3.Identity;
-					texcoordtrans *= Matrix3_CreateScale(charsize.X / texture.width, charsize.Y / texture.height);
+					//texcoordtrans *= Matrix3_CreateScale(charsize.X / texture.width, charsize.Y / texture.height);
+					texcoordtrans *= GLTextFont.Matrix3_CreateScale(charsize.X / texture.width, (charsize.Y - 2.0f) / texture.height);
 					texcoordtrans *= Matrix3_CreateTranslation((charpos.X - 0.5f) / texture.width, (charpos.Y - 0.5f) / texture.height);
 					GL.UniformMatrix3(fontshader.defparams.textransform, false, ref texcoordtrans);
 
@@ -337,12 +341,17 @@ namespace csharp_viewer
 
 			bmp = new Bitmap(1024, y + lineMaxHeight);
 			gfx = Graphics.FromImage(bmp);
+			#if DEBUG_GLFONT
+			gfx.Clear(Color.Black);
+			#endif
 			gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; // Do not use ClearType
 			for(int i = 0; i < 255; ++i)
 				if(!char.IsControl((char)i))
 					gfx.DrawString(new string((char)i, 1), font, Brushes.White, new RectangleF((float)charBounds[i].X - 1, (float)charBounds[i].Y - 2, (float)charBounds[i].Width, (float)charBounds[i].Height));
 			gfx.Flush();
-			//bmp.Save("charmap.png"); // For debugging
+			#if DEBUG_GLFONT
+			bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png"); // For debugging
+			#endif
 
 			texture = new GLTexture2D(bmp);
 		}
@@ -374,7 +383,7 @@ namespace csharp_viewer
 
 					// Transform texture quad texture coordinates to select the letter
 					Matrix3 texcoordtrans = Matrix3.Identity;
-					texcoordtrans *= GLTextFont.Matrix3_CreateScale(charsize.X / texture.width, charsize.Y / texture.height);
+					texcoordtrans *= GLTextFont.Matrix3_CreateScale(charsize.X / texture.width, (charsize.Y - 2.0f) / texture.height);
 					texcoordtrans *= GLTextFont.Matrix3_CreateTranslation(((float)charBounds[(int)chr].X - 0.5f) / texture.width, ((float)charBounds[(int)chr].Y - 0.5f) / texture.height);
 					GL.UniformMatrix3(fontshader.defparams.textransform, false, ref texcoordtrans);
 

@@ -17,9 +17,9 @@ namespace csharp_viewer
 		private string history_current;
 
 		// Execution delegate
-		public delegate string MethodCallDelegate(string method, object[] args);
-		public event MethodCallDelegate MethodCall;
-		public System.Windows.Forms.Control MethodCallInvoker = null;
+		public delegate string MethodCallDelegate(string method, object[] args); //EDIT: deprecated
+		public event MethodCallDelegate MethodCall; //EDIT: deprecated
+		public System.Windows.Forms.Control MethodCallInvoker = null; //EDIT: deprecated
 
 		// Working directory
 		public string workingDirectory = Directory.GetCurrentDirectory() + '/';
@@ -79,7 +79,7 @@ namespace csharp_viewer
 			history_idx = history.Count;
 		}
 
-		protected string Execute(string command)
+		/*protected string Execute(string command)
 		{
 			string method = command;
 
@@ -125,6 +125,40 @@ namespace csharp_viewer
 			}
 
 			return null;
+		}*/
+
+		protected string Execute(string command)
+		{
+			HistoryAdd(command);
+
+			try {
+				string output, warnings;
+				ISQL.Compiler.Execute(command, compiler_MethodCall, out output, out warnings);
+				return warnings + output;
+			}
+			catch(Exception ex) {
+				return ex.Message;
+			}
+		}
+		private string compiler_MethodCall(string method, object[] args)
+		{
+			if(MethodCall == null)
+				return null;
+
+			string stdout;
+			if(!ConsoleMethodCall(method, args, out stdout))
+			{
+				if(MethodCallInvoker != null)
+				{
+					IAsyncResult invokeResult = MethodCallInvoker.BeginInvoke(MethodCall, new object[] { method, args });
+					invokeResult.AsyncWaitHandle.WaitOne();
+					stdout = (string)MethodCallInvoker.EndInvoke(invokeResult);
+				}
+				else
+					stdout = MethodCall(method, args);
+			}
+			stdout.TrimEnd(new char[] { ' ', '\t', '\n' });
+			return stdout;
 		}
 
 		private bool ConsoleMethodCall(string method, object[] args, out string stdout)

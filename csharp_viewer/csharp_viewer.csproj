@@ -67,6 +67,7 @@
     <Compile Include="StdConsole.cs" />
     <Compile Include="GLControls.cs" />
     <Compile Include="ArgumentIndex.cs" />
+    <Compile Include="ISQL.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />

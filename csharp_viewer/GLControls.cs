@@ -357,7 +357,7 @@ namespace csharp_viewer
 
 		protected override void Draw(float dt, Matrix4 transform)
 		{
-			Common.fontText.DrawString(Bounds.Left, Bounds.Top, Text, BackbufferSize);
+			Font.DrawString(Bounds.Left, Bounds.Top, Text, BackbufferSize);
 		}
 	}
 }

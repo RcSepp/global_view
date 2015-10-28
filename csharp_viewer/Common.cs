@@ -83,7 +83,7 @@ namespace csharp_viewer
 		public static GLMesh meshLineQuad, meshLineQuad2;
 		public static GLMesh meshLineCube;
 
-		public static GLTextFont fontText;
+		public static GLFont fontText, fontText2;
 
 		public static GLShader sdrTextured, sdrSolidColor, sdrDashedLine;
 		public static int sdrSolidColor_colorUniform, sdrDashedLine_colorUniform, sdrDashedLine_lengthUniform, sdrTextured_colorUniform;
@@ -174,6 +174,7 @@ namespace csharp_viewer
 		{
 			//fontText = new GLTextFont("HelveticaNeueText_12.png", new Vector2(17.0f, 23.0f), meshQuad);
 			fontText = new GLTextFont("HelveticaNeueText_8.png", new Vector2(10.0f, 17.0f), meshQuad);
+			fontText2 = new GLTextFont2(new System.Drawing.Font("Consolas", 12.0f));
 		}
 
 		public static void CreateCommonShaders()

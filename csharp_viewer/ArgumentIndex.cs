@@ -39,7 +39,7 @@ namespace csharp_viewer
 
 		private static Color4 BORDER_COLOR = new Color4(64, 64, 64, 255);
 		private static Color4 TICK_COLOR = new Color4(128, 100, 162, 255);
-		private static Color4 SELECTION_COLOR = new Color4(142, 180, 247, 255);
+		private static Color4 SELECTION_COLOR = new Color4(142, 180, 247, 100);
 		private static Color4 PRESELECTION_COLOR = new Color4(142, 180, 247, 128);
 
 		private TransformedImageCollection images;
@@ -52,17 +52,17 @@ namespace csharp_viewer
 		{
 			public string label = "";
 			private Rectangle bounds, labelBounds;
-			int numvalues;
+			string[] strValues;
 			private GLMesh meshSelection, meshBorders, meshTicks;
 
-			public TrackBar(int numvalues, GLMesh meshSelection)
+			public TrackBar(string[] strValues, GLMesh meshSelection)
 			{
-				this.numvalues = numvalues;
+				this.strValues = strValues;
 				this.meshSelection = meshSelection;
 
 				// Create border mesh
 				List<Vector3> border_positions = new List<Vector3>();
-				Vector3[] tick_positions = new Vector3[2 * numvalues];
+				Vector3[] tick_positions = new Vector3[2 * strValues.Length];
 
 				/*border_positions.Add(new Vector3(1.0f, 0.0f, 0.0f));
 				border_positions.Add(new Vector3(1.0f, 1.0f, 0.0f));
@@ -82,9 +82,9 @@ namespace csharp_viewer
 				border_positions.Add(new Vector3(1.06f, 1.0f, 0.0f)); border_positions.Add(new Vector3(1.06f, 0.0f, 0.0f));
 				border_positions.Add(new Vector3(1.06f, 0.0f, 0.0f)); border_positions.Add(new Vector3(1.01f, 0.0f, 0.0f));
 
-				for(int i = 0; i < numvalues; ++i)
+				for(int i = 0; i < strValues.Length; ++i)
 				{
-					float x = (float)(i + 1) / (float)(numvalues + 1);
+					float x = (float)(i + 1) / (float)(strValues.Length + 1);
 					tick_positions[2 * i + 0] = new Vector3(x, 0.2f, 0.0f);
 					tick_positions[2 * i + 1] = new Vector3(x, 0.8f, 0.0f);
 				}
@@ -93,7 +93,7 @@ namespace csharp_viewer
 				meshTicks = new GLMesh(tick_positions, null, null, null, null, null, PrimitiveType.Lines);
 			}
 
-			public void Draw(Rectangle bounds, HashSet<int> selection, Size backbufferSize, GLShader sdr, int colorUniform)
+			public void Draw(Rectangle bounds, Selection selection, int argidx, Size backbufferSize, GLShader sdr, int colorUniform)
 			{
 				float x, y;
 
@@ -108,15 +108,21 @@ namespace csharp_viewer
 				meshBorders.Bind(sdr, null);
 				meshBorders.Draw();
 
-				GL.LineWidth(6.0f);
+				if(strValues.Length > 100)
+					GL.LineWidth(6.0f);
 				if(selection != null)
 				{
 					GL.Uniform4(colorUniform, SELECTION_COLOR);
 					meshSelection.Bind(sdr, null);
 					y = 0.0f;//(2.0f * bounds.Height - 4.0f) / backbufferSize.Height;
-					foreach(int xi in selection)
+					foreach(TransformedImage selectedimage in selection)
 					{
-						x = (float)(xi + 1) / (float)(numvalues + 1);
+						int xi = Array.IndexOf(selectedimage.args[argidx].values, selectedimage.values[argidx]);
+
+						if(strValues.Length <= 100)
+							GL.LineWidth(Common.fontText2.MeasureString(strValues[xi]).X);
+
+						x = (float)(xi + 1) / (float)(strValues.Length + 1);
 						x *= 2.0f * bounds.Width / backbufferSize.Width;
 						sdr.Bind(trans * Matrix4.CreateTranslation(x, y, 0.0f));
 						meshSelection.Draw();
@@ -142,11 +148,23 @@ namespace csharp_viewer
 					}
 				}*/
 
-				GL.LineWidth(2.0f);
-				sdr.Bind(trans);
-				GL.Uniform4(colorUniform, TICK_COLOR);
-				meshTicks.Bind(sdr, null);
-				meshTicks.Draw();
+				if(strValues.Length > 100)
+				{
+					GL.LineWidth(2.0f);
+					sdr.Bind(trans);
+					GL.Uniform4(colorUniform, TICK_COLOR);
+					meshTicks.Bind(sdr, null);
+					meshTicks.Draw();
+				}
+				else
+				{
+					y = bounds.Bottom - Common.fontText2.MeasureString(" ").Y + 2.0f;
+					for(int i = 0; i < strValues.Length; ++i)
+					{
+						x = (float)(i + 1) / (float)(strValues.Length + 1);
+						Common.fontText2.DrawString(bounds.Left + x * bounds.Width - Common.fontText2.MeasureString(strValues[i]).X / 2.0f, y, strValues[i], backbufferSize);
+					}
+				}
 
 				GL.LineWidth(1.0f);
 
@@ -161,8 +179,8 @@ namespace csharp_viewer
 
 				if(bounds.Contains(mousepos))
 				{
-					int x = (int)Math.Round((float)(mousepos.X - bounds.X) * (float)(numvalues + 1) / (float)bounds.Width) - 1;
-					if(x < 0 || x >= numvalues)
+					int x = (int)Math.Round((float)(mousepos.X - bounds.X) * (float)(strValues.Length + 1) / (float)bounds.Width) - 1;
+					if(x < 0 || x >= strValues.Length)
 						return false;
 					tick = x;
 					return true;
@@ -199,18 +217,18 @@ namespace csharp_viewer
 			// Create track bars for each argument
 			foreach(Cinema.CinemaArgument argument in arguments)
 			{
-				TrackBar newtrackbar = new TrackBar(argument.values.Length, meshSelection);
+				TrackBar newtrackbar = new TrackBar(argument.strValues, meshSelection);
 				newtrackbar.label = argument.label;
 				trackbars.Add(newtrackbar);
 			}
 
-			// Create track bars for meta data value
+			/*// Create track bars for meta data value
 			foreach(KeyValuePair<string, HashSet<object>> range in valuerange)
 			{
 				TrackBar newtrackbar = new TrackBar(range.Value.Count, meshSelection);
 				newtrackbar.label = range.Key;
 				trackbars.Add(newtrackbar);
-			}
+			}*/
 		}
 
 		public void Unload()
@@ -230,10 +248,18 @@ namespace csharp_viewer
 
 			int bounds_y = Bounds.Y;
 
-			int i = 0;
+			int argidx = 0;
 			foreach(TrackBar trackbar in trackbars)
 			{
-				trackbar.Draw(Bounds, null/*selection[i++]*/, BackbufferSize, Common.sdrSolidColor, Common.sdrSolidColor_colorUniform); //TODO: make constraint sets indexable. Otherwise selection[i++] will crash for meta data trackbars
+				/*HashSet<int> selected_ticks = new HashSet<int>();
+				foreach(TransformedImage selectedimage in selection)
+				{
+					int idx = Array.IndexOf(selectedimage.args[i].values, selectedimage.values[i]);
+					selected_ticks.Add(idx);
+				}
+				++i;*/
+
+				trackbar.Draw(Bounds, selection, argidx++, BackbufferSize, Common.sdrSolidColor, Common.sdrSolidColor_colorUniform); //TODO: make constraint sets indexable. Otherwise selection[i++] will crash for meta data trackbars
 				Bounds = new Rectangle(Bounds.X, Bounds.Y + Bounds.Height * 3 / 2, Bounds.Width, Bounds.Height);// Bounds.Y += Bounds.Height * 3 / 2;
 			}
 
@@ -332,18 +358,10 @@ selection.AddGroup(newConstraintGroup);*/
 
 		public void OnSelectionChanged(Selection _selection)
 		{
+			this.selection = _selection;
 			/*if(arguments != null && !(_selection is IndexProductSelection))
 				for(int i = 0; i < arguments.Length; ++i)
 					selection[i].Clear();*/
-		}
-
-		public void SelectAll()
-		{
-			/*for(int i = 0; i < arguments.Length; ++i)
-				for(int j = 0; j < arguments[i].values.Length; ++j)
-					selection[i].Add(j);
-			if(SelectionChanged != null)
-				SelectionChanged(selection);*/
 		}
 	}
 }

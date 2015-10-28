@@ -824,3 +824,102 @@ load("mpas2")
 all
 theta-phi-view $theta $phi
 x $time
+load("mpas_ani")
+load
+load "test"
+load "test"
+load "test"
+load "test"
+load "this is a test"
+load "this is a test"
+load "this is a test"
+load "this is a test"
+load "this is a t"est"
+load "this is a t\"est"
+exit
+load "this is a t\"est"
+load "this is a t\"est"
+load "mpas_ani"
+spread
+hide where #time != 50
+load "mpas_ani"
+load "mpas_ani"
+hide where #time != 50
+hide all
+show where #time != 100
+hide all
+show where #time == 100
+show where #time == 150
+show where #time == 150
+show where #time == 50
+show where #time == 50
+show where #time == 0
+show where #time == 200
+hide all
+show where #time % 50 == 0
+show where #time % 25 == 0
+show where #time % 25 == 0
+focus
+focus selection
+focus where #time % 25 == 0
+select where #time % 25 == 0
+exit
+spread
+spread all
+spread selection
+spread where false
+spread where true
+exirt
+exit
+spread
+spread all
+load "mpas_ani"
+spread all
+clear
+spread selection
+spread selection
+spread selection
+spread selection
+load "mpas_ani"
+random
+random selection
+random all
+clear
+random selection
+focus selection
+exit
+load "mpas_ani"
+rspread all
+select all
+focus selection
+focus all
+clear
+rspread where #time < 50
+rspread where #time < 50
+hide where #time >= 50
+hide where #time >= 50
+exit
+load "mpas_ani"
+hide where #time >= 50
+hide where #time >= 50
+hide where #time >= 50
+
+
+exit
+
+
+
+
+load "mpas_ani"
+rspread where #time % 10 == 0
+hide where #time % 10 != 0
+focus all
+focus all
+exit
+load "mpas_ani"
+focus all
+rspread all
+focus all
+exit
+focus all
+hide where #time % 10 != 0

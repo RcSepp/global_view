@@ -863,3 +863,152 @@ spread random
 load("mpas_ani")
 all
 spread random
+all
+show
+all
+focus
+move
+move Vector3
+move(1, 0, 0)
+move(new Vector3(1.0f, 0.0f, 0.0f))
+move(new Vector3(1.0f, 0.0f, 0.0f))
+where $theta == $phi
+where $theta == $phi
+where $theta == $phi
+where false
+where false
+where false
+where foo
+where foo
+where foo
+where foo
+where 1 == 2
+where 1 == 1
+
+
+where true
+where $phi == 0
+where $phi == 0
+where 1 == 1
+where 1 == 1
+where 1 == 2
+where 1 == 2
+where 1 == 2
+where 1 == 2
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 1
+where 1 == 2
+while 1 == 1
+while 1 == 1
+while 1 == 1
+while 1 == 1
+where 1 == 1
+where 1 == 2
+exit where 1 == 2
+exit where 1 == 2
+exit where 1 == 2
+exit where 1 == 2
+exit
+exit
+anflewnflafnl
+
+exit
+exitexitexit
+exit
+exit
+where theta == phi
+dandawnfjlkaa
+exit
+select all foo
+select all foo bla
+select all
+select all
+select all
+select where theta == phi
+select where $theta == $phi
+select all
+hide all
+show where $phi > 10
+exit
+focus where $theta == 30
+focus where $theta == 30 && $phi == 90
+focus all
+focus all
+focus all
+hide where $phi == 30
+exit
+hide where $phi == 30
+hide where %phi == 90
+hide where #phi == 90
+hide where #phi == 90
+exit
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 90
+hide where #phi == 2
+select where #phi == 2
+show
+hide
+hide where
+focus
+focus Selection
+exit
+exit
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+load "this is a t\"est"
+unload
+load "mpas_ani"
+show all
+exit
+hide where #phi == 2
+hide where #phi == 2
+hide where true
+hide where false
+hide where false
+hide where false
+hide where true
+hide where true
+hide where false
+hide where true
+show all
+rspread all
+focus all
+select where $theta == #phi
+select where #theta == #phi
+hide selection
+focus selection
+exit

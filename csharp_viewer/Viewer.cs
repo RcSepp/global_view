@@ -58,13 +58,13 @@ namespace csharp_viewer
 
 		// Main database collections
 		//Dictionary<int[], TransformedImage> images = new Dictionary<int[], TransformedImage>(new IntArrayEqualityComparer()); // A hashmap of images accessed by an index array (consisting of one index per dimension)
-		TransformedImageCollection images = new TransformedImageCollection();
+		public static TransformedImageCollection images = new TransformedImageCollection();
 		public static Mutex images_mutex = new Mutex();
-		Cinema.CinemaArgument[] arguments; // An array of descriptors for each dimension
+		public static Cinema.CinemaArgument[] arguments; // An array of descriptors for each dimension
 		//HashSet<string> valueset = new HashSet<string>(); // A set of all value types appearing in the metadata of at least one image
 		Dictionary<string, HashSet<object>> valuerange = new Dictionary<string, HashSet<object>>(); // A set of all value types, containing a set of all possible values in the metadata all images
 
-		private Selection selection = null;
+		public static Selection selection = null;
 
 		bool closing = false;
 		string name_pattern, depth_name_pattern;
@@ -105,21 +105,14 @@ namespace csharp_viewer
 		[STAThread]
 		static public void Main(string[] args)
 		{
-			//GLFont foo = new GLFont(new Font("Verdana", 14.0f));
-			//return;
+			/*string name_pattern, depth_name_pattern, image_pixel_format;
+			Cinema.ParseCinemaDescriptor(args[0], out arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
 
-			/*OpenTK.Matrix4 foo = OpenTK.Matrix4.CreatePerspectiveFieldOfView(60.0f * MathHelper.Pi / 180.0f, 1.0f, 1.0f, 1000.0f).Inverted();
-			OpenTK.Vector4 bar1 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, -1.0f, 1.0f), foo); bar1.X /= bar1.W; bar1.Y /= bar1.W; bar1.Z /= bar1.W;
-			OpenTK.Vector4 bar2 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, 0.0f, 1.0f), foo); bar2.X /= bar2.W; bar2.Y /= bar2.W; bar2.Z /= bar2.W;
-			OpenTK.Vector4 bar3 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, 1.0f, 1.0f), foo); bar3.X /= bar3.W; bar3.Y /= bar3.W; bar3.Z /= bar3.W;
-			OpenTK.Vector4 bar4 = OpenTK.Vector4.Transform(new OpenTK.Vector4(0.0f, 0.0f, 10.0f, 1.0f), foo); bar4.X /= bar4.W; bar4.Y /= bar4.W; bar4.Z /= bar4.W;
-			int abc = 0;*/
+			string code = "select where $theta > 100";
+			ISQL.Compiler compiler = new ISQL.Compiler();
+			compiler.Execute(code);*/
 
-			/*// Parse meta data from info.json
-			Cinema.CinemaArgument[] arguments;
-			string name_pattern;
-			string image_pixel_format;
-			Cinema.ParseCinemaDescriptor(DATABASE_PATH, out arguments, out name_pattern, out image_pixel_format);*/
+
 
 			try {
 				Application.Run(new Viewer(args));
@@ -235,7 +228,7 @@ namespace csharp_viewer
 					XTransform transform = new XTransform();
 					transform.SetArguments(arguments);
 					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, selection);
 				}
 			});
 			ActionManager.CreateAction<int>("Apply y transform to %a of selection", "y %a", delegate(object[] parameters) {
@@ -245,7 +238,7 @@ namespace csharp_viewer
 					YTransform transform = new YTransform();
 					transform.SetArguments(arguments);
 					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, selection);
 				}
 			});
 			ActionManager.CreateAction<int>("Apply z transform to %a of selection", "z %a", delegate(object[] parameters) {
@@ -255,7 +248,7 @@ namespace csharp_viewer
 					ZTransform transform = new ZTransform();
 					transform.SetArguments(arguments);
 					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, selection);
 				}
 			});
 
@@ -266,7 +259,7 @@ namespace csharp_viewer
 					ImageTransform transform = new AnimationTransform();
 					transform.SetArguments(arguments);
 					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, selection);
 				}
 			});
 
@@ -279,7 +272,7 @@ namespace csharp_viewer
 					transform.SetArguments(arguments);
 					transform.SetIndex(0, thetaidx);
 					transform.SetIndex(1, phiidx);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, selection);
 				}
 			});
 
@@ -292,21 +285,23 @@ namespace csharp_viewer
 					transform.SetArguments(arguments);
 					transform.SetIndex(0, thetaidx);
 					transform.SetIndex(1, phiidx);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, selection);
 				}
 			});
 
-			ActionManager.CreateAction("Spread out all dimensions", "spread", delegate(object[] parameters) {
+			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread out all dimensions", "spread", delegate(object[] parameters) {
+				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+
 				if(arguments != null)
 				{
 					WheelTransform transform = new WheelTransform();
 					transform.SetArguments(arguments);
 					for(int i = 0; i < arguments.Length; ++i)
 						transform.SetIndex(i, i);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, images);
 				}
 			});
-			ActionManager.CreateAction("Select all images and spread out all dimensions", "spread all", delegate(object[] parameters) {
+			/*ActionManager.CreateAction("Select all images and spread out all dimensions", "spread all", delegate(object[] parameters) {
 				if(arguments != null)
 				{
 					imageCloud.SelectAll();
@@ -315,11 +310,13 @@ namespace csharp_viewer
 					transform.SetArguments(arguments);
 					for(int i = 0; i < arguments.Length; ++i)
 						transform.SetIndex(i, i);
-					OnTransformationAdded(transform);
+					OnTransformationAdded(transform, selection);
 				}
-			});
+			});*/
 
-			ActionManager.CreateAction("Spread out images randomly", "spread random", delegate(object[] parameters) {
+			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread out images randomly", "rspread", delegate(object[] parameters) {
+				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+
 				if(arguments != null)
 				{
 					Random rand = new Random();
@@ -1015,18 +1012,19 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void dimMapper_TransformAdded(ImageTransform newtransform)
 		{
-			ActionManager.Do(OnTransformationAddedAction, new object[] {newtransform});
+			if(selection != null)
+				ActionManager.Do(OnTransformationAddedAction, new object[] {newtransform, selection});
 		}
-		private void OnTransformationAdded(ImageTransform newtransform)
+		private void OnTransformationAdded(ImageTransform newtransform, IEnumerable<TransformedImage> images)
 		{
-			if(selection == null)
+			if(images == null)
 				return;
 
 			images_mutex.WaitOne();
 			imageCloud.AddTransform(newtransform);
 
-			foreach(TransformedImage selectedimage in selection)
-				selectedimage.AddTransform(newtransform);
+			foreach(TransformedImage image in images)
+				image.AddTransform(newtransform);
 			images_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to added transform)

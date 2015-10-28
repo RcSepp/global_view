@@ -44,11 +44,17 @@ namespace csharp_viewer
 			switch(e.KeyCode)
 			{
 			case Keys.LButton: // Mac bugfix
-				txt.GoHome();
+				if((e.Modifiers & Keys.Shift) != 0)
+					txt.Selection = new Range(txt, 0, txt.Selection.Start.iLine, txt.Selection.End.iChar, txt.Selection.End.iLine);
+				else
+					txt.Selection = new Range(txt, 0, txt.Selection.Start.iLine, 0, txt.Selection.Start.iLine);
 				e.Handled = true;
 				break;
 			case Keys.MButton: // Mac bugfix
-				txt.GoEnd();
+				if((e.Modifiers & Keys.Shift) != 0)
+					txt.Selection = new Range(txt, txt.GetLineLength(txt.Selection.End.iLine), txt.Selection.End.iLine, txt.Selection.End.iChar, txt.Selection.End.iLine);
+				else
+					txt.Selection = new Range(txt, txt.GetLineLength(txt.Selection.End.iLine), txt.Selection.End.iLine, txt.GetLineLength(txt.Selection.End.iLine), txt.Selection.End.iLine);
 				e.Handled = true;
 				break;
 
@@ -81,7 +87,7 @@ namespace csharp_viewer
 				e.Handled = true;
 				break;
 			case Keys.Left: case Keys.Back:
-				if(txt.Selection.Start.iChar == 0) e.Handled = true;
+				if(txt.Selection.Start.iChar == 0 && txt.SelectionLength == 0) e.Handled = true;
 				break;
 			case Keys.Enter:
 			case Keys.Cancel: // Mac num-block return key
@@ -94,23 +100,26 @@ namespace csharp_viewer
 				{
 					Place startpos = txt.Selection.Start;
 					txt.AppendText('\n' + output);
-					txt.SelectionStart += output.Length + 1;
+					txt.GoEnd();//txt.SelectionStart += output.Length + 1;
 					new Range(txt, startpos, txt.Selection.Start).SetStyle(OUTPUT_STYLE);
 				}
 
-				if(e.KeyCode == Keys.Cancel)
-				{
-					txt.AppendText("\n");
-					++txt.SelectionStart;
-				}
+				//txt.AppendText("\n");
+				//++txt.SelectionStart;
+				e.Handled = true;
 				break;
 			}
 
 			if((e.Modifiers & Keys.Alt) != 0)
 				switch(e.KeyCode)
 				{
+				case Keys.A:
+					// Select whole line
+					txt.Selection = new Range(txt, 0, txt.Selection.Start.iLine, txt.GetLineLength(txt.Selection.Start.iLine), txt.Selection.Start.iLine);
+					e.Handled = true;
+					break;
 				case Keys.C: // Mac bugfix
-					txt.Copy();
+					Clipboard.SetText(txt.SelectedText);
 					e.Handled = true;
 					break;
 				case Keys.V: // Mac bugfix
@@ -118,7 +127,8 @@ namespace csharp_viewer
 					e.Handled = true;
 					break;
 				case Keys.X: // Mac bugfix
-					txt.Cut();
+					Clipboard.SetText(txt.SelectedText);
+					txt.ClearSelected();
 					e.Handled = true;
 					break;
 				case Keys.Z: // Mac bugfix
@@ -129,7 +139,7 @@ namespace csharp_viewer
 		}
 		private void KeyPress(object sender, KeyPressEventArgs e)
 		{
-			if(e.KeyChar == 13 || (e.KeyChar != ' ' && e.KeyChar != '\t' && !char.IsControl(e.KeyChar))) txt.InsertText(e.KeyChar.ToString()); // Bugfix
+			if(e.KeyChar == 13 || (e.KeyChar != ' ' && e.KeyChar != '\t' && !char.IsControl(e.KeyChar) && (Control.ModifierKeys & ~Keys.Shift) == 0)) txt.InsertText(e.KeyChar.ToString()); // Bugfix
 		}
 
 		/*private void TextChanged(object sender, TextChangedEventArgs e)
