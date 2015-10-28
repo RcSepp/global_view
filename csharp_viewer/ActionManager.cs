@@ -223,11 +223,11 @@ namespace csharp_viewer
 			return action;
 		}
 
-		public static void Do(Action action, object[] parameters = null)
+		public static string Do(Action action, params object[] parameters)
 		{
 			if(!mgr.playing)
 				mgr.actions.AddLast(new PerformedAction(mgr.time, action, parameters));
-			action.Do(parameters);
+			return action.Do(parameters);
 		}
 
 		/*public void SaveAs(string filename)
@@ -379,7 +379,9 @@ namespace csharp_viewer
 				// Perform action
 				try {
 					//action.Do(args);
-					Do(action, args);
+					string output = Do(action, args);
+					if(output != null)
+						stdout += output;
 				} catch(Exception ex) {
 					stdout += ex.InnerException.ToString();
 				}
@@ -407,7 +409,7 @@ namespace csharp_viewer
 				this._undo = _undo;
 			}
 
-			public override void Do(object[] parameters = null) { _do.Invoke(instance, parameters != null ? parameters : new object[] {}); }
+			public override string Do(object[] parameters = null) { return (string)_do.Invoke(instance, parameters != null ? parameters : new object[] {}); }
 			public override void Undo(object[] parameters = null) { _undo.Invoke(instance, parameters != null ? parameters : new object[] {}); }
 			public override bool CanUndo() { return _undo != null; }
 		}
@@ -422,13 +424,13 @@ namespace csharp_viewer
 				this.cbk = func;
 			}
 
-			public override void Do(object[] parameters = null) { cbk(parameters); }
+			public override string Do(object[] parameters = null) { return cbk(parameters); }
 		}
 	}
 
 	public abstract class Action
 	{
-		public delegate void CallbackActionDelegate(object[] parameters);
+		public delegate string CallbackActionDelegate(object[] parameters);
 
 		public readonly string name, desc;
 		public readonly Type[] argtypes;
@@ -440,7 +442,7 @@ namespace csharp_viewer
 			this.argtypes = argtypes;
 		}
 
-		public abstract void Do(object[] parameters = null);
+		public abstract string Do(object[] parameters = null);
 		public virtual void Undo(object[] parameters = null) {}
 		public virtual bool CanUndo() { return false; }
 	}

@@ -24,53 +24,51 @@ namespace ISQL
 			if(fragments.Length == 0)
 				return;
 
-			for(int i = 0; i < fragments.Length; ++i)
+			// Interpret first fragment as statement
+			string statement = fragments[0].GetString(code);
+			if(fragments[0].token != Tokenizer.Token.Var)
+				throw new Exception("Expected statement instead of " + statement);
+
+			// Interpret clauses
+			IEnumerable<csharp_viewer.TransformedImage> scope = null;
+			string byExpr = null;
+			int lastfragment = fragments.Length - 1;
+			for(int i = fragments.Length - 1; i > 0; --i)
 			{
+				if(!Tokenizer.IsClause(fragments[i].token))
+					continue;
+
+				if(i == lastfragment)
+					throw new Exception(string.Format("Expected expression after '{0}' clause", fragments[i].GetString(code)));
+
 				if(fragments[i].token == Tokenizer.Token.Where)
 				{
-					if(i == 0)
-						throw new Exception("Expected command before 'where'");
-					if(i + 1 == fragments.Length)
-						throw new Exception("Expected scope condition after 'where'");
-					System.Collections.Generic.IEnumerable<csharp_viewer.TransformedImage> imageEnumerator = CompileScopeCondition(code, fragments, i + 1, ref warnings);
+					// Compile 'where' block into imageEnumerator
 
-					methodStr = code.Substring(fragments[0].startidx, fragments[i - 1].endidx - fragments[0].startidx);
-					output += MethodCall(methodStr, new object[] { imageEnumerator });
-					return;
-				} else if(fragments[i].token == Tokenizer.Token.All)
+					scope = CompileScopeCondition(code, fragments, i + 1, lastfragment, ref warnings);
+				} else if(fragments[i].token == Tokenizer.Token.By)
 				{
-					if(i == 0)
-						throw new Exception("Expected command before 'all'");
-					if(i + 1 != fragments.Length)
-						throw new Exception("Unexpected symbol after 'all': " + code.Substring(fragments[i + 1].startidx, fragments[i + 1].endidx - fragments[i + 1].startidx));
+					// Parse 'by' block into byExpr
 
-					methodStr = code.Substring(fragments[0].startidx, fragments[i - 1].endidx - fragments[0].startidx);
-					output += MethodCall(methodStr, new object[] { csharp_viewer.Viewer.images });
-					return;
-				} else if(fragments[i].token == Tokenizer.Token.Selection)
-				{
-					if(i == 0)
-						throw new Exception("Expected command before 'selection'");
-					if(i + 1 != fragments.Length)
-						throw new Exception("Unexpected symbol after 'selection': " + code.Substring(fragments[i + 1].startidx, fragments[i + 1].endidx - fragments[i + 1].startidx));
-
-					methodStr = code.Substring(fragments[0].startidx, fragments[i - 1].endidx - fragments[0].startidx);
-					output += MethodCall(methodStr, new object[] { csharp_viewer.Viewer.selection });
-					return;
+					byExpr = ParseExpression(code, fragments, i + 1, lastfragment);
 				}
+
+				lastfragment = i - 1;
 			}
+				
+			if(scope == null && fragments[fragments.Length - 1].token == Tokenizer.Token.Var)
+				csharp_viewer.Viewer.groups.TryGetValue((string)fragments[fragments.Length - 1].value, out scope);
 
-			// >>> DELETE
-			if(fragments.Length >= 2 && fragments[1].token == Tokenizer.Token.Str)
-			{
-				methodStr = code.Substring(fragments[0].startidx, fragments[0].endidx - fragments[0].startidx);
-				output += MethodCall(methodStr, new object[] {fragments[1].value});
-			}
-			// <<< DELETE
+			List<object> args = new List<object>();
+			for(int i = 1; i <= lastfragment; ++i)
+				if(fragments[i].token == Tokenizer.Token.Str)
+					args.Add(fragments[i].value);
+			if(byExpr != null)
+				args.Add(byExpr);
+			if(scope != null)
+				args.Add(scope);
 
-
-			methodStr = code.Substring(fragments[0].startidx, fragments[fragments.Length - 1].endidx - fragments[0].startidx);
-			output += MethodCall(methodStr, new object[] {});
+			output += MethodCall(statement, args.ToArray());
 			return;
 
 
@@ -82,15 +80,15 @@ namespace ISQL
 			System.Windows.Forms.MessageBox.Show(code + "\n\n" + strtokens);
 		}
 
-		private static System.Collections.Generic.IEnumerable<csharp_viewer.TransformedImage> CompileScopeCondition(string code, Tokenizer.Fragment[] fragments, int startFragmentIdx, ref string warnings)
+		private static string ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment)
 		{
-			int scopeConditionIdx = fragments[startFragmentIdx].startidx;
-			string scopeConditionStr = code.Substring(scopeConditionIdx);
+			int exprOffset = fragments[firstfragment].startidx;
+			string expr = code.Substring(exprOffset, fragments[lastfragment].endidx - exprOffset);
 
-			// Replace variables in scopeConditionStr with compileable expressions
-			for(int j = fragments.Length - 1; j >= startFragmentIdx;--j)
+			// Replace variables in expr with compileable expressions
+			for(int j = lastfragment; j >= firstfragment;--j)
 			{
-				if(fragments[j].token == Tokenizer.Token.ArgVal || fragments[j].token == Tokenizer.Token.ArgIdx)
+				if(fragments[j].token >= Tokenizer.Token.ArgVal && fragments[j].token <= Tokenizer.Token.ArgIdx)
 				{
 					// Find argidx for argument with label == fragments[j].value
 					string argname = (string)fragments[j].value;
@@ -98,17 +96,30 @@ namespace ISQL
 					if(argidx == -1)
 						throw new Exception("Unknown argument name " + argname);
 
-					string expr = null;
-					if(fragments[j].token == Tokenizer.Token.ArgVal)
-						// Replace $ARG with expr
-						expr = "image.values[" + argidx.ToString() + "]";
-					else if(fragments[j].token == Tokenizer.Token.ArgIdx)
+					string varExpr = null;
+					switch(fragments[j].token)
+					{
+					case Tokenizer.Token.ArgVal:
+						// Replace $ARG with "image.values[" + argidx.ToString() + "]"
+						varExpr = "image.values[" + argidx.ToString() + "]";
+						break;
+					case Tokenizer.Token.ArgStr:
+						// Replace @ARG with "image.strValues[" + argidx.ToString() + "]"
+						varExpr = "image.strValues[" + argidx.ToString() + "]";
+						break;
+					case Tokenizer.Token.ArgIdx:
 						// Replace #ARG with "Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])"
-						expr = "Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
-					scopeConditionStr = scopeConditionStr.Substring(0, fragments[j].startidx - scopeConditionIdx) + expr + scopeConditionStr.Substring(fragments[j].endidx - scopeConditionIdx);
+						varExpr = "Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
+						break;
+					}
+					expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j].endidx - exprOffset);
 				}
 			}
-			//System.Windows.Forms.MessageBox.Show("Scope condition:\n" + scopeConditionStr);
+			return expr;
+		}
+		private static IEnumerable<csharp_viewer.TransformedImage> CompileScopeCondition(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, ref string warnings)
+		{
+			string scopeExpr = ParseExpression(code, fragments, firstfragment, lastfragment);
 
 			// Define source code for image enumerator class
 			string source = string.Format(@"
@@ -131,15 +142,25 @@ namespace csharp_viewer
 		}}
 		IEnumerator IEnumerable.GetEnumerator() {{ return this.GetEnumerator(); }}
 	}}
-}}", scopeConditionStr);
+}}", scopeExpr);
 
+			return (IEnumerable<csharp_viewer.TransformedImage>)CompileCSharpClass(source, "csharp_viewer", "ImageEnumerator", ref warnings, csharp_viewer.Viewer.images);
+		}
+
+		private static csharp_viewer.ImageTransform CompileImageTransform()
+		{
+			return new csharp_viewer.ThetaTransform();
+		}
+
+		public static object CompileCSharpClass(string code, string namespace_name, string class_name, ref string warnings, params object[] constructor_params)
+		{
 			// Compile source code for image enumerator class
 			CSharpCodeProvider csharp_compiler = new CSharpCodeProvider();
-			CompilerParameters csharp_compilerparams = new CompilerParameters(new[] { "system.dll", System.Reflection.Assembly.GetEntryAssembly().Location }) {
+			CompilerParameters csharp_compilerparams = new CompilerParameters(new[] { "system.dll", "OpenTK.dll", System.Reflection.Assembly.GetEntryAssembly().Location }) {
 				GenerateInMemory = true,
 				GenerateExecutable = false
 			};
-			CompilerResults compilerResult = csharp_compiler.CompileAssemblyFromSource(csharp_compilerparams, source);
+			CompilerResults compilerResult = csharp_compiler.CompileAssemblyFromSource(csharp_compilerparams, code);
 			if(compilerResult.Errors.Count > 0)
 			{
 				string errstr = "";
@@ -151,13 +172,13 @@ namespace csharp_viewer
 						errstr += "\n" + error.Line.ToString() + ": " + error.ErrorText;
 				}
 				if(errstr != "")
-					throw new Exception("Error compiling scope condition:" + source.Replace("\n", "\n> ") + errstr);
+					throw new Exception("Error compiling scope condition:" + code.Replace("\n", "\n> ") + errstr);
 			}
 
 			// Return instance of image enumerator class
 			System.Reflection.Assembly compiledAssembly = compilerResult.CompiledAssembly;
-			Type imageEnumeratorType = compiledAssembly.GetType("csharp_viewer.ImageEnumerator");
-			return (System.Collections.Generic.IEnumerable<csharp_viewer.TransformedImage>)Activator.CreateInstance(imageEnumeratorType, csharp_viewer.Viewer.images);
+			Type imageEnumeratorType = compiledAssembly.GetType(namespace_name + "." + class_name);
+			return Activator.CreateInstance(imageEnumeratorType, constructor_params);
 		}
 
 		private class Tokenizer
@@ -165,9 +186,17 @@ namespace csharp_viewer
 			public enum Token
 			{
 				Invalid, Var, Num, Str, // Basic types
-				ArgVal, ArgIdx, // Specific types
+				ArgVal, ArgStr, ArgIdx, // Argument types
 				Add, Sub, Mul, Div, Mod, Eq, NEq, Gr, Sm, GrEq, SmEq, Asn, //Opcodes
-				Where, All, Selection // Keywords
+				Where, From, By // Clauses
+			}
+			public static bool IsClause(Token token)
+			{
+				return token >= Token.Where && token <= Token.By;
+			}
+			public static bool IsArgumentType(Token token)
+			{
+				return token >= Token.ArgVal && token <= Token.ArgIdx;
 			}
 			public enum Opcodes
 			{
@@ -209,6 +238,10 @@ namespace csharp_viewer
 					default:
 						return token.ToString();
 					}
+				}
+				public string GetString(string code, int codeOffset = 0)
+				{
+					return code.Substring(startidx + codeOffset, endidx - startidx);
 				}
 			}
 
@@ -289,7 +322,7 @@ namespace csharp_viewer
 						continue;
 					}
 
-					// Check if strtoken represents a Token.Str, Token.ArgVal or Token.ArgIdx
+					// Check if strtoken represents a string or an argument type
 					switch(strtoken[0])
 					{
 					case '\"':
@@ -303,6 +336,13 @@ namespace csharp_viewer
 						if(IsVar(strtoken, 1))
 						{
 							fragments[t].token = Token.ArgVal;
+							fragments[t].value = strtoken.Substring(1);
+						}
+						break;
+					case '@':
+						if(IsVar(strtoken, 1))
+						{
+							fragments[t].token = Token.ArgStr;
 							fragments[t].value = strtoken.Substring(1);
 						}
 						break;
@@ -320,15 +360,15 @@ namespace csharp_viewer
 						continue;
 					}
 
-					// Check if strtoken represents a Token.Var or keyword
+					// Check if strtoken represents a variable or clause
 					if(IsVar(strtoken))
 					{
 						if(strtoken.Equals("where", StringComparison.OrdinalIgnoreCase))
 							fragments[t++].token = Token.Where;
-						else if(strtoken.Equals("all", StringComparison.OrdinalIgnoreCase))
-							fragments[t++].token = Token.All;
-						else if(strtoken.Equals("selection", StringComparison.OrdinalIgnoreCase))
-							fragments[t++].token = Token.Selection;
+						else if(strtoken.Equals("from", StringComparison.OrdinalIgnoreCase))
+							fragments[t++].token = Token.From;
+						else if(strtoken.Equals("by", StringComparison.OrdinalIgnoreCase))
+							fragments[t++].token = Token.By;
 						else
 						{
 							fragments[t].token = Token.Var;

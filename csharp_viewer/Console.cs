@@ -134,7 +134,7 @@ namespace csharp_viewer
 			try {
 				string output, warnings;
 				ISQL.Compiler.Execute(command, compiler_MethodCall, out output, out warnings);
-				return warnings + output;
+				return (warnings + output).TrimEnd(new char[] { ' ', '\t', '\n' });
 			}
 			catch(Exception ex) {
 				return ex.Message;
@@ -157,7 +157,6 @@ namespace csharp_viewer
 				else
 					stdout = MethodCall(method, args);
 			}
-			stdout.TrimEnd(new char[] { ' ', '\t', '\n' });
 			return stdout;
 		}
 
@@ -172,13 +171,23 @@ namespace csharp_viewer
 				foreach(string dir in Directory.GetDirectories(workingDirectory))
 				{
 					string _dir = dir.Substring(workingDirectoryLength);
-					stdout += _dir + '\n';
+					if(Cinema.IsCinemaDB(dir))
+						stdout += _dir.PadRight(31) + " <- cinema database\n";
+					else
+						stdout += _dir + '\n';
 				}
 				foreach(string file in Directory.GetFiles(workingDirectory))
 				{
 					string _file = file.Substring(workingDirectoryLength);
 					stdout += _file + '\n';
 				}
+
+				return true;
+			}
+			if(method.Equals("cd"))
+			{
+				workingDirectory = Directory.GetParent(workingDirectory.TrimEnd(new char[] { '/', '\\' })).FullName + Path.DirectorySeparatorChar;
+				stdout += workingDirectory + ":\n";
 
 				return true;
 			}

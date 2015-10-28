@@ -104,8 +104,11 @@ namespace csharp_viewer
 					new Range(txt, startpos, txt.Selection.Start).SetStyle(OUTPUT_STYLE);
 				}
 
-				//txt.AppendText("\n");
-				//++txt.SelectionStart;
+				if(e.KeyCode == Keys.Cancel)
+				{
+					txt.AppendText("\n");
+					++txt.SelectionStart;
+				}
 				e.Handled = true;
 				break;
 			}

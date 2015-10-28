@@ -201,6 +201,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 		private TransformedImageCollection images;
 		private Cinema.CinemaArgument[] arguments;
+		private Selection selection = Viewer.selection;
 
 		//public List<_ImageTransform> transforms = new List<_ImageTransform>();
 		public List<ImageTransform> transforms = new List<ImageTransform>();
@@ -254,7 +255,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				set
 				{
 					animationTargetPos.X = float.NaN; // Stop animation
-					ActionManager.Do(MoveAction, new object[] {value, rot});
+					ActionManager.Do(MoveAction, value, rot);
 				}
 			}
 			private Action MoveAction, AnimatePositionAction;
@@ -264,17 +265,17 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				MoveAction = ActionManager.CreateAction("Move View", this, "Move");
 				AnimatePositionAction = ActionManager.CreateAction("Animate View Position", this, "AnimateCam");
 				//ActionManager.Do(MoveAction, new object[] {new Vector3(0.0f, 0.0f, 1.0f), rot});
-				ActionManager.Do(MoveAction, new object[] {new Vector3(0.0f, 0.0f, 10.0f), rot});
+				ActionManager.Do(MoveAction, new Vector3(0.0f, 0.0f, 10.0f), rot);
 
 			}
 
 			public void AnimatePosition(float target_x, float target_y, float target_z)
 			{
-				ActionManager.Do(AnimatePositionAction, new object[] {target_x, target_y, target_z});
+				ActionManager.Do(AnimatePositionAction, target_x, target_y, target_z);
 			}
 			public void AnimatePosition(Vector3 target)
 			{
-				ActionManager.Do(AnimatePositionAction, new object[] {target.X, target.Y, target.Z});
+				ActionManager.Do(AnimatePositionAction, target.X, target.Y, target.Z);
 			}
 			private void AnimateCam(float x, float y, float z)
 			{
@@ -287,7 +288,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				pos.X -= deltapos.X * (float)Math.Cos(rot.Y) - deltapos.Z * (float)(Math.Cos(rot.X) * Math.Sin(rot.Y)) + deltapos.Y * (float)(Math.Sin(rot.X) * Math.Sin(rot.Y));
 				pos.Y -= deltapos.Y * (float)Math.Cos(rot.X) + deltapos.Z * (float)Math.Sin(rot.X);
 
-				ActionManager.Do(MoveAction, new object[] {pos, rot});
+				ActionManager.Do(MoveAction, pos, rot);
 			}
 			public void Rotate(Vector2 deltarot)
 			{
@@ -298,7 +299,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					rot.X = -MathHelper.PiOver2;
 				rot.Y += deltarot.Y;
 
-				ActionManager.Do(MoveAction, new object[] {pos, rot});
+				ActionManager.Do(MoveAction, pos, rot);
 			}
 
 			public void RotateAround(Vector2 deltarot, Vector3 center)
@@ -308,7 +309,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				rot.X += deltarot.X;
 				rot.Y += deltarot.Y;
 
-				ActionManager.Do(MoveAction, new object[] {pos, rot});
+				ActionManager.Do(MoveAction, pos, rot);
 			}
 
 			private void Move(Vector3 pos, Vector2 rot)
@@ -438,28 +439,24 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		ImageContextMenu ContextMenu;
 		ImageContextMenu.MenuGroup cmImage;
 
-		private Selection selection;
-
 		//GLTexture1D tex2, tex3; //TODO: Bad style (tex2 and tex3 are activated at the beginning of the draw call)
 
 		// Actions
-		private Action FocusAction, MoveAction, ShowAction, HideAction;
+
 		private Action SetViewControlAction;
 		private Action EnableDepthRenderingAction, DisableDepthRenderingAction;
+		private Action HideAction, MoveAction;
 
 		public void Init(GLWindow glcontrol, FlowLayoutPanel pnlImageControls)
 		{
 			this.glcontrol = glcontrol;
 
 			// Define actions
-			ActionManager.CreateAction("Select images", "select", this, "Select");
-			FocusAction = ActionManager.CreateAction("Focus images", "focus", this, "Focus");
-			MoveAction = ActionManager.CreateAction("Move images", "move", this, "Move");
-			ShowAction = ActionManager.CreateAction("Show images", "show", this, "Show");
-			HideAction = ActionManager.CreateAction("Hide images", "hide", this, "Hide");
 			SetViewControlAction = ActionManager.CreateAction("Set View Control", this, "SetViewControl");
 			EnableDepthRenderingAction = ActionManager.CreateAction("Enable Depth Rendering", "enable depth", this, "EnableDepthRendering");
 			DisableDepthRenderingAction = ActionManager.CreateAction("Disable Depth Rendering", "disable depth", this, "DisableDepthRendering");
+			HideAction = ActionManager.CreateAction("Hide images", this, "Hide");
+			MoveAction = ActionManager.CreateAction("Move images", this, "Move");
 			/*ActionManager.CreateAction("Select all", "all", this, "SelectAll");
 			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
 				this.SelectAll();
@@ -501,8 +498,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			this.images = images;
 			this.arguments = arguments;
 			this.floatimages = floatimages;
-
-			selection = new Selection(images);
 
 			if(floatimages)
 			{
@@ -589,7 +584,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		{
 			images = null;
 			arguments = null;
-			selection = null;
 			selectionAabb = null;
 			if(texstream != null)
 			{
@@ -672,14 +666,14 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			overallAabb_invalid = true;
 		}
 
-		public void OnSelectionChanged(Selection _selection)
+		public void OnSelectionChanged()
 		{
 			#if USE_ARG_IDX
 			if(argIndex != null)
-				argIndex.OnSelectionChanged(selection);
+				argIndex.OnSelectionChanged();
 			#endif
 
-			status_str = "Selection changed: " + (_selection == null ? "null" : _selection.Count.ToString());
+			status_str = "Selection changed: " + (selection == null ? "null" : selection.Count.ToString());
 			status_timer = 1.0f;
 
 			if(images == null)
@@ -689,17 +683,17 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			foreach(TransformedImage image in images.Values)
 				image.selected = false;
 
-			OnSelectionMoved(_selection);
+			OnSelectionMoved();
 		}
-		public void OnSelectionMoved(Selection _selection)
+		public void OnSelectionMoved()
 		{
 			// Select images and lay selectionAabb around selected images
-			if(_selection == null || _selection.IsEmpty)
+			if(selection == null || selection.IsEmpty)
 				selectionAabb = null;
 			else
 			{
 				selectionAabb = new AABB();
-				foreach(TransformedImage selectedimage in _selection)
+				foreach(TransformedImage selectedimage in selection)
 				{
 					selectedimage.selected = true;
 					#if USE_2D_VIEW_CONTROL
@@ -1186,7 +1180,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 								selection.Clear();
 
 							selection.Add(closest_image);
-							SelectionChanged(selection);
+							SelectionChanged();
 						}
 					} else
 					{
@@ -1196,7 +1190,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 						if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LWin) && !selection.IsEmpty)
 						{
 							selection.Clear();
-							SelectionChanged(selection);
+							SelectionChanged();
 						}
 					}
 				}
@@ -1217,14 +1211,14 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				colorTableMgr.MouseUp(e);
 		}
 
-		private void Move(Vector3 deltapos, IEnumerable<TransformedImage> images)
+		public void Move(Vector3 deltapos, IEnumerable<TransformedImage> images)
 		{
 			foreach(TransformedImage image in images)
 			{
 				image.pos += deltapos;
 				image.skipPosAnimation();
 			}
-			OnSelectionMoved(selection);
+			OnSelectionMoved();
 		}
 
 string foo = "";
@@ -1258,7 +1252,7 @@ string foo = "";
 				// Set newpos to intersection of mouse ray and dragImagePlane
 				Vector3 newpos;
 				dragImagePlane.IntersectLine(vnear, vdir, out newpos);
-				ActionManager.Do(MoveAction, new object[] { newpos - dragImage.pos + dragImageOffset, selection });
+				ActionManager.Do(MoveAction, newpos - dragImage.pos + dragImageOffset, selection);
 
 				InvalidateOverallBounds();
 			}
@@ -1346,7 +1340,7 @@ string foo = "";
 				foreach(TransformedImage image in images.Values)
 					if(image.IsVisible() && mouseRectFrustum.DoFrustumCulling(image.GetWorldMatrix(invvieworient), Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 						selection.Add(image);
-				SelectionChanged(selection);
+				SelectionChanged();
 			}
 		}
 		public void DoubleClick(object sender, Point mousepos)
@@ -1378,7 +1372,7 @@ string foo = "";
 			{
 			case Keys.C:
 				ViewControl[] values = (ViewControl[])Enum.GetValues(typeof(ViewControl));
-				ActionManager.Do(SetViewControlAction, new object[] {(int)viewControl + 1 == values.Length ? values[0] : values[(int)viewControl + 1]});
+				ActionManager.Do(SetViewControlAction, (int)viewControl + 1 == values.Length ? values[0] : values[(int)viewControl + 1]);
 				break;
 
 			case Keys.O:
@@ -1389,13 +1383,12 @@ string foo = "";
 				break;
 
 			case Keys.F:
-				//ActionManager.Do(FocusAction, new object[] { selection });
-				FocusAction.Do(new object[] { selection });
+				//ActionManager.Do(FocusAction, selection);
+				Focus(selection);
 				break;
 
 			case Keys.Delete:
-				//ActionManager.Do(FocusAction, new object[] { selection });
-				ActionManager.Do(HideAction, new object[] { selection });
+				ActionManager.Do(HideAction, selection);
 				break;
 			}
 		}
@@ -1505,14 +1498,14 @@ string foo = "";
 		{
 			foreach(TransformedImage image in images)
 				selection.Add(image); //EDIT: should be inside mutex
-			SelectionChanged(selection);
+			SelectionChanged();
 		}
 		public void Select(IEnumerable<TransformedImage> images)
 		{
 			selection.Clear();
 			foreach(TransformedImage image in images)
 				selection.Add(image); //EDIT: should be inside mutex
-			SelectionChanged(selection);
+			SelectionChanged();
 		}
 
 		public ImageTransform AddTransform(ImageTransform transform)
@@ -1529,6 +1522,37 @@ string foo = "";
 		public void ClearTransforms()
 		{
 			transforms.Clear();
+		}
+		public void Clear(IEnumerable<TransformedImage> images)
+		{
+			foreach(TransformedImage image in images)
+			{
+				image.ClearTransforms();
+				image.skipPosAnimation();
+			}
+			//EDIT: Call transforms.Clear(); for all transforms that aren't needed anymore
+		}
+
+		public string Count(IEnumerable<TransformedImage> images)
+		{
+			int numimages;
+
+			ICollection<TransformedImage> c = images as ICollection<TransformedImage>; // Try to cast images to a collection, because ICollection.Count might be faster than iterating
+			if(c != null)
+				numimages = c.Count;
+			else
+			{
+				numimages = 0;
+				using(IEnumerator<TransformedImage> enumerator = images.GetEnumerator())
+					while(enumerator.MoveNext())
+						numimages++;
+			}
+
+			return numimages.ToString();
+		}
+		public List<TransformedImage> CreateGroup(IEnumerable<TransformedImage> images)
+		{
+			return new List<TransformedImage>(images);
 		}
 	}
 }

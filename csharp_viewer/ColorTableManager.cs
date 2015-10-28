@@ -1091,9 +1091,11 @@ namespace csharp_viewer
 
 			ShowColormapPickerAction = ActionManager.CreateAction("Show colormap picker", "show picker", delegate(object[] parameters) {
 				pickerVisible = true;
+				return null;
 			});
 			HideColormapPickerAction = ActionManager.CreateAction("Hide colormap picker", "hide picker", delegate(object[] parameters) {
 				pickerVisible = false;
+				return null;
 			});
 
 			// Create shaders as singleton

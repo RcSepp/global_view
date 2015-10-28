@@ -1012,3 +1012,227 @@ select where #theta == #phi
 hide selection
 focus selection
 exit
+ls
+cd
+exit
+cd
+cd
+ls
+cd
+cd
+ls
+ls
+cd
+cd
+ls
+exit
+ls
+ls
+ls
+ls
+cd
+ls
+laod mpas_060km
+laod "mpas_060km"
+load "mpas_060km"
+spread all
+select all
+focus all
+select where #time > 50
+select where #time > 50
+select where #time > 51
+select where #time > 53
+select where #time > 52
+select where #time > 52
+select where #time > 52
+select where false
+select where true
+
+
+
+
+
+select where false
+select where true
+select where true
+exit
+cd
+ls
+load "mpas_060km"
+spread random
+rspread all
+focus all
+spread all
+focus all
+select where @phi = "0"
+exit
+spread all
+focus all
+select where @phi = "0"
+select where @phi == "0"
+select where @phi == "60"
+exit
+rspread all
+clear where #theta < 3
+focus all
+select where #theta >= 3
+select where #theta < 3
+hide all
+exit
+count all
+count all
+count where $theta = 60
+count where $theta == 60
+exit
+count where $theta == 60
+select all
+exit
+count all
+count where $theta == $phi
+count selected
+count selection
+exit
+select all
+count selection
+count none
+exit
+count selection
+select where #phi == 2
+count selection
+focus selection
+focus selection
+exit
+count none
+count all
+show none
+hide none
+select all
+select none
+exit
+group all
+exit
+show all
+exit
+select all
+select all
+exit
+select all
+select all
+select selection
+select where #phi > 2
+select none
+rspread all
+clear where #phi > 2
+group none
+group all
+count all
+select all
+count selection
+count selection
+count all
+count none
+count selection
+select where #phi > 1
+count selection
+select where #phi > 1
+count selection
+exit
+count selection
+select where #phi > 1
+count selection
+select all
+count selection
+group all
+select all
+exit
+form
+form "mygroup"
+form "mygroup"
+exit
+form "mygroup"
+form "mygroup" all
+select mygroup
+form "mygroup" all
+form "mygroup" all
+exit
+form "mygroup" all
+form "mygroup" all
+form "diag" where $theta == $phi
+spread all
+focus mygroup
+select diag
+hide diag
+select none
+hide all
+show diag
+unload
+cd
+load mpas_60km
+load "mpas_60km"
+ls
+load "mpas_060km"
+load "mpas_single"
+load "mpas_ani"
+rspread all
+focus all
+foo
+123
+where
+focus
+by
+by
+select where
+exit
+select where
+rotate by
+rotate by 10
+rotate by 10 where
+rotate by 10 where true
+rotate by 10 where true
+rotate all by 10 where true
+select where $theta == 60
+exit
+select where $theta == 60
+exit
+tx all
+clear
+clear all
+select where $theta == 60
+select where $theta == 60
+select where $theta == 60
+exit
+load "mpas_single"
+select where $theta == 60
+select where $theta == 0
+xt
+mt
+tx
+tx all
+exit
+tx all
+tx by 10 all
+tx by 10 where true
+tx by $theta where true
+tx by $theta where true
+tx by $theta where true
+tx by $theta where true
+tx by $theta / 10.0f where true
+clear
+clear all
+tx by $theta / 10.0f where true
+tx BY $theta / 10.0f WHERE true
+exit
+tx BY $theta / 10.0f WHERE true
+clear
+clear all
+spread all
+focus all
+tx BY -#theta WHERE true
+tx BY - #theta WHERE true
+tx BY #theta WHERE true
+tx BY -10 WHERE true
+tx BY - #theta WHERE true
+
+tx BY - #theta WHERE true
+eitt
+exit

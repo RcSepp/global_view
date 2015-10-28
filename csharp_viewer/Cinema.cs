@@ -44,11 +44,17 @@ namespace csharp_viewer
 			public string depth_filename;
 
 			public float[] values;
+			public string[] strValues;
 			public CinemaArgument[] args;
 
 			public Dictionary<string, object> meta;
 
 			public OpenTK.Matrix4 invview; // Required to recreate 3D pixel locations from depth image
+		}
+
+		public static bool IsCinemaDB(string path)
+		{
+			return File.Exists(path + "/image/info.json");
 		}
 
 		// Parse meta data from info.json

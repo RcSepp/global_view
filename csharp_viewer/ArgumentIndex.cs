@@ -33,6 +33,8 @@ namespace csharp_viewer
 
 	public class ArgumentIndex : GLControl
 	{
+		private const int MAX_NUM_ARGS_SHOWING_VALUES = 20;
+
 		public event Selection.ChangedDelegate SelectionChanged;
 		public delegate void ArgumentLabelMouseDelegate(Cinema.CinemaArgument argument, int argumentIndex);
 		public event ArgumentLabelMouseDelegate ArgumentLabelMouseDown;
@@ -108,7 +110,7 @@ namespace csharp_viewer
 				meshBorders.Bind(sdr, null);
 				meshBorders.Draw();
 
-				if(strValues.Length > 100)
+				if(strValues.Length > MAX_NUM_ARGS_SHOWING_VALUES)
 					GL.LineWidth(6.0f);
 				if(selection != null)
 				{
@@ -119,7 +121,7 @@ namespace csharp_viewer
 					{
 						int xi = Array.IndexOf(selectedimage.args[argidx].values, selectedimage.values[argidx]);
 
-						if(strValues.Length <= 100)
+						if(strValues.Length <= MAX_NUM_ARGS_SHOWING_VALUES)
 							GL.LineWidth(Common.fontText2.MeasureString(strValues[xi]).X);
 
 						x = (float)(xi + 1) / (float)(strValues.Length + 1);
@@ -148,7 +150,7 @@ namespace csharp_viewer
 					}
 				}*/
 
-				if(strValues.Length > 100)
+				if(strValues.Length > MAX_NUM_ARGS_SHOWING_VALUES)
 				{
 					GL.LineWidth(2.0f);
 					sdr.Bind(trans);
@@ -321,7 +323,7 @@ newConstraintGroup.Add(newConstraint);
 selection.AddGroup(newConstraintGroup);*/
 }
 				if(SelectionChanged != null)
-					SelectionChanged(selection);
+					SelectionChanged();
 				return true;
 			}
 			capturedTick = null;
@@ -356,9 +358,9 @@ selection.AddGroup(newConstraintGroup);*/
 			return false;
 		}
 
-		public void OnSelectionChanged(Selection _selection)
+		public void OnSelectionChanged()
 		{
-			this.selection = _selection;
+			this.selection = Viewer.selection;
 			/*if(arguments != null && !(_selection is IndexProductSelection))
 				for(int i = 0; i < arguments.Length; ++i)
 					selection[i].Clear();*/
