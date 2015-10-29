@@ -923,3 +923,9 @@ focus all
 exit
 focus all
 hide where #time % 10 != 0
+cd
+ls
+load "cinema"
+spread all
+focus all
+select where $time == 3

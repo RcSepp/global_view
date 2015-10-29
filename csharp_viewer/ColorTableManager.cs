@@ -1083,7 +1083,7 @@ namespace csharp_viewer
 
 		private Action ShowColormapPickerAction, HideColormapPickerAction;
 
-		public ColorTableManager(GLWindow glcontrol, FlowLayoutPanel pnlImageControls)
+		public ColorTableManager(GLWindow glcontrol)
 		{
 			this.glcontrol = glcontrol;
 			this.Bounds = new Rectangle(Point.Empty, glcontrol.Size);
@@ -1250,7 +1250,7 @@ namespace csharp_viewer
 			picker.OnSizeChanged(backbuffersize);
 		}
 
-		public void Draw(float dt)
+		public new void Draw(float dt)
 		{
 			foreach(GLButton button in buttons)
 				button.Draw(dt);

@@ -1,5 +1,6 @@
 ﻿#define DISABLE_DATAVIZ
 //#define USE_STD_IO
+#define EMBED_CONSOLE
 
 using System;
 using System.Windows.Forms;
@@ -15,6 +16,11 @@ using OpenTK.Graphics.OpenGL;
 
 namespace csharp_viewer
 {
+	public static class Global
+	{
+		public static float time = 0.0f;
+	}
+
 	public class Viewer : Form
 	{
 		//public static string DATABASE_PATH = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/work/mpas_060km/";
@@ -34,7 +40,6 @@ namespace csharp_viewer
 		//ImageCloud imageCloud = new SimpleImageCloud();
 		//ImageCloud imageCloud = new ThetaPhiImageCloud();
 		ImageCloud imageCloud;
-		FlowLayoutPanel pnlImageControls;
 		Control ctrlConsole = null;
 		DimensionMapper dimMapper;
 		ActionManager actMgr = new ActionManager();
@@ -148,11 +153,18 @@ namespace csharp_viewer
 
 			Rectangle screenbounds = Screen.PrimaryScreen.WorkingArea;
 
+			if(Environment.OSVersion.Platform == PlatformID.MacOSX || Environment.OSVersion.Platform == PlatformID.Unix)
+				screenbounds = new Rectangle(screenbounds.Left, screenbounds.Top + 22, screenbounds.Width + 8, screenbounds.Height - 100);
+
 			this.Text = "csharp_viewer";
 			this.StartPosition = FormStartPosition.Manual;
-			this.Bounds = new Rectangle(screenbounds.Left, screenbounds.Top + 22, screenbounds.Width * 2 / 3, screenbounds.Height - 200);
-			//this.Bounds = new Rectangle(0, 22, 1608, 1251); // Results in backbuffersize == (1600, 1024)
-			this.BackColor = Color.White;
+			#if EMBED_CONSOLE
+			this.Bounds = screenbounds;
+			#else
+			this.Bounds = new Rectangle(screenbounds.Left, screenbounds.Top, screenbounds.Width * 2 / 3, screenbounds.Height - 100);
+			//this.Bounds = new Rectangle(0, 0, 1608, 1251); // Results in backbuffersize == (1600, 1024)
+			#endif
+			//this.BackColor = Color.White;
 			this.FormClosing += form_Closing;
 
 			glImageCloud = new GLWindow();//new OpenTK.GLControl(new GraphicsMode(32, 24, 8, 1), 3, 0, GraphicsContextFlags.Default);
@@ -163,12 +175,6 @@ namespace csharp_viewer
 			imageCloud = new ImageCloud();
 			imageCloud.Dock = DockStyle.Fill;
 			glImageCloud.Controls.Add(imageCloud);
-
-			/*pnlImageControls = new FlowLayoutPanel();
-			pnlImageControls.BackColor = SystemColors.Control;
-			pnlImageControls.TabIndex = 1;
-			this.Controls.Add(pnlImageControls);*/
-			pnlImageControls = null;
 
 			#if !DISABLE_DATAVIZ
 			pnlPCView = new Panel();
@@ -189,9 +195,11 @@ namespace csharp_viewer
 
 #if !USE_STD_IO
 			// Create scripting console
-			//ctrlConsole = scrCle.Create();
-			//scrCle.MethodCall += actMgr.Invoke;
-			//this.Controls.Add(ctrlConsole);
+			#if EMBED_CONSOLE
+			ctrlConsole = scrCle.Create();
+			scrCle.MethodCall += actMgr.Invoke;
+			this.Controls.Add(ctrlConsole);
+			#else
 			Form frmConsole = new Form();
 			frmConsole.StartPosition = FormStartPosition.Manual;
 			frmConsole.Bounds = new Rectangle(this.Left + this.Width, this.Top, screenbounds.Width - this.Width, 512);
@@ -200,6 +208,7 @@ namespace csharp_viewer
 			scrCle.MethodCall += actMgr.Invoke;
 			frmConsole.Controls.Add(ctrlConsole);
 			frmConsole.Show();
+			#endif
 #endif
 
 			if(Directory.Exists("/Users/sklaassen/Desktop/work/db/"))
@@ -218,7 +227,7 @@ namespace csharp_viewer
 
 			LoadDatabaseAction = ActionManager.CreateAction("Load database", "load", this, "LoadCinemaDatabase");
 			LoadDatabaseAction = ActionManager.CreateAction("Unload database", "unload", this, "UnloadDatabase");
-			ClearTransformsAction = ActionManager.CreateAction("Clear Transformations", "clear", this, "ClearTransforms");
+			//ClearTransformsAction = ActionManager.CreateAction("Clear Transformations", "clear", this, "ClearTransforms");
 			ActionManager.CreateAction("Exit program", "exit", this, "Exit");
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Select images", "select", delegate(object[] parameters) {
@@ -281,7 +290,9 @@ namespace csharp_viewer
 				images_mutex.ReleaseMutex();
 				return null;
 			});
-			ActionManager.CreateAction("Create translation transform in x-direction", "tx", this, "CreateTransformTX");
+			ActionManager.CreateAction("Create translation transform in x-direction", "x", this, "CreateTransformX");
+			ActionManager.CreateAction("Create translation transform in y-direction", "y", this, "CreateTransformY");
+			ActionManager.CreateAction("Create translation transform in z-direction", "z", this, "CreateTransformZ");
 
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
 				images_mutex.WaitOne();
@@ -1020,14 +1031,9 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			int w = this.ClientSize.Width, h = this.ClientSize.Height;
 #if DISABLE_DATAVIZ
-			SetControlSize(glImageCloud, 0, 0, w, pnlImageControls == null ? h : h - 200);
+			SetControlSize(glImageCloud, 0, 0, w, ctrlConsole == null ? h : h - 256);
 			if(ctrlConsole != null)
-			{
-				SetControlSize(pnlImageControls, 0, h - 200, w, 32);
-				SetControlSize(ctrlConsole, 0, h - 168, w, 168);
-			}
-			else
-				SetControlSize(pnlImageControls, 0, h - 200, w, 200);
+				SetControlSize(ctrlConsole, 0, h - 256, w, 256);
 #else
 			SetControlSize(glImageCloud, 0, 0, (w - 4) / 2, h - 200);
 			if(ctrlConsole != null)
@@ -1121,41 +1127,24 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			CallSelectionChangedHandlers();
 		}
 
-		private void CreateTransformTX(string byExpr, IEnumerable<TransformedImage> images)
+		private void CreateTransformX(string byExpr, IEnumerable<TransformedImage> images)
 		{
-			string source = string.Format(@"
-using System;
-using System.Collections;
-using System.Collections.Generic;
-
-using OpenTK;
-
-namespace csharp_viewer
-{{
-	public class XTransform : ImageTransform
-	{{
-		public override Description GetDescription() {{return new Description(1);}}
-		public override int GetIndex(int i) {{switch(i) {{case 0: return idx; default: return -1;}}}}
-		public override int SetIndex(int i, int index) {{switch(i) {{case 0: return idx = index; default: return -1;}}}}
-
-		private int idx;
-
-		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
-		{{
-			float x = (float)({0});
-			pos = new Vector3(x, 0.0f, 0.0f);
-		}}
-
-		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
-		{{
-			float x = (float)({0});
-			return new AABB(new Vector3(x - 0.5f, -0.5f, -0.5f), new Vector3(x + 0.5f, 0.5f, 0.5f));
-		}}
-	}}
-}}", byExpr);
-
 			string warnings = "";
-			ImageTransform transform = (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "XTransform", ref warnings);
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform(byExpr, "0.0f", "0.0f", true, ref warnings);
+
+			OnTransformationAdded(transform, images);
+		}
+		private void CreateTransformY(string byExpr, IEnumerable<TransformedImage> images)
+		{
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", byExpr, "0.0f", true, ref warnings);
+
+			OnTransformationAdded(transform, images);
+		}
+		private void CreateTransformZ(string byExpr, IEnumerable<TransformedImage> images)
+		{
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", "0.0f", byExpr, true, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
@@ -1201,7 +1190,7 @@ namespace csharp_viewer
 				MessageBox.Show(ex.Message, "Error creating shaders");
 			}
 
-			imageCloud.Init(glImageCloud, pnlImageControls);
+			imageCloud.Init(glImageCloud);
 			imageCloud.OnSizeChanged(glImageCloud.Size);
 
 			glImageCloud.MouseDown += glImageCloud_MouseDown;
@@ -1249,6 +1238,8 @@ namespace csharp_viewer
 				glImageCloud.SwapBuffers();
 
 				actMgr.PostRender(glImageCloud);
+
+				Global.time += dt;
 			}
 			renderThread_finished = true;
 		}

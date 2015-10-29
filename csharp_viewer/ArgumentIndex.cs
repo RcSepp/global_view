@@ -110,8 +110,6 @@ namespace csharp_viewer
 				meshBorders.Bind(sdr, null);
 				meshBorders.Draw();
 
-				if(strValues.Length > MAX_NUM_ARGS_SHOWING_VALUES)
-					GL.LineWidth(6.0f);
 				if(selection != null)
 				{
 					GL.Uniform4(colorUniform, SELECTION_COLOR);
@@ -121,12 +119,11 @@ namespace csharp_viewer
 					{
 						int xi = Array.IndexOf(selectedimage.args[argidx].values, selectedimage.values[argidx]);
 
-						if(strValues.Length <= MAX_NUM_ARGS_SHOWING_VALUES)
-							GL.LineWidth(Common.fontText2.MeasureString(strValues[xi]).X);
+						float width = strValues.Length <= MAX_NUM_ARGS_SHOWING_VALUES ? Common.fontText2.MeasureString(strValues[xi]).X + 2.0f : 6.0f;
 
 						x = (float)(xi + 1) / (float)(strValues.Length + 1);
 						x *= 2.0f * bounds.Width / backbufferSize.Width;
-						sdr.Bind(trans * Matrix4.CreateTranslation(x, y, 0.0f));
+						sdr.Bind(Matrix4.CreateScale(2.0f * width / backbufferSize.Width, 1.0f, 1.0f) * trans * Matrix4.CreateTranslation(x, y, 0.0f));
 						meshSelection.Draw();
 					}
 				}
@@ -206,7 +203,7 @@ namespace csharp_viewer
 			Common.sdrSolidColor = new GLShader(new string[] {ARGUMENT_INDEX_SHADER.VS}, new string[] {ARGUMENT_INDEX_SHADER.FS});
 			Common.sdrSolidColor.Bind();
 
-			meshSelection = new GLMesh(new Vector3[] {new Vector3(0.0f, -0.1f, 0.0f), new Vector3(0.0f, 1.15f, 0.0f)}, null, null, null, null, null, PrimitiveType.Lines);
+			meshSelection = new GLMesh(new Vector3[] {new Vector3(-1.0f, -0.1f, 0.0f), new Vector3(-1.0f, 1.15f, 0.0f), new Vector3(1.0f, 1.15f, 0.0f), new Vector3(1.0f, -0.1f, 0.0f)}, null, null, null, null, null, PrimitiveType.TriangleFan);
 		}
 
 		public void Load(TransformedImageCollection images, Cinema.CinemaArgument[] arguments, Dictionary<string, HashSet<object>> valuerange)

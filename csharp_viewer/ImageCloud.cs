@@ -1,6 +1,6 @@
 ﻿#define USE_DEPTH_SORTING
 //#define USE_GS_QUAD
-#define USE_2D_VIEW_CONTROL
+//#define USE_2D_VIEW_CONTROL
 #define USE_ARG_IDX
 
 using System;
@@ -447,7 +447,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		private Action EnableDepthRenderingAction, DisableDepthRenderingAction;
 		private Action HideAction, MoveAction;
 
-		public void Init(GLWindow glcontrol, FlowLayoutPanel pnlImageControls)
+		public void Init(GLWindow glcontrol)
 		{
 			this.glcontrol = glcontrol;
 
@@ -482,7 +482,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			this.Controls.Add(argIndex);
 			#endif
 
-			colorTableMgr = new ColorTableManager(glcontrol, pnlImageControls);
+			colorTableMgr = new ColorTableManager(glcontrol);
 			colorTableMgr.Visible = false;
 			this.Controls.Add(colorTableMgr);
 
@@ -748,7 +748,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			// >>> Update free-view matrix
 
-			if(true)//(glcontrol.ParentForm.Focused)//(glcontrol.Focused)
+			//if(glcontrol.ParentForm.Focused)
+			if(glcontrol.Focused)
 			{
 				bool viewChanged = false;
 				#if USE_2D_VIEW_CONTROL
@@ -1530,6 +1531,7 @@ string foo = "";
 				image.ClearTransforms();
 				image.skipPosAnimation();
 			}
+			SelectionChanged();
 			//EDIT: Call transforms.Clear(); for all transforms that aren't needed anymore
 		}
 
