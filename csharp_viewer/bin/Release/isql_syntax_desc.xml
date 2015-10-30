@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doc>
+	<brackets left="(" right=")"/>
+
+	<style name="Green" color="#008000"/>
+	<style name="DarkRed" color="#bf1414"/>
+	<style name="Blue" color="#0000ff"/>
+	<style name="Brown" color="#cc8000"/>
+	<style name="Magenta" color="#ff00ff"/>
+	<style name="Purple" color="#8000ff"/>
+
+	<!-- <rule style="Green" options="Singleline"> <- Comments ->
+		#[^\r\n]*
+	</rule>
+	<rule style="DarkRed" options="Singleline"> <- Strings ->
+		("[^"\r\n]*")|('[^'\r\n]*')
+	</rule>
+	<rule style="Blue">
+		\b(and|as|assert|break|class|continue|def|del|elif|else|except|exec|False|finally|for|from|global|if|import|in|is|lambda|None|not|or|pass|print|raise|return|triple|True|try|while|with|yield)\b
+	</rule> <- Python keywords -->
+
+	<rule style="Green" options="IgnoreCase">\b(select|focus|show|hide|move|spread|rspread|clear|count)\b</rule>
+	<rule style="Blue" options="IgnoreCase">\b(where|from|by)\b</rule>
+	<rule style="DarkRed" options="Singleline">^(?!\> ).*$</rule>
+</doc>

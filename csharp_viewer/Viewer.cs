@@ -70,6 +70,7 @@ namespace csharp_viewer
 		Dictionary<string, HashSet<object>> valuerange = new Dictionary<string, HashSet<object>>(); // A set of all value types, containing a set of all possible values in the metadata all images
 
 		public static Selection selection = new Selection(images);
+		public static HashSet<TransformedImage> visible = new HashSet<TransformedImage>();
 		public static Dictionary<string, IEnumerable<TransformedImage>> groups = new Dictionary<string, IEnumerable<TransformedImage>>();
 
 		bool closing = false;
@@ -148,6 +149,9 @@ namespace csharp_viewer
 			groups.Add("all", images);
 			groups.Add("none", new List<TransformedImage>());
 			groups.Add("selection", selection);
+			foreach(TransformedImage image in images)
+				visible.Add(image);
+			groups.Add("visible", visible);
 
 			// >>> Initialize Components
 
@@ -276,7 +280,7 @@ namespace csharp_viewer
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Count images", "count", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
 				images_mutex.WaitOne();
-				string result = imageCloud.Count(images);
+				string result = imageCloud.Count(images).ToString();
 				images_mutex.ReleaseMutex();
 				return result;
 			});
@@ -293,6 +297,8 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Create translation transform in x-direction", "x", this, "CreateTransformX");
 			ActionManager.CreateAction("Create translation transform in y-direction", "y", this, "CreateTransformY");
 			ActionManager.CreateAction("Create translation transform in z-direction", "z", this, "CreateTransformZ");
+			ActionManager.CreateAction("Create theta-phi transform", "thetaPhi", this, "CreateTransformThetaPhi");
+			ActionManager.CreateAction("Create skip transform", "skip", this, "CreateTransformSkip");
 
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
 				images_mutex.WaitOne();
@@ -362,7 +368,7 @@ namespace csharp_viewer
 				return null;
 			});
 
-			ActionManager.CreateAction<int, int>("Apply theta-phi transform", "theta-phi %a %a", delegate(object[] parameters) {
+			/*ActionManager.CreateAction<int, int>("Apply theta-phi transform", "theta-phi %a %a", delegate(object[] parameters) {
 				int thetaidx = (int)parameters[0];
 				int phiidx = (int)parameters[1];
 				if(thetaidx < arguments.Length && phiidx < arguments.Length)
@@ -374,7 +380,7 @@ namespace csharp_viewer
 					OnTransformationAdded(transform, selection);
 				}
 				return null;
-			});
+			});*/
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread out all dimensions", "spread", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
@@ -402,16 +408,42 @@ namespace csharp_viewer
 				}
 			});*/
 
-			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread out images randomly", "rspread", delegate(object[] parameters) {
+			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly", "rspread", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
 
 				if(arguments != null)
 				{
+					int numimages = imageCloud.Count(images);
+					float ext = (float)Math.Sqrt(numimages), halfext = ext / 2.0f;
+
 					Random rand = new Random();
 					images_mutex.WaitOne();
 					foreach(TransformedImage image in images)
-						image.pos = new Vector3((float)rand.Next(-1000, 1000) / 100.0f, (float)rand.Next(-1000, 1000) / 100.0f, (float)0.0f);
+						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)0.0f);
 					images_mutex.ReleaseMutex();
+
+					imageCloud.InvalidateOverallBounds();
+
+					// Update selection (bounds may have changed due to added transform)
+					CallSelectionChangedHandlers();
+				}
+				return null;
+			});
+			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly in 3 dimensions", "rspread3d", delegate(object[] parameters) {
+				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+
+				if(arguments != null)
+				{
+					int numimages = imageCloud.Count(images);
+					float ext = (float)Math.Pow(numimages, 1.0 / 3.0), halfext = ext / 2.0f;
+
+					Random rand = new Random();
+					images_mutex.WaitOne();
+					foreach(TransformedImage image in images)
+						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext);
+					images_mutex.ReleaseMutex();
+
+					imageCloud.InvalidateOverallBounds();
 
 					// Update selection (bounds may have changed due to added transform)
 					CallSelectionChangedHandlers();
@@ -505,6 +537,7 @@ namespace csharp_viewer
 			dimMapper.Load(arguments);
 
 			actMgr.Load(arguments);
+			actMgr.FrameCaptureFinished += actMgr_FrameCaptureFinished;
 
 			images_mutex.ReleaseMutex();
 
@@ -657,6 +690,7 @@ namespace csharp_viewer
 					images_mutex.WaitOne();
 					//images.Add(cimg.key, cimg);
 					images.Add(cimg);
+					visible.Add(cimg);
 					images_mutex.ReleaseMutex();
 
 					for(int i = 0; i < arguments.Length; ++i)
@@ -837,6 +871,7 @@ namespace csharp_viewer
 				cimg.key = key;
 				images_mutex.WaitOne();
 				images.Add(cimg);
+				visible.Add(cimg);
 				images_mutex.ReleaseMutex();
 
 				if(cimg.meta != null)
@@ -967,6 +1002,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 				//images.Add(cimg.key, cimg);
 				images.Add(cimg);
+				visible.Add(cimg);
 
 				// If the loaded images is the one currently selected, call SelectImage functions to update the image in each dependent class
 				if(selection != null && selection.Contains(cimg))
@@ -1148,6 +1184,20 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			OnTransformationAdded(transform, images);
 		}
+		private void CreateTransformThetaPhi(string byExpr, IEnumerable<TransformedImage> images)
+		{
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr, true, ref warnings);
+
+			OnTransformationAdded(transform, images);
+		}
+		private void CreateTransformSkip(string byExpr, IEnumerable<TransformedImage> images)
+		{
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr, true, ref warnings);
+
+			OnTransformationAdded(transform, images);
+		}
 
 		private void ClearTransforms()
 		{
@@ -1237,7 +1287,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 				glImageCloud.SwapBuffers();
 
-				actMgr.PostRender(glImageCloud);
+				actMgr.PostRender(glImageCloud, scrCle as ScriptingConsole);
 
 				Global.time += dt;
 			}
@@ -1287,20 +1337,39 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			imageCloud.DoubleClick(sender, this.PointToClient(MousePosition));
 			images_mutex.ReleaseMutex();
 		}
+		private delegate void bar(object sender, EventArgs e);
 		private void glImageCloud_KeyDown(object sender, KeyEventArgs e)
 		{
-			if(e.KeyCode == Keys.P)
-				actMgr.Play(2.0);
-			else if(e.KeyCode == Keys.R)
-				actMgr.CaptureFrames(20.0);
-			else if(e.KeyCode == Keys.X)
-				actMgr.Clear();
-			else
+			switch(e.KeyCode)
 			{
+			case Keys.P:
+				actMgr.Play(2.0);
+				break;
+			case Keys.F12:
+				actMgr.SaveScreenshot("screenshot.png");
+				ImageCloud.Status("Screenshot saved as \"screenshot.png\"");
+				break;
+			case Keys.R:
+				// Switch to video-friendly resolution
+				this.ClientSize = new Size(1920, 1200);
+				this_SizeChanged(null, null);
+
+				actMgr.CaptureFrames(20.0);
+				break;
+			case Keys.X:
+				actMgr.Clear();
+				break;
+			default:
 				images_mutex.WaitOne();
 				imageCloud.KeyDown(sender, e);
 				images_mutex.ReleaseMutex();
+				break;
 			}
+		}
+
+		private void actMgr_FrameCaptureFinished()
+		{
+			ImageCloud.Status("Frame capture finished");
 		}
 	}
 }

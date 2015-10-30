@@ -929,3 +929,269 @@ load "cinema"
 spread all
 focus all
 select where $time == 3
+load "mpas2"
+rspread3d all
+focus all
+hide where #time != 50
+select none
+exit
+theta-phi all by 1
+exit
+thetaPhi all by 1
+thetaPhi all by 1
+clear all
+ls
+load "mpas_view"
+exit
+cd
+ls
+load "cinema"
+thetaPhi all by 1
+thetaPhi all by 1
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 2
+  exit
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 2
+clear
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 3
+clear all
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 3
+exit
+hide where $theta < 90 || $theta > 90
+count visible
+exit
+count visible
+count visible
+hide where $theta < 90 || $theta > 90
+count visible
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 3
+clear all
+thetaPhi visible by $theta * pi / 180, $phi * pi / 180, 3
+show all
+clear all
+rspread all
+hide where $theta < -90 || $theta > 90
+count visible
+clear all
+thetaPhi visible by $theta * pi / 180, $phi * pi / 180, 3
+exit
+spread all
+select where $phi == 0
+focus selection
+select where $phi == 30
+select where $phi == 0
+select where $phi == 0
+select where $phi == 0 && $time == 0
+focus selection
+select where $phi == 0 && #time == 0
+focus selection
+
+spread all
+focus all
+focus all
+select where $theta < -90 || $theta > 90
+hide selection
+clear all
+thetaPhi visible by $theta * pi / 180, $phi * pi / 180, 3
+focus all
+clear all
+thetaPhi visible by $theta * pi / 180, ($phi + 90) * pi / 180, 3
+thetaPhi visible by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+clear all
+thetaPhi visible by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+clear all
+hide where $theta < -90 || $theta > 90
+thetaPhi visible by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+show all
+clear all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+hide where $phi < -90 || $phi > 90
+clear
+clear all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+hide where $phi < -90 || $phi > 90
+focus all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+hide where $phi < -90 || $phi > 90
+focus all
+x by #time * 5
+x all by #time * 5
+select visible where $time == 3
+focus selection
+select visible where $time == 3
+select visible where $time == 3
+focus selection
+x all by #time * 2
+focus selection
+exit
+foo
+exit
+fesf
+unload
+cd
+ls
+load "cinema"
+x all by #time * 8
+focus all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+count visible
+hide where $phi < -90 || $phi > 90
+count visible
+select where $time == 3
+focus selection
+hide where $time != 3
+focus all
+x all by #frame
+x all by #frame
+focus where #frame == 100
+focus where #frame == 1000
+focus where #frame == 2000
+focus where #frame == 1800
+focus where #frame == 1900
+focus where #frame == 1800
+hide where #frame < 1800
+focus visible
+focus where #frame > 2000
+focus where #frame > 2500
+focus where #frame > 2100
+focus where #frame > 2010
+focus where #frame > 2020
+focus where #frame > 2030
+focus where #frame > 2040
+focus where #frame > 2050
+foo
+unload
+unload
+exit
+foo
+unload
+cd
+load "cinema"
+x all by #frame
+x all by #time * 8
+focus all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+count visible
+hide where $phi < -90 || $phi > 90
+count visible
+select where $time = 4
+select where $time == 4
+focus selection
+hide where $time != 4
+exit
+unload
+cd
+load "cinema"
+x all by #frame
+x all by #time * 8
+focus all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+count visible
+hide where $phi < -90 || $phi > 90
+count visible
+select where $time = 4
+select where $time == 4
+focus selection
+hide where $time != 4
+exit
+unload
+cd
+load "cinema"
+x all by #time * 8
+focus all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+count visible
+hide where $phi < -90 || $phi > 90
+count visible
+select where $time == 4
+focus selection
+hide where $time != 4
+load mpas2
+load "mpas2"
+rspread all
+focus all
+load "mpas2"
+rspread all
+focus all
+focus where #theta == 0 && #phi == 0 && #time == 0
+load "mpas2"
+hide all
+show ehere #time < 20
+show where #time < 20
+rspread all
+focus all
+load "mpas_single"
+load "mpas_single"
+load "mpas2"
+hide all
+show where #time < 20
+rspread all
+focus all
+load "mpas2"
+hide all
+show where #time < 20
+rspread all
+focus all
+load "mpas2"
+hide all
+show where #time < 20
+rspread all
+focus all
+hide all
+count all
+skip all by (int)( time % 1494 ) != #frame
+focus all
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+exit
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 1.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 1.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+clear all
+focus all
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+focus all
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+focus all
+clear all
+focus none
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+focus all
+clear all
+select none
+skip all by (int)( time * 10.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 25.0 % 1494 ) != #frame
+focus all
+clear all
+focus none
+skip all by (int)( time * 25.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 2.0 % 1494 ) != #frame
+clear all
+skip all by (int)( time * 20.0 % 1494 ) != #frame

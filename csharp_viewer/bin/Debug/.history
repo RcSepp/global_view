@@ -1680,3 +1680,140 @@ x all by #
 x all by #
 x all by #phi * cos(time % (2 * pi))
 y all by #theta * sin(time % (2 * pi))
+y all by #theta * sin(time % (2 * pi))
+clear all
+rpread all
+rspread all
+rspread all
+rspread all
+clear all
+rspread3d all
+clear
+clear all
+unload
+load "mpas2"
+load "mpas2"
+load "mpas2"
+
+
+foo
+exit
+load "mpas2"
+rpread3d all
+rspread3d all
+focus all
+errnorrengrro;nhr
+remkttrnhtt
+rrmkhtrrmlhrr
+y all by #theta * sin(time % (2 * pi)) err
+foo
+foo
+foo
+foo
+foo
+foo
+unload
+cd
+ls
+load "cinema"
+rpread3d all
+rspread3d all
+count visible
+hide where $phi < -90 || $phi > 90
+count visible
+clear all
+thetaPhi all by $theta * pi / 180, ($phi + 90) * pi / 180, 3
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+hide where $theta < -90 || $theta > 90
+exit
+unload
+cd
+ls
+load "cinema"
+rpread3d all
+rspread3d all
+count visible
+hide where $theta < -90 || $theta > 90
+count visible
+clear all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+hide where $theta < -90 || $theta > 90
+x all by #time * 5
+focus where $time = 3
+focus where $time == 3
+select where $time == 3
+select where $time == 3
+unload
+cd
+ls
+load "cinema"
+unload
+cd
+load "cinema"
+x all by #time * 5
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+hide where $phi < -90 || $phi > 90
+foo
+select all
+spread all
+focus all
+skip all by (int)( time % 4 ) != #theta
+  exit
+spread all
+focus all
+skip all by (int)( time % 4 ) != #theta
+skip all by (int)( time % 4 ) != #theta
+skip all by (int)( time % 4 ) != #theta
+spread all
+focus all
+skip all by (int)( 10.0 * time % 4 ) != #theta
+clear all
+spread all
+skip all by (int)( 10.0 * time % 4 ) != #theta
+clear all
+unload
+cd
+load "csharp_viewer/csharp_viewer/bin/Release/frames/"
+exit
+load "csharp_viewer/csharp_viewer/bin/Release/frames/"
+load "csharp_viewer/csharp_viewer/bin/Release/frames/"
+exit
+spread all
+focus all
+hide where #phi != 0
+skip all by ( time % 4 ) != #phi
+clear all
+show visble
+show visible
+count visible
+skip all by ( time % 4 ) != #theta
+exit
+spread all
+hide where #phi != 0
+focus all
+skip all by ( time % 4 ) != #theta
+spread all
+focus
+focus all
+skip all by ( time % 4 ) != #theta
+(int) 
+skip all by (int) ( time % 4 ) != #theta
+skip all by ( (int) time % 4 ) != #theta
+clear all
+skip all by ( (int) time % 4 ) != #theta
+spread all
+skip all by ( (int) ( time * 2.0 ) % 4 ) != #theta
+clear all
+spread all
+skip all by ( (int) ( time * 2.0 ) % 4 ) != #theta
+skip all by ( (int) ( time * 2.0 ) % 16 ) != #theta * 4 + #phi
+clear all
+spread all
+skip all by ( (int) ( time * 2.0 ) % 16 ) != #theta * 4 + #phi
+clear all
+spread all
+skip all by ( (int) ( time * 4.0 ) % 16 ) != #theta * 4 + #phi
+clear all
+spread all
+skip all by ( (int) ( time * 4.0 ) % 16 ) != #theta * 4 + #phi
+focus all

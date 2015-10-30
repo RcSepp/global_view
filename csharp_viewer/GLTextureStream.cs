@@ -1,5 +1,5 @@
 ﻿//#define DEBUG_GLTEXTURESTREAM
-#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory
+//#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory // Warning: Tradeoff doesn't work with prefetching!
 
 using System;
 using System.IO;
@@ -273,6 +273,8 @@ namespace csharp_viewer
 				this.memorysize = memorysize;
 				this.availablememory = memorysize;
 
+				foo = 0;
+
 				prioritySortedImages = new List<Image>(images.Count);
 				foreach(TransformedImage image in images)
 					prioritySortedImages.Add(new Image(image));
@@ -360,7 +362,9 @@ namespace csharp_viewer
 
 					tradeoffRenderSizeFactor = Math.Max(0.1f, (float)(memorysize - theoreticalusedmemory) / (float)memorysize);
 					//tradeoffRenderSizeFactor = (float)availablememory / (float)memorysize;
-					GLTextureStream.foo2 = tradeoffRenderSizeFactor;
+					GLTextureStream.foo2 = tradeoffRenderSizeFactor.ToString();
+					#else
+					GLTextureStream.foo2 = (availablememory / 262144).ToString() + " MB";
 					#endif
 				}
 
@@ -447,7 +451,8 @@ namespace csharp_viewer
 				
 			for(int i = 0; i < loader.prioritySortedImages.Count; ++i)
 			{
-				lblDebug[i].Text = loader.prioritySortedImages[i].memory.ToString();
+				//lblDebug[i].Text = loader.prioritySortedImages[i].memory.ToString();
+				lblDebug[i].Text = loader.prioritySortedImages[i].image.strValues[0] + ": " + loader.prioritySortedImages[i].image.renderPriority.ToString();
 				lblDebug[i].Draw(0.0f);
 			}
 		}
@@ -456,7 +461,7 @@ namespace csharp_viewer
 		#endif
 
 public static int foo = 0;
-public static float foo2 = 0.0f;
+public static string foo2 = "";
 	}
 }
 

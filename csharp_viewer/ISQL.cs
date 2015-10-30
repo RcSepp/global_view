@@ -94,13 +94,13 @@ namespace ISQL
 					if(varExpr.Equals("time"))
 						varExpr = "Global.time";
 					else if(varExpr.Equals("sin"))
-						varExpr = "System.Math.Sin";
+						varExpr = "(float)System.Math.Sin";
 					else if(varExpr.Equals("cos"))
-						varExpr = "System.Math.Cos";
+						varExpr = "(float)System.Math.Cos";
 					else if(varExpr.Equals("tan"))
-						varExpr = "System.Math.Tan";
+						varExpr = "(float)System.Math.Tan";
 					else if(varExpr.Equals("pi"))
-						varExpr = "System.Math.PI";
+						varExpr = "(float)System.Math.PI";
 					else
 						continue;
 
@@ -515,7 +515,7 @@ namespace csharp_viewer
 					{
 						if(c == '\"' && !escapedChar)
 						{
-							insideString = false;
+							++strend;
 							break;
 						}
 						else

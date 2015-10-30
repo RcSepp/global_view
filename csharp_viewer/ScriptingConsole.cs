@@ -18,7 +18,10 @@ namespace csharp_viewer
 	{
 		private FastColoredTextBox txt;
 		private Range lastselection;
-		private TextStyle OUTPUT_STYLE = new TextStyle(Brushes.Brown, null, FontStyle.Regular);
+		//private TextStyle OUTPUT_STYLE = new TextStyle(Brushes.Brown, null, FontStyle.Regular);
+
+		private Action ClearAction, PrintCommandAction;
+		private bool printMethod = true;
 
 		public Control Create()
 		{
@@ -37,8 +40,14 @@ namespace csharp_viewer
 			txt.Font = new Font("Courier New", 10);
 			txt.WordWrap = true;
 			txt.WordWrapMode = WordWrapMode.CharWrapControlWidth;
+			txt.ShowLineNumbers = false;
+			txt.AutoIndentNeeded += (object sender, AutoIndentEventArgs e) => { e.Shift = 0; e.AbsoluteIndentation = 0; e.ShiftNextLines = 0; }; // Disable auto-indentation
 
-			txt.Text = "> ";
+			//txt.Text = "> ";
+
+			ClearAction = ActionManager.CreateAction("Clear console", this, "Clear");
+			PrintCommandAction = ActionManager.CreateAction("Print command to console", this, "PrintCommand");
+			ActionManager.Do(ClearAction);
 
 			return txt;
 		}
@@ -122,7 +131,7 @@ namespace csharp_viewer
 				string method = txt.Lines[txt.LinesCount - 1].Substring(2);
 
 				string output = Execute(method);
-				if(method.Equals("clear"))
+				/*if(method.Equals("clear"))
 				{
 					txt.Clear();
 					txt.AppendText("> ");
@@ -133,13 +142,6 @@ namespace csharp_viewer
 
 				if(output != null && output != "")
 				{
-					output = output;
-
-					/*Place startpos = txt.Selection.Start;
-					txt.AppendText('\n' + output);
-					txt.GoEnd();//txt.SelectionStart += output.Length + 1;
-					new Range(txt, startpos, txt.Selection.Start).SetStyle(OUTPUT_STYLE);*/
-
 					//txt.AppendText('\n' + output);
 					string[] lines = output.Split('\n');
 					foreach(string line in lines)
@@ -150,11 +152,46 @@ namespace csharp_viewer
 				txt.AppendText("\n");
 				txt.AppendText("> ");
 				txt.SelectionStart += 3;
-				//new Range(txt, 0, txt.Selection.Start.iLine, txt.Selection.Start.iChar, txt.Selection.Start.iLine).ReadOnly = true;
+				//new Range(txt, 0, txt.Selection.Start.iLine, txt.Selection.Start.iChar, txt.Selection.Start.iLine).ReadOnly = true;*/
+
+				printMethod = false; // Printing method is only required when playing back
+				ActionManager.Do(PrintCommandAction, method, output);
+				printMethod = true;
+
 				e.Handled = true;
 				break;
 			}
 		}
+
+		private void Clear()
+		{
+			txt.Text = "> ";
+		}
+		private void PrintCommand(string method, string output)
+		{
+			if(printMethod)
+				txt.AppendText(method);
+
+			if(output != null && output != "")
+			{
+				string[] lines = output.Split('\n');
+				foreach(string line in lines)
+					txt.AppendText('\n' + line);
+			}
+			
+			txt.AppendText("\n");
+			txt.AppendText("> ");
+			txt.GoEnd();
+		}
+
+		public void DrawToGraphics(Graphics gfx)
+		{
+			gfx.Clear(Color.White);
+			txt.DrawToGraphics(gfx);
+		}
+
+		public int Width { get { return txt.Width; } }
+		public int Height { get { return txt.Height; } }
 	}
 }
 

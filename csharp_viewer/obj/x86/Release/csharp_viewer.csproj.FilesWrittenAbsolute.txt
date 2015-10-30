@@ -2,6 +2,6 @@
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Release/csharp_viewer.exe
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/obj/x86/Release/csharp_viewer.exe
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Release/Newtonsoft.Json.dll
-/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Release/FastColoredTextBox.dll
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Release/OpenTK.dll
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Release/OpenTK.GLControl.dll
+/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Release/FastColoredTextBox.dll

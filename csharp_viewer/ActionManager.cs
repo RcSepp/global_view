@@ -10,6 +10,8 @@ namespace csharp_viewer
 	public class ActionManager
 	{
 		public static ActionManager mgr = null;
+		public delegate void FrameCaptureFinishedDelegate();
+		public event FrameCaptureFinishedDelegate FrameCaptureFinished;
 
 		private struct PerformedAction
 		{
@@ -34,6 +36,8 @@ namespace csharp_viewer
 		private double playback_speed, playback_invfps;
 		private int playback_framecounter;
 		private LinkedList<PerformedAction>.Enumerator playback_next_action;
+
+		private string screenshot_filename = null;
 
 		public ActionManager()
 		{
@@ -84,7 +88,8 @@ namespace csharp_viewer
 						if(!playback_next_action.MoveNext())
 						{
 							playing = false;
-//System.Windows.Forms.Application.Exit();
+							if(FrameCaptureFinished != null)
+								FrameCaptureFinished();
 							return;
 						}
 					} while(playback_next_action.Current.time == lastActionTime);
@@ -94,21 +99,46 @@ namespace csharp_viewer
 				time += (double)dt;
 		}
 
-		public void PostRender(GLWindow gl)
+		public void PostRender(GLWindow gl, ScriptingConsole cle = null)
 		{
-			if(playing && playing_captureframes)
+			if(screenshot_filename != null || (playing && playing_captureframes))
 			{
-				Bitmap bmp = new Bitmap(gl.ClientSize.Width, gl.ClientSize.Height);
-				System.Drawing.Imaging.BitmapData data = bmp.LockBits(new Rectangle(Point.Empty, gl.ClientSize), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+				Bitmap bmpGL = new Bitmap(gl.ClientSize.Width, gl.ClientSize.Height);
+				System.Drawing.Imaging.BitmapData data = bmpGL.LockBits(new Rectangle(Point.Empty, gl.ClientSize), System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
 				GL.ReadPixels(0, 0, gl.ClientSize.Width, gl.ClientSize.Height, PixelFormat.Bgr, PixelType.UnsignedByte, data.Scan0);
-				bmp.UnlockBits(data);
+				bmpGL.UnlockBits(data);
+				bmpGL.RotateFlip(RotateFlipType.RotateNoneFlipY);
 
-				bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
+				Bitmap bmp;
+				if(cle != null)
+				{
+					Bitmap bmpCle = new Bitmap(gl.ClientSize.Width, cle.Height);
+					Graphics gfx = Graphics.FromImage(bmpCle);
+					cle.DrawToGraphics(gfx);
+					gfx.Flush();
+					gfx.Dispose();
 
-				string framestr = playback_framecounter.ToString();
-				for(int i = 0, numzeros = 5 - framestr.Length; i < numzeros; ++i)
-					framestr = '0' + framestr;
-				bmp.Save("frames/frame" + framestr + ".png");
+					bmp = new Bitmap(gl.ClientSize.Width, gl.ClientSize.Height + cle.Height);
+					gfx = Graphics.FromImage(bmp);
+					gfx.DrawImageUnscaled(bmpGL, 0, 0);
+					gfx.DrawImageUnscaled(bmpCle, 0, bmpGL.Height);
+					gfx.Flush();
+					gfx.Dispose();
+					bmpGL.Dispose();
+					bmpCle.Dispose();
+				}
+				else
+					bmp = bmpGL;
+
+				if(screenshot_filename != null)
+					bmp.Save(screenshot_filename);
+				if(playing && playing_captureframes)
+				{
+					string framestr = playback_framecounter.ToString();
+					for(int i = 0, numzeros = 5 - framestr.Length; i < numzeros; ++i)
+						framestr = '0' + framestr;
+					bmp.Save("frames/frame" + framestr + ".png");
+				}
 				bmp.Dispose();
 			}
 		}
@@ -265,6 +295,11 @@ namespace csharp_viewer
 			playback_framecounter = 0;
 			playing_captureframes = true;
 			playing = true;
+		}
+
+		public void SaveScreenshot(string filename = "screenshot.png")
+		{
+			screenshot_filename = filename;
 		}
 
 		private static int String_ReverseReplaceEx(ref string str, string[] oldStr, string newStr)

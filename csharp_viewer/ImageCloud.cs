@@ -1,6 +1,6 @@
 ﻿#define USE_DEPTH_SORTING
 //#define USE_GS_QUAD
-//#define USE_2D_VIEW_CONTROL
+#define USE_2D_VIEW_CONTROL
 #define USE_ARG_IDX
 
 using System;
@@ -413,8 +413,13 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		bool overallAabb_invalid = true;
 		float camera_speed = 1.0f;
 
-		string status_str = "";
-		float status_timer = 0.0f;
+		static string status_str = "";
+		static float status_timer = 0.0f;
+		public static void Status(string status)
+		{
+			status_str = status;
+			status_timer = 1.0f;
+		}
 
 		private enum ViewControl
 		{
@@ -524,7 +529,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 			GL.ActiveTexture(TextureUnit.Texture0);
 
-			texstream = new GLTextureStream(images, 256*1024*1024, depthimages); // Optimize for 1GB of VRAM
+			//texstream = new GLTextureStream(images, 256*1024*1024, depthimages); // Optimize for 1GB of VRAM
+			//texstream = new GLTextureStream(images, 64*1024*1024, depthimages); // Optimize for 256MB of VRAM
+			texstream = new GLTextureStream(images, 8*1024*1024, depthimages); // Optimize for 32MB of VRAM
 			//texstream = new GLTextureStream(images, 1024*1024, depthimages); // Optimize for 4MB of VRAM
 			//texstream = new GLTextureStream(images, 128*1024, depthimages); // Optimize for 512KB of VRAM
 
@@ -673,8 +680,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				argIndex.OnSelectionChanged();
 			#endif
 
-			status_str = "Selection changed: " + (selection == null ? "null" : selection.Count.ToString());
-			status_timer = 1.0f;
+			Status("Selection changed: " + (selection == null ? "null" : selection.Count.ToString()));
 
 			if(images == null)
 				return;
@@ -738,7 +744,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					AABB overallAabb = new AABB();
 					foreach(TransformedImage image in images.Values)
 						overallAabb.Include(image.GetBounds());
-					camera_speed = 0.2f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
+					camera_speed = 0.1f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
 					camera_speed = Math.Max(0.0001f, camera_speed);
 					camera_speed = Math.Min(10.0f, camera_speed);
 				}
@@ -869,6 +875,16 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 #if USE_DEPTH_SORTING
 			SortedList<TransformedImageAndMatrix> renderlist = new SortedList<TransformedImageAndMatrix>();
 #endif
+
+				float _time = Global.time;
+				Global.time += 0.5f; // Prefetch 0.5 second into the future
+				// If the prefetching intervall is too short, images aren't loaded on time.
+				// If the prefetching intervall is too long, too much memory is consumed.
+				// Optimally the prefetching intervall should depend on the load time.
+				foreach(TransformedImage iter in images.Values)
+					iter.PrefetchRenderPriority(freeview, invvieworient, backbuffersize);
+				Global.time = _time;
+
 				foreach(TransformedImage iter in images.Values)
 				{
 					// Make sure texture is loaded
@@ -1002,7 +1018,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			//Common.fontText.DrawString(0.0f, 20.0f, freeview.GetViewDirection().ToString(), backbuffersize);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
-			Common.fontText.DrawString(60.0f, 40.0f, GLTextureStream.foo2.ToString(), backbuffersize);
+			Common.fontText.DrawString(60.0f, 40.0f, GLTextureStream.foo2, backbuffersize);
 			//Common.fontText.DrawString(0.0f, 40.0f, foo.ToString(), backbuffersize);
 			//Common.fontText.DrawString(0.0f, 80.0f, ColorTableManager.foo.ToString(), backbuffersize);
 
@@ -1012,7 +1028,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			if(status_timer > 0.0f)
 			{
 				status_timer -= dt;
-				Common.fontText.DrawString(0.0f, backbuffersize.Height - 20.0f, status_str, backbuffersize);
+				Common.fontText.DrawString(10.0f, backbuffersize.Height - 30.0f, status_str, backbuffersize);
 			}
 
 			if(floatimages)
@@ -1411,8 +1427,7 @@ string foo = "";
 			if(selectionAabb != null)
 			{
 				FocusAABB(selectionAabb);
-				status_str = "Focus selection";
-				status_timer = 1.0f;
+				Status("Focus selection");
 			}*/ //EDIT: Focus images, instead of selectionAabb
 
 			// Select images and lay selectionAabb around selected images
@@ -1431,30 +1446,32 @@ string foo = "";
 			if(aabb.max.X >= aabb.min.X)
 			{
 				FocusAABB(aabb);
-				status_str = "Focus images";
-				status_timer = 1.0f;
+				Status("Focus images");
 			}
 		}
 		public void Show(IEnumerable<TransformedImage> images)
 		{
 			foreach(TransformedImage image in images)
+			{
 				image.visible = true;
-			status_str = "Show images";
-			status_timer = 1.0f;
+				Viewer.visible.Add(image);
+			}
+			Status("Show images");
 		}
 		public void Hide(IEnumerable<TransformedImage> images)
 		{
 			foreach(TransformedImage image in images)
+			{
 				image.visible = false;
-			status_str = "Hide images";
-			status_timer = 1.0f;
+				Viewer.visible.Remove(image);
+			}
+			Status("Hide images");
 		}
 		private void SetViewControl(ViewControl vc)
 		{
 			// Set view mode
 			viewControl = vc;
-			status_str = "View control: " + viewControl.ToString();
-			status_timer = 1.0f;
+			Status("View control: " + viewControl.ToString());
 		}
 		private void EnableDepthRendering()
 		{
@@ -1464,8 +1481,7 @@ string foo = "";
 			// Enable depth rendering
 			depthRenderingEnabled = true;
 			depthRenderingEnabled_fade = 0.0f;
-			status_str = "Depth rendering enabled";
-			status_timer = 1.0f;
+			Status("Depth rendering enabled");
 		}
 		private void DisableDepthRendering()
 		{
@@ -1475,8 +1491,7 @@ string foo = "";
 			// Disable depth rendering
 			depthRenderingEnabled = false;
 			depthRenderingEnabled_fade = 1.0f;
-			status_str = "Depth rendering disabled";
-			status_timer = 1.0f;
+			Status("Depth rendering disabled");
 		}
 		private void SetDepthRendering(bool enabled)
 		{
@@ -1535,7 +1550,7 @@ string foo = "";
 			//EDIT: Call transforms.Clear(); for all transforms that aren't needed anymore
 		}
 
-		public string Count(IEnumerable<TransformedImage> images)
+		public int Count(IEnumerable<TransformedImage> images)
 		{
 			int numimages;
 
@@ -1550,7 +1565,7 @@ string foo = "";
 						numimages++;
 			}
 
-			return numimages.ToString();
+			return numimages;
 		}
 		public List<TransformedImage> CreateGroup(IEnumerable<TransformedImage> images)
 		{

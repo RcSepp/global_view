@@ -32,6 +32,8 @@ namespace csharp_viewer
 		private System.Drawing.Bitmap oldbmp = null;
 		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
 
+		private float prefetchHoldTime = 0.0f; // To avoid images to be unloaded between prefetching and rendering, prefetchHoldTime gets set to the expected render time inside PrefetchRenderPriority()
+
 		public bool HasDepthInfo { get {return depth_filename != null;} }
 
 		public void LoadTexture(GLTextureStream texstream)
@@ -150,6 +152,9 @@ namespace csharp_viewer
 
 				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
+					if(renderPriority != 1000)
+						ImageCloud.Status(renderPriority.ToString());
+
 					transform *= freeview.viewprojmatrix;
 
 					// Set render priority and dimensions (thread safety: priority has to be set after width/height)
@@ -162,26 +167,75 @@ namespace csharp_viewer
 				}
 				else if(tex != null)
 				{
-					renderPriority = 0;
+					if(Global.time > prefetchHoldTime)
+						renderPriority = 0;
 					//tex.Unload();
 					return false;
 				}
 				else
 				{
-					renderPriority = 0;
+					if(Global.time > prefetchHoldTime)
+						renderPriority = 0;
 					return false;
 				}
 			}
 			else if(tex != null)
 			{
-				renderPriority = 0;
+				if(Global.time > prefetchHoldTime)
+					renderPriority = 0;
 				//tex.Unload();
 				return false;
 			}
 			else
 			{
-				renderPriority = 0;
+				if(Global.time > prefetchHoldTime)
+					renderPriority = 0;
 				return false;
+			}
+		}
+		public void PrefetchRenderPriority(ImageCloud.FreeView freeview, Matrix4 invvieworient, System.Drawing.Size backbuffersize)
+		{
+			// Compute dynamic visibility and check if dynamic location updates are required
+			bool _visible = visible;
+			bool hasDynamicSkipTransform = false, hasDynamicLocationTransform = false;
+			foreach(ImageTransform t in transforms)
+			{
+				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
+				{
+					hasDynamicSkipTransform = true;
+					_visible &= !t.SkipImage(key, this);
+				}
+				//if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic) //EDIT: Compute location locally
+				//	hasDynamicLocationTransform = true; //EDIT: Compute location locally
+			}
+
+			if(!hasDynamicSkipTransform && !hasDynamicLocationTransform) // If neither location nor skipping is time variant
+				return; // Don't prefetch
+
+			Matrix4 transform = invview; //Matrix4.Identity
+			if(_visible)
+			{
+				//if(hasDynamicLocationTransform) //EDIT: Compute location locally
+				//	ComputeLocation(); //EDIT: Compute location locally
+
+				//transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
+				transform *= Matrix4.CreateScale(originalAspectRatio, 1.0f, 1.0f);
+				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
+				if(depth_filename == null) // Do not always face screen when rendering volume images
+					transform *= invvieworient;
+				transform *= Matrix4.CreateTranslation(animatedPos);
+
+				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+				{
+					transform *= freeview.viewprojmatrix;
+
+					// Set render priority and dimensions (thread safety: priority has to be set after width/height)
+					Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
+					renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
+					renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
+					renderPriority = 1200; // Prefetch renderPriority should be higher than render renderPriority to prefere images being loaded before they are being rendered
+					prefetchHoldTime = Global.time;
+				}
 			}
 		}
 		public bool Load(Matrix4 transform, System.Drawing.Size backbuffersize)
