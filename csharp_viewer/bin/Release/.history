@@ -1195,3 +1195,117 @@ clear all
 skip all by (int)( time * 2.0 % 1494 ) != #frame
 clear all
 skip all by (int)( time * 20.0 % 1494 ) != #frame
+spread all
+clear all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+skip all by (int)( time * 1.0 % 5 ) != #time
+hide where #phi != 0 || #theta != 0
+clear all
+thetaPhi all by $theta * pi / 180, ( $phi + 90 ) * pi / 180, 3
+skip all by (int)( time * 5.0 % 5 ) != #time
+hide where #phi != 0 || #theta != 0
+show all
+fous all
+focus all
+hide where #phi != 0
+focus visible
+load "mpas_ani"
+skip all by (int)( time * 5.0 % 5 ) != #time
+clear all
+skip all by (int)( time * 20.0 % 5 ) != #time
+clear all
+count all
+skip all by (int)( time * 20.0 % 173 ) != #time
+load "mpas_ani"
+skip all by (int)( time * 20.0 % 173 ) != #time
+load "mpas_ani"
+skip all by (int)( time * 20.0 % 173 ) != #time
+load "mpas_ani"
+rspread all
+rspread all
+load "mpas_ani"
+rspread all
+load "mpas2"
+look all by phi * pi / 180, theta * pi / 180
+look all by $phi * pi / 180, $theta * pi / 180
+x all by #time * 10
+load "mpas2"
+x all by #time * 10
+hide where #time != 0
+look all by $phi * pi / 180, $theta * pi / 180
+hide where #time != 0
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+hide where #time != 0
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+x all by #time * 2
+hide where #time != 0
+clear all
+hide where #time != 0
+look all by ( $theta + time ) * pi / 180, $phi * pi / 180
+clear all
+look all by ( $theta + ( (int)time % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+hide where time != 0
+clear al
+clear all
+look all by ( $theta + ( (int)time % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+hide where #time != 0
+clear all
+look all by ( $theta + ( (int)( time * 2 ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+clear all
+look all by ( $theta + ( (int)( time * 10.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+hide where #time != 0
+load "mpas2"
+look all by ( $theta + ( (int)( time * 10.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+hide where #time != 0
+load "mpas2"
+look all by ( $theta + ( (int)( time * 10.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+clear all
+look all by ( $theta + ( (int)( time * 5.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+clear all
+look all by ( $theta + ( (int)( time * 2.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+load "mpas2"
+look all by ( $theta + ( (int)( time * 2.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+clear all
+look all by ( $theta + ( (int)( 0.0f * 2.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+clear all
+skip all count all where #theta == 0 && #phi == 0
+count all where #theta == 0 && #phi == 0
+skip all by #time != (int)( time * 2.0f ) % 173
+look all by ( $theta + ( (int)( time * 2.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+exit
+load "mpas2"
+skip all by #time != (int)( time * 2.0f ) % 173
+look all by ( $theta + ( (int)( time * 2.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+load "mpas2"
+x all by #time * 2
+look all by ( $theta + ( (int)( time * 2.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+clear all
+hide where #time != 0
+look all by ( $theta + ( (int)( time * 20.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+1
+look all by ( $theta + ( (int)( time * 10.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+clear all
+look all by ( $theta + ( (int)( time * 10.0f ) % 18 ) * 20 ) * pi / 180, $phi * pi / 180
+hide where #time != 0
+load "mpas2"
+thetaPhi all by #time, 0.0, 10.0
+thetaPhi all by (float)#time, 0.0, 10.0
+thetaPhi all by (float) #time, 0.0, 10.0
+thetaPhi all by (float) #time, 0.0f, 10.0f
+clear all
+thetaPhi all by (float) 0.0f, 0.0f, 10.0f
+clear all
+thetaPhi all by (float) 0.0f, 0.0f, 4.0f
+clear all
+thetaPhi all by (float) #time * 2.0f * pi / 173.0f, 0.0f, 4.0f
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+thetaPhi all by (float) #time * 2.0f * pi / 173.0f, pi / 2.0f, 4.0f
+focus all
+clear all
+thetaPhi all by (float) #time * 2.0f * pi / 173.0f, pi / 2.0f, 20.0f
+look all by $theta * pi / 180, $phi * pi / 180
+focus all

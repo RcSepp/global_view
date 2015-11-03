@@ -8,16 +8,6 @@ namespace csharp_viewer
 	[Serializable]
 	public abstract class ImageTransform
 	{
-		public struct Description
-		{
-			public int numIndices;
-
-			public Description(int numIndices)
-			{
-				this.numIndices = numIndices;
-			}
-		}
-		public abstract Description GetDescription();
 		//public abstract void SetIndices(int[] indices);
 		public abstract int GetIndex(int i);
 		public abstract int SetIndex(int i, int index);

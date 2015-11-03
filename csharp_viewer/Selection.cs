@@ -226,6 +226,7 @@ namespace csharp_viewer
 	public class Selection : IEnumerable<TransformedImage>
 	{
 		public delegate void ChangedDelegate();
+		public delegate void MovedDelegate();
 
 		protected readonly TransformedImageCollection images;
 		protected HashSet<TransformedImage> selection;

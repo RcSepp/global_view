@@ -56,7 +56,6 @@
     <Compile Include="GLTexture2D.cs" />
     <Compile Include="GLTexture.cs" />
     <Compile Include="CoordinateSystem.cs" />
-    <Compile Include="DimensionMapper.cs" />
     <Compile Include="ThetaPhiViewTransform.cs" />
     <Compile Include="GraphTransform.cs" />
     <Compile Include="WheelTransform.cs" />
@@ -70,6 +69,7 @@
     <Compile Include="ArgumentIndex.cs" />
     <Compile Include="ISQL.cs" />
     <Compile Include="CompiledTransform.cs" />
+    <Compile Include="ImageBrowser.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />

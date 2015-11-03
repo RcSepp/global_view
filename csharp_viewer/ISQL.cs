@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.CodeDom.Compiler;
 using Microsoft.CSharp;
 
+using csharp_viewer;
+
 namespace ISQL
 {
 	public class Compiler
@@ -11,8 +13,13 @@ namespace ISQL
 		// A simple interpreter for the Image-SQL
 
 		public delegate string MethodCallDelegate(string method, object[] args);
+		public delegate string TransformCompiledDelegate(ImageTransform transform, IEnumerable<TransformedImage> images);
 
-		public static void Execute(string code, MethodCallDelegate MethodCall, out string output, out string warnings)
+		private static Dictionary<string, int> transformCreators = new Dictionary<string, int>() {
+			{"x", 0}
+		};
+
+		public static void Execute(string code, MethodCallDelegate MethodCall, TransformCompiledDelegate TransformCompiled, out string output, out string warnings)
 		{
 			output = "";
 			warnings = "";
@@ -32,15 +39,29 @@ namespace ISQL
 			System.Windows.Forms.MessageBox.Show(code + "\n\n" + strtokens);*/
 
 
-
 			// Interpret first fragment as statement
 			string statement = fragments[0].GetString(code);
 			if(fragments[0].token != Tokenizer.Token.Var)
 				throw new Exception("Expected statement instead of " + statement);
 
+			int creator;
+			if(transformCreators.TryGetValue(statement, out creator))
+			{
+				// Treat code as transform creator statement
+
+				//EDIT
+			}
+			else
+			{
+				// Treat code as method call
+
+				//EDIT
+			}
+
 			// Interpret clauses
 			IEnumerable<csharp_viewer.TransformedImage> scope = null;
 			string byExpr = null;
+			HashSet<int> byExpr_usedArgumentIndices = null;
 			int lastfragment = fragments.Length - 1;
 			for(int i = fragments.Length - 1; i > 0; --i)
 			{
@@ -59,7 +80,8 @@ namespace ISQL
 				{
 					// Parse 'by' block into byExpr
 
-					byExpr = ParseExpression(code, fragments, i + 1, lastfragment);
+					byExpr_usedArgumentIndices = new HashSet<int>();
+					byExpr = ParseExpression(code, fragments, i + 1, lastfragment, byExpr_usedArgumentIndices);
 				}
 
 				lastfragment = i - 1;
@@ -71,16 +93,19 @@ namespace ISQL
 			List<object> args = new List<object>();
 			for(int i = 1; i <= lastfragment; ++i)
 				if(fragments[i].token == Tokenizer.Token.Str)
-					args.Add(fragments[i].value);
+					args.Add(((string)fragments[i].value).Replace("\\\"", "\""));
 			if(byExpr != null)
+			{
 				args.Add(byExpr);
+				args.Add(byExpr_usedArgumentIndices);
+			}
 			if(scope != null)
 				args.Add(scope);
 
 			output += MethodCall(statement, args.ToArray());
 		}
 
-		private static string ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment)
+		private static string ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, HashSet<int> usedArgumentIndices = null)
 		{
 			int exprOffset = fragments[firstfragment].startidx;
 			string expr = code.Substring(exprOffset, fragments[lastfragment].endidx - exprOffset);
@@ -131,6 +156,9 @@ namespace ISQL
 						break;
 					}
 					expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j].endidx - exprOffset);
+
+					if(usedArgumentIndices != null)
+						usedArgumentIndices.Add(argidx);
 				}
 			}
 			return expr;
@@ -163,11 +191,6 @@ namespace csharp_viewer
 }}", scopeExpr);
 
 			return (IEnumerable<csharp_viewer.TransformedImage>)CompileCSharpClass(source, "csharp_viewer", "ImageEnumerator", ref warnings, csharp_viewer.Viewer.images);
-		}
-
-		private static csharp_viewer.ImageTransform CompileImageTransform()
-		{
-			return new csharp_viewer.ThetaTransform();
 		}
 
 		public static object CompileCSharpClass(string code, string namespace_name, string class_name, ref string warnings, params object[] constructor_params)

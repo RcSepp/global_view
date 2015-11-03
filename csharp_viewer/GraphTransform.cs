@@ -7,7 +7,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class GraphTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(2);}
 		public override int GetIndex(int i) { return i < 2 ? idx[i] : -1;}
 		public override int SetIndex(int i, int index) { return i < 2 ? idx[i] = index : -1;}
 

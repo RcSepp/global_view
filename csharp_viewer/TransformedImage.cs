@@ -10,7 +10,7 @@ namespace csharp_viewer
 	public class TransformedImage : Cinema.CinemaImage
 	{
 		//private GLTextureStream.Texture tex;
-		private GLTexture2D tex;
+		public GLTexture2D tex;
 		public int[] key;
 
 		public bool visible = true, selected = false;
@@ -31,6 +31,7 @@ namespace csharp_viewer
 		public System.Drawing.Bitmap bmp = null;
 		private System.Drawing.Bitmap oldbmp = null;
 		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
+		public bool texIsStatic = false;
 
 		private float prefetchHoldTime = 0.0f; // To avoid images to be unloaded between prefetching and rendering, prefetchHoldTime gets set to the expected render time inside PrefetchRenderPriority()
 
@@ -129,7 +130,7 @@ namespace csharp_viewer
 					hasDynamicLocationTransform = true;
 			}
 
-			if(tex != null && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
+			if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
 			{
 				// Unload texture
 				GL.DeleteTexture(tex.tex);
@@ -238,17 +239,12 @@ namespace csharp_viewer
 				}
 			}
 		}
-		public bool Load(Matrix4 transform, System.Drawing.Size backbuffersize)
-		{
-			/*Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
-			//int pixelsize = Math.Max((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height)); // max(width, height) of image size in pixel
-			return tex.Load((int)(vsize.X * (float)backbuffersize.Width), (int)(vsize.Y * (float)backbuffersize.Height));*/
-			return true;
-		}
 		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
 		{
 			bool texloaded;
-			if(renderMutex.WaitOne(0))
+			if(texIsStatic)
+				texloaded = true;
+			else if(renderMutex.WaitOne(0))
 			{
 				if(bmp != null)
 				{
@@ -318,8 +314,8 @@ namespace csharp_viewer
 
 		public float CastRay(Vector3 from, Vector3 dir, Matrix4 invvieworient)
 		{
-			if(tex == null)
-				return float.MaxValue;
+			//if(tex == null)
+			//	return float.MaxValue;
 
 			// Compute dynamic visibility
 			bool _visible = visible;
@@ -434,6 +430,13 @@ namespace csharp_viewer
 	public class TransformedImageCollection : List<TransformedImage>
 	{
 		public List<TransformedImage> Values { get { return this; } }
+		public IEnumerable<TransformedImage> ReverseValues { get
+		{
+			for(int i = this.Count - 1; i >= 0; --i)
+			{
+				yield return this[i];
+			}
+		}}
 	}
 }
 

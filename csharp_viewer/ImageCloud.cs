@@ -1,6 +1,5 @@
 ﻿#define USE_DEPTH_SORTING
 //#define USE_GS_QUAD
-#define USE_2D_VIEW_CONTROL
 #define USE_ARG_IDX
 
 using System;
@@ -207,7 +206,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		public List<ImageTransform> transforms = new List<ImageTransform>();
 
 		public event Selection.ChangedDelegate SelectionChanged;
-		public event DimensionMapper.TransformDelegate TransformAdded;
+		public event Selection.MovedDelegate SelectionMoved;
+		public delegate void TransformAddedDelegate(ImageTransform newtransform);
+		public event TransformAddedDelegate TransformAdded;
 
 		public class RenderShader : GLShader
 		{
@@ -421,11 +422,11 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			status_timer = 1.0f;
 		}
 
-		private enum ViewControl
+		public enum ViewControl
 		{
-			ViewCentric, CoordinateSystemCentric
+			ViewCentric, CoordinateSystemCentric, TwoDimensional
 		}
-		private ViewControl viewControl = ViewControl.ViewCentric;
+		public ViewControl viewControl = ViewControl.ViewCentric;
 
 		private bool depthRenderingEnabled = true;
 		private float depthRenderingEnabled_fade;
@@ -443,14 +444,20 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		CoordinateSystem coordsys;
 		ImageContextMenu ContextMenu;
 		ImageContextMenu.MenuGroup cmImage;
+		public void ShowContextMenu(ImageContextMenu.MenuGroup cm)
+		{
+			ContextMenu.Show(cm, glcontrol.PointToClient(Control.MousePosition), backbuffersize);
+		}
 
-		//GLTexture1D tex2, tex3; //TODO: Bad style (tex2 and tex3 are activated at the beginning of the draw call)
+		// Options
+
+		public bool showCoordinateSystem = true;
 
 		// Actions
 
 		private Action SetViewControlAction;
 		private Action EnableDepthRenderingAction, DisableDepthRenderingAction;
-		private Action HideAction, MoveAction;
+		private Action MoveAction;
 
 		public void Init(GLWindow glcontrol)
 		{
@@ -460,7 +467,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			SetViewControlAction = ActionManager.CreateAction("Set View Control", this, "SetViewControl");
 			EnableDepthRenderingAction = ActionManager.CreateAction("Enable Depth Rendering", "enable depth", this, "EnableDepthRendering");
 			DisableDepthRenderingAction = ActionManager.CreateAction("Disable Depth Rendering", "disable depth", this, "DisableDepthRendering");
-			HideAction = ActionManager.CreateAction("Hide images", this, "Hide");
 			MoveAction = ActionManager.CreateAction("Move images", this, "Move");
 			/*ActionManager.CreateAction("Select all", "all", this, "SelectAll");
 			ActionManager.CreateAction("Select and focus all", "focus all", delegate(object[] parameters) {
@@ -530,8 +536,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			GL.ActiveTexture(TextureUnit.Texture0);
 
 			//texstream = new GLTextureStream(images, 256*1024*1024, depthimages); // Optimize for 1GB of VRAM
-			//texstream = new GLTextureStream(images, 64*1024*1024, depthimages); // Optimize for 256MB of VRAM
-			texstream = new GLTextureStream(images, 8*1024*1024, depthimages); // Optimize for 32MB of VRAM
+			texstream = new GLTextureStream(images, 64*1024*1024, depthimages); // Optimize for 256MB of VRAM
+			//texstream = new GLTextureStream(images, 8*1024*1024, depthimages); // Optimize for 32MB of VRAM
 			//texstream = new GLTextureStream(images, 1024*1024, depthimages); // Optimize for 4MB of VRAM
 			//texstream = new GLTextureStream(images, 128*1024, depthimages); // Optimize for 512KB of VRAM
 
@@ -689,6 +695,10 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			foreach(TransformedImage image in images.Values)
 				image.selected = false;
 
+			// Select images
+			foreach(TransformedImage selectedimage in selection)
+				selectedimage.selected = true;
+
 			OnSelectionMoved();
 		}
 		public void OnSelectionMoved()
@@ -699,17 +709,16 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			else
 			{
 				selectionAabb = new AABB();
-				foreach(TransformedImage selectedimage in selection)
-				{
-					selectedimage.selected = true;
-					#if USE_2D_VIEW_CONTROL
-					AABB selectedimageBounds = selectedimage.GetBounds().Clone();
-					selectedimageBounds.min.Z = selectedimageBounds.max.Z = (selectedimageBounds.min.Z + selectedimageBounds.max.Z) / 2.0f;
-					selectionAabb.Include(selectedimageBounds);
-					#else
-					selectionAabb.Include(selectedimage.GetBounds());
-					#endif
-				}
+				if(viewControl == ViewControl.TwoDimensional)
+					foreach(TransformedImage selectedimage in selection)
+					{
+						AABB selectedimageBounds = selectedimage.GetBounds().Clone();
+						selectedimageBounds.min.Z = selectedimageBounds.max.Z = (selectedimageBounds.min.Z + selectedimageBounds.max.Z) / 2.0f;
+						selectionAabb.Include(selectedimageBounds);
+					}
+				else
+					foreach(TransformedImage selectedimage in selection)
+						selectionAabb.Include(selectedimage.GetBounds());
 			}
 		}
 
@@ -758,53 +767,56 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			if(glcontrol.Focused)
 			{
 				bool viewChanged = false;
-				#if USE_2D_VIEW_CONTROL
-				Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, camera_speed * 1.0f * InputDevices.mdz / dt);
+				if(viewControl == ViewControl.TwoDimensional)
+				{
+					Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, camera_speed * 1.0f * InputDevices.mdz / dt);
 
-				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right))
-				{
-					Vector2 dm = new Vector2(4.0f * (Control.MousePosition.X - oldmousepos.X) / backbuffersize.Width, 4.0f * (oldmousepos.Y - Control.MousePosition.Y) / backbuffersize.Height);
-					Vector3 vnear = new Vector3(dm.X, dm.Y, 0.0f);
-					Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
-					Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-					vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
-					vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
-					Vector3 vdir = (vfar - vnear).Normalized();
-
-					freeViewTranslation.X = 31.0f * vdir.X * freeview.viewpos.Z;//(float)dm.X / (float)backbuffersize.Width * freeview.viewpos.Z / (float)Z_NEAR;
-					freeViewTranslation.Y = 31.0f * vdir.Y * freeview.viewpos.Z;//(float)dm.Y / (float)backbuffersize.Height * freeview.viewpos.Z / (float)Z_NEAR;
-				}
-				oldmousepos = Control.MousePosition;
-
-				if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
-				{
-					freeview.Translate(Vector3.Multiply(freeViewTranslation, dt));
-					viewChanged = true;
-				}
-				#else
-				Vector3 freeViewTranslation = new Vector3((InputDevices.kbstate.IsKeyDown(Key.A) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.D) ? 1.0f : 0.0f),
-					                              (InputDevices.kbstate.IsKeyDown(Key.Space) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.LShift) ? 1.0f : 0.0f),
-					                              (InputDevices.kbstate.IsKeyDown(Key.W) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.S) ? 1.0f : 0.0f));
-				freeViewTranslation.Z += InputDevices.mdz;
-				if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
-				{
-					freeview.Translate(Vector3.Multiply(freeViewTranslation, camera_speed * dt));
-					viewChanged = true;
-				}
-				if(InputDevices.mstate.IsButtonDown(MouseButton.Middle) | InputDevices.mstate.IsButtonDown(MouseButton.Right))
-				{
-					if(viewControl == ViewControl.ViewCentric)
-						freeview.Rotate(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx));
-					else // viewControl == ViewControl.CoordinateSystemCentric
+					if(dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right)))
 					{
-						if(selectionAabb != null)
-							freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), (selectionAabb.min + selectionAabb.max) / 2.0f);
-						else
-							freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), Vector3.Zero);
+						Vector2 dm = new Vector2(4.0f * (Control.MousePosition.X - oldmousepos.X) / backbuffersize.Width, 4.0f * (oldmousepos.Y - Control.MousePosition.Y) / backbuffersize.Height);
+						Vector3 vnear = new Vector3(dm.X, dm.Y, 0.0f);
+						Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
+						Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+						vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
+						vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
+						Vector3 vdir = (vfar - vnear).Normalized();
+
+						freeViewTranslation.X = 31.0f * vdir.X * freeview.viewpos.Z;//(float)dm.X / (float)backbuffersize.Width * freeview.viewpos.Z / (float)Z_NEAR;
+						freeViewTranslation.Y = 31.0f * vdir.Y * freeview.viewpos.Z;//(float)dm.Y / (float)backbuffersize.Height * freeview.viewpos.Z / (float)Z_NEAR;
 					}
-					viewChanged = true;
+					oldmousepos = Control.MousePosition;
+
+					if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
+					{
+						freeview.Translate(Vector3.Multiply(freeViewTranslation, dt));
+						viewChanged = true;
+					}
 				}
-				#endif
+				else
+				{
+					Vector3 freeViewTranslation = new Vector3((InputDevices.kbstate.IsKeyDown(Key.A) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.D) ? 1.0f : 0.0f),
+						                             (InputDevices.kbstate.IsKeyDown(Key.Space) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.LShift) ? 1.0f : 0.0f),
+						                             (InputDevices.kbstate.IsKeyDown(Key.W) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.S) ? 1.0f : 0.0f));
+					freeViewTranslation.Z += InputDevices.mdz;
+					if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
+					{
+						freeview.Translate(Vector3.Multiply(freeViewTranslation, camera_speed * dt));
+						viewChanged = true;
+					}
+					if(dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) | InputDevices.mstate.IsButtonDown(MouseButton.Right)))
+					{
+						if(viewControl == ViewControl.ViewCentric)
+							freeview.Rotate(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx));
+						else // viewControl == ViewControl.CoordinateSystemCentric
+						{
+							if(selectionAabb != null)
+								freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), (selectionAabb.min + selectionAabb.max) / 2.0f);
+							else
+								freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), Vector3.Zero);
+						}
+						viewChanged = true;
+					}
+				}
 				freeview.Update(camera_speed * dt);
 				if(viewChanged)
 					foreach(ImageTransform transform in transforms)
@@ -854,7 +866,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				Common.meshLineCube.Bind(sdrAabb, null);
 				Common.meshLineCube.Draw();
 			}
-			else
+			else if(showCoordinateSystem)
 				coordsys.Draw(Vector3.Zero, freeview.viewprojmatrix, vieworient, freeview.viewpos, FOV_Y * backbuffersize.Width / backbuffersize.Height, backbuffersize);
 
 			if(depthRenderingEnabled)
@@ -877,7 +889,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 #endif
 
 				float _time = Global.time;
-				Global.time += 0.5f; // Prefetch 0.5 second into the future
+				//Global.time += 0.5f; // Prefetch 0.5 second into the future
+				Global.time += 1.1f;
 				// If the prefetching intervall is too short, images aren't loaded on time.
 				// If the prefetching intervall is too long, too much memory is consumed.
 				// Optimally the prefetching intervall should depend on the load time.
@@ -922,7 +935,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 						float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;
 						if(dist >= Z_NEAR && dist <= Z_FAR)
 						{
-							dist = -dist;
+							//dist = -dist;
 							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transform));
 						}
 #else
@@ -941,10 +954,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				}
 
 #if USE_DEPTH_SORTING
-				foreach(TransformedImageAndMatrix iter in renderlist)
-					iter.image.Load(iter.matrix, backbuffersize);//if(!iter.image.Load())
-					//	break;
-				renderlist.reversed = true;
+				//renderlist.reversed = true;
 				foreach(TransformedImageAndMatrix iter in renderlist)
 				{
 					if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
@@ -961,7 +971,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 #endif
 			}
 
-			if(selectionAabb != null)
+			if( showCoordinateSystem && selectionAabb != null)
 			{
 				Vector3 selectionAabbCenter = (selectionAabb.min + selectionAabb.max) / 2.0f;
 				coordsys.Draw(selectionAabbCenter, freeview.viewprojmatrix, vieworient, freeview.viewpos, FOV_Y * backbuffersize.Width / backbuffersize.Height, backbuffersize);
@@ -969,7 +979,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			if(defineAlignmentStage != DefineAlignmentStage.None)
 			{
-				coordsys.Draw(defineAlignmentOrigin, freeview.viewprojmatrix, vieworient, freeview.viewpos, FOV_Y * backbuffersize.Width / backbuffersize.Height, backbuffersize);
+				if(showCoordinateSystem)
+					coordsys.Draw(defineAlignmentOrigin, freeview.viewprojmatrix, vieworient, freeview.viewpos, FOV_Y * backbuffersize.Width / backbuffersize.Height, backbuffersize);
 				if((int)defineAlignmentStage >= (int)DefineAlignmentStage.DefineOffset)
 				{
 					Vector3 line = defineAlignmentOrigin - defineAlignmentOffset;
@@ -1019,8 +1030,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
 			Common.fontText.DrawString(60.0f, 40.0f, GLTextureStream.foo2, backbuffersize);
-			//Common.fontText.DrawString(0.0f, 40.0f, foo.ToString(), backbuffersize);
-			//Common.fontText.DrawString(0.0f, 80.0f, ColorTableManager.foo.ToString(), backbuffersize);
 
 			if(texstream != null)
 				texstream.DrawDebugInfo(backbuffersize);
@@ -1119,113 +1128,104 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			mouseDownLocation = e.Location;
 			mouseDownInsideImageCloud = true;
 
-			if((e.Button & MouseButtons.Left) != 0)
+			if(defineAlignmentStage != DefineAlignmentStage.None)
 			{
-				if(defineAlignmentStage != DefineAlignmentStage.None)
+				Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
+				Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
+				Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+				vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
+				vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
+				Vector3 vdir = (vfar - vnear).Normalized();
+
+				switch(defineAlignmentStage)
 				{
-					Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
-					Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
-					Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-					vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
-					vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
-					Vector3 vdir = (vfar - vnear).Normalized();
+				case DefineAlignmentStage.DefineOrigin:
+					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOrigin);
+					defineAlignmentStage = DefineAlignmentStage.DefineOffset;
+					break;
 
-					switch(defineAlignmentStage)
+				case DefineAlignmentStage.DefineOffset:
+					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOffset);
+					defineAlignmentStage = DefineAlignmentStage.DefineDelta;
+					break;
+
+				case DefineAlignmentStage.DefineDelta:
+					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentDelta);
+					defineAlignmentDelta -= defineAlignmentOffset;
+
+					defineAlignmentStage = DefineAlignmentStage.None;
+					if(TransformAdded != null)
 					{
-					case DefineAlignmentStage.DefineOrigin:
-						defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOrigin);
-						defineAlignmentStage = DefineAlignmentStage.DefineOffset;
-						break;
-
-					case DefineAlignmentStage.DefineOffset:
-						defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOffset);
-						defineAlignmentStage = DefineAlignmentStage.DefineDelta;
-						break;
-
-					case DefineAlignmentStage.DefineDelta:
-						defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentDelta);
-						defineAlignmentDelta -= defineAlignmentOffset;
-
-						defineAlignmentStage = DefineAlignmentStage.None;
-						if(TransformAdded != null)
-						{
-							TranslationTransform newtransform = new TranslationTransform(defineAlignmentOffset - defineAlignmentOrigin, defineAlignmentDelta);
-							//newtransform.SetArguments(arguments);
-							newtransform.SetIndex(0, defineAlignmentIndex);
-							TransformAdded(newtransform);
-						}
-						break;
+						TranslationTransform newtransform = new TranslationTransform(defineAlignmentOffset - defineAlignmentOrigin, defineAlignmentDelta);
+						//newtransform.SetArguments(arguments);
+						newtransform.SetIndex(0, defineAlignmentIndex);
+						TransformAdded(newtransform);
 					}
+					break;
+				}
+			}
+			else
+			{
+				Matrix4 invvieworient = freeview.viewmatrix;
+				invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
+				invvieworient.Transpose();
+
+				Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
+				Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
+				Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+				vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
+				vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
+				Vector3 vdir = (vfar - vnear).Normalized();
+
+				float dist, closest_dist = float.MaxValue;
+				TransformedImage closest_image = default(TransformedImage);
+				foreach(TransformedImage image in images.ReverseValues)
+					if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient)) < closest_dist)
+					{
+						closest_dist = dist;
+						closest_image = image;
+					}
+
+				if(closest_dist < float.MaxValue)
+				{
+					dragImage = closest_image;
+					dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
+
+					// dragImagePlane = plane parallel to screen, going through point of intersection
+					Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
+					Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
+					Vector3 vsdir = (vsfar - vsnear).Normalized();
+					dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
+
+					Viewer.browser.OnImageMouseDown(closest_image);
 				}
 				else
 				{
-					Matrix4 invvieworient = freeview.viewmatrix;
-					invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
-					invvieworient.Transpose();
+					dragImage = null;
 
-					Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
-					Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
-					Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-					vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
-					vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
-					Vector3 vdir = (vfar - vnear).Normalized();
-
-					float dist, closest_dist = float.MaxValue;
-					TransformedImage closest_image = default(TransformedImage);
-					foreach(TransformedImage image in images.Values)
-						if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient)) < closest_dist)
-						{
-							closest_dist = dist;
-							closest_image = image;
-						}
-
-					if(closest_dist < float.MaxValue)
+					// Clear selection if Windows key (command key on Mac) isn't pressed
+					if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LWin) && !selection.IsEmpty)
 					{
-						dragImage = closest_image;
-						dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
-
-						// dragImagePlane = plane parallel to screen, going through point of intersection
-						Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
-						Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
-						Vector3 vsdir = (vsfar - vsnear).Normalized();
-						dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
-
-						if(!selection.Contains(closest_image))
-						{
-							// Clear selection if Windows key (command key on Mac) isn't pressed
-							if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LWin) && !selection.IsEmpty)
-								selection.Clear();
-
-							selection.Add(closest_image);
-							SelectionChanged();
-						}
-					} else
-					{
-						dragImage = null;
-
-						// Clear selection if Windows key (command key on Mac) isn't pressed
-						if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LWin) && !selection.IsEmpty)
-						{
-							selection.Clear();
-							SelectionChanged();
-						}
+						selection.Clear();
+						SelectionChanged();
 					}
 				}
 			}
 		}
 		public void MouseUp(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
+			if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 4)
+			{
+				if(e.Button == MouseButtons.Left)
+					Viewer.browser.OnImageClick(dragImage);
+				else if(e.Button == MouseButtons.Right)
+					Viewer.browser.OnImageRightClick(dragImage);
+			}
+			else if(!ContextMenu.MouseUp(sender, e, backbuffersize) && floatimages)
+				colorTableMgr.MouseUp(e);
+
 			dragImage = null;
 			mouseRect = null;
-
-			if((e.Button & MouseButtons.Right) != 0 && Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 4)
-			{
-				ContextMenu.Show(cmImage, e.Location, backbuffersize);
-			}
-			else if(ContextMenu.MouseUp(sender, e, backbuffersize))
-				return;
-			else if(floatimages)
-				colorTableMgr.MouseUp(e);
 		}
 
 		public void Move(Vector3 deltapos, IEnumerable<TransformedImage> images)
@@ -1235,10 +1235,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				image.pos += deltapos;
 				image.skipPosAnimation();
 			}
-			OnSelectionMoved();
+			SelectionMoved();
 		}
-
-string foo = "";
+			
 		public void MouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
 			if(!mouseDownInsideImageCloud)
@@ -1269,7 +1268,8 @@ string foo = "";
 				// Set newpos to intersection of mouse ray and dragImagePlane
 				Vector3 newpos;
 				dragImagePlane.IntersectLine(vnear, vdir, out newpos);
-				ActionManager.Do(MoveAction, newpos - dragImage.pos + dragImageOffset, selection);
+				Viewer.browser.OnImageMove(dragImage, newpos - dragImage.pos + dragImageOffset);
+				//ActionManager.Do(MoveAction, newpos - dragImage.pos + dragImageOffset, selection);
 
 				InvalidateOverallBounds();
 			}
@@ -1362,12 +1362,39 @@ string foo = "";
 		}
 		public void DoubleClick(object sender, Point mousepos)
 		{
-			if(selection == null)
-				return;
+			Matrix4 invvieworient = freeview.viewmatrix;
+			invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
+			invvieworient.Transpose();
 
-			//Vector2 mousePos = new Vector2(2.0f * mousepos.X / backbuffersize.Width - 1.0f, 1.0f - 2.0f * mousepos.Y / backbuffersize.Height);
+			Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
+			Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
+			Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+			vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
+			vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
+			Vector3 vdir = (vfar - vnear).Normalized();
 
-			//EDIT: Show closeup of selected images
+			float dist, closest_dist = float.MaxValue;
+			TransformedImage closest_image = default(TransformedImage);
+			foreach(TransformedImage image in images.ReverseValues)
+				if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient)) < closest_dist)
+				{
+					closest_dist = dist;
+					closest_image = image;
+				}
+
+			if(closest_dist < float.MaxValue)
+			{
+				dragImage = closest_image;
+				dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
+
+				// dragImagePlane = plane parallel to screen, going through point of intersection
+				Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
+				Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
+				Vector3 vsdir = (vsfar - vsnear).Normalized();
+				dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
+
+				Viewer.browser.OnImageDoubleClick(closest_image);
+			}
 		}
 
 		public void MouseWheel(object sender, System.Windows.Forms.MouseEventArgs e)
@@ -1392,7 +1419,7 @@ string foo = "";
 				ActionManager.Do(SetViewControlAction, (int)viewControl + 1 == values.Length ? values[0] : values[(int)viewControl + 1]);
 				break;
 
-			case Keys.O:
+			/*case Keys.O:
 				if(depthRenderingEnabled)
 					ActionManager.Do(DisableDepthRenderingAction);
 				else
@@ -1406,7 +1433,7 @@ string foo = "";
 
 			case Keys.Delete:
 				ActionManager.Do(HideAction, selection);
-				break;
+				break;*/
 			}
 		}
 
@@ -1421,35 +1448,54 @@ string foo = "";
 			return bmp;
 		}
 
+		public void FocusSingle(TransformedImage image)
+		{
+			AABB imageBounds;
+			if(viewControl == ViewControl.TwoDimensional)
+			{
+				imageBounds = image.GetBounds().Clone();
+				imageBounds.min.Z = imageBounds.max.Z = (imageBounds.min.Z + imageBounds.max.Z) / 2.0f;
+			}
+			else
+				imageBounds = image.GetBounds();
+
+			if(imageBounds.max.X >= imageBounds.min.X)
+			{
+				FocusAABB(imageBounds);
+				Status("Focus images");
+			}
+		}
 		public void Focus(IEnumerable<TransformedImage> images)
 		{
-			/*// Focus selectionAabb
-			if(selectionAabb != null)
-			{
-				FocusAABB(selectionAabb);
-				Status("Focus selection");
-			}*/ //EDIT: Focus images, instead of selectionAabb
-
-			// Select images and lay selectionAabb around selected images
-
 			AABB aabb = new AABB();
-			foreach(TransformedImage image in images)
-			{
-				#if USE_2D_VIEW_CONTROL
-				AABB imageBounds = image.GetBounds().Clone();
-				imageBounds.min.Z = imageBounds.max.Z = (imageBounds.min.Z + imageBounds.max.Z) / 2.0f;
-				aabb.Include(imageBounds);
-				#else
-				aabb.Include(image.GetBounds());
-				#endif
-			}
+			if(viewControl == ViewControl.TwoDimensional)
+				foreach(TransformedImage image in images)
+				{
+					AABB imageBounds = image.GetBounds().Clone();
+					imageBounds.min.Z = imageBounds.max.Z = (imageBounds.min.Z + imageBounds.max.Z) / 2.0f;
+					aabb.Include(imageBounds);
+				}
+			else
+				foreach(TransformedImage image in images)
+					aabb.Include(image.GetBounds());
 			if(aabb.max.X >= aabb.min.X)
 			{
 				FocusAABB(aabb);
 				Status("Focus images");
 			}
 		}
-		public void Show(IEnumerable<TransformedImage> images)
+
+		public void MoveIntoView(TransformedImage image)
+		{
+			float tanY = (float)Math.Tan(FOV_Y / 2.0f), tanX = tanY * aspectRatio;
+			Vector3 pos = Vector3.Transform(new Vector3(0.0f, 0.0f, -Math.Max(0.5f / tanY, 0.5f * image.originalAspectRatio / tanX)), freeview.viewmatrix.Inverted());
+			image.pos = pos;
+
+			if(image.selected)
+				SelectionMoved();
+		}
+
+		/*public void Show(IEnumerable<TransformedImage> images)
 		{
 			foreach(TransformedImage image in images)
 			{
@@ -1466,7 +1512,7 @@ string foo = "";
 				Viewer.visible.Remove(image);
 			}
 			Status("Hide images");
-		}
+		}*/
 		private void SetViewControl(ViewControl vc)
 		{
 			// Set view mode

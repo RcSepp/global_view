@@ -41,13 +41,14 @@ namespace csharp_viewer
 		//ImageCloud imageCloud = new ThetaPhiImageCloud();
 		ImageCloud imageCloud;
 		Control ctrlConsole = null;
-		DimensionMapper dimMapper;
 		ActionManager actMgr = new ActionManager();
 #if USE_STD_IO
 		StdConsole scrCle = new StdConsole();
 #else
 		ScriptingConsole scrCle = new ScriptingConsole();
 #endif
+		Control scrCle_Invoker = null;
+		public static ImageBrowser browser = new SimpleBrowser();
 
 #if !DISABLE_DATAVIZ
 		Panel pnlPCView;
@@ -77,7 +78,7 @@ namespace csharp_viewer
 		string name_pattern, depth_name_pattern;
 
 		private Action LoadDatabaseAction, UnloadDatabaseAction, ExitProgramAction;
-		private Action OnSelectionChangedAction, OnTransformationAddedAction, ClearTransformsAction;
+		private Action OnSelectionChangedAction, OnSelectionMovedAction, OnTransformationAddedAction, ClearTransformsAction;
 		//private Action FocusAction, MoveAction, ShowAction, HideAction, ClearAction, CountAction, GroupAction;
 
 		public static bool KeyEquals(int[] x, int[] y)
@@ -144,6 +145,7 @@ namespace csharp_viewer
 			this.cmdline = cmdline;
 
 			OnSelectionChangedAction = ActionManager.CreateAction("Change Selection", this, "OnSelectionChanged");
+			OnSelectionMovedAction = ActionManager.CreateAction("Move Selection", this, "OnSelectionMoved");
 			OnTransformationAddedAction = ActionManager.CreateAction("Add Transformation", this, "OnTransformationAdded");
 
 			groups.Add("all", images);
@@ -201,7 +203,7 @@ namespace csharp_viewer
 			// Create scripting console
 			#if EMBED_CONSOLE
 			ctrlConsole = scrCle.Create();
-			scrCle.MethodCall += actMgr.Invoke;
+			scrCle.ExecuteCommand += Console_Execute;
 			this.Controls.Add(ctrlConsole);
 			#else
 			Form frmConsole = new Form();
@@ -215,17 +217,10 @@ namespace csharp_viewer
 			#endif
 #endif
 
-			if(Directory.Exists("/Users/sklaassen/Desktop/work/db/"))
-				scrCle.workingDirectory = "/Users/sklaassen/Desktop/work/db/";
+			if(Directory.Exists("/Users/sklaassen/Desktop/work/db"))
+				scrCle.workingDirectory = "/Users/sklaassen/Desktop/work/db";
 
 			this_SizeChanged(null, null);
-
-			// Create dimension mapper
-			dimMapper = new DimensionMapper();
-			dimMapper.TransformAdded += dimMapper_TransformAdded;
-			dimMapper.TransformRemoved += dimMapper_TransformRemoved;
-
-
 
 
 
@@ -259,14 +254,14 @@ namespace csharp_viewer
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Show images", "show", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
 				images_mutex.WaitOne();
-				imageCloud.Show(images);
+				browser.Show(images);
 				images_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Hide images", "hide", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
 				images_mutex.WaitOne();
-				imageCloud.Hide(images);
+				browser.Hide(images);
 				images_mutex.ReleaseMutex();
 				return null;
 			});
@@ -298,6 +293,8 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Create translation transform in y-direction", "y", this, "CreateTransformY");
 			ActionManager.CreateAction("Create translation transform in z-direction", "z", this, "CreateTransformZ");
 			ActionManager.CreateAction("Create theta-phi transform", "thetaPhi", this, "CreateTransformThetaPhi");
+			ActionManager.CreateAction("Create star-coordinates transform", "star", this, "CreateTransformStar");
+			ActionManager.CreateAction("Create transform that only shows the image whose view angle most closly matches the cameras view angle", "look", this, "CreateTransformLookAt");
 			ActionManager.CreateAction("Create skip transform", "skip", this, "CreateTransformSkip");
 
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
@@ -308,7 +305,7 @@ namespace csharp_viewer
 				return null;
 			});
 
-			ActionManager.CreateAction<int>("Apply x transform to %a of selection", "x %a", delegate(object[] parameters) {
+			/*ActionManager.CreateAction<int>("Apply x transform to %a of selection", "x %a", delegate(object[] parameters) {
 				int argidx = (int)parameters[0];
 				if(argidx < arguments.Length)
 				{
@@ -368,7 +365,7 @@ namespace csharp_viewer
 				return null;
 			});
 
-			/*ActionManager.CreateAction<int, int>("Apply theta-phi transform", "theta-phi %a %a", delegate(object[] parameters) {
+			ActionManager.CreateAction<int, int>("Apply theta-phi transform", "theta-phi %a %a", delegate(object[] parameters) {
 				int thetaidx = (int)parameters[0];
 				int phiidx = (int)parameters[1];
 				if(thetaidx < arguments.Length && phiidx < arguments.Length)
@@ -387,26 +384,37 @@ namespace csharp_viewer
 
 				if(arguments != null)
 				{
-					WheelTransform transform = new WheelTransform();
+					/*WheelTransform transform = new WheelTransform();
 					transform.SetArguments(arguments);
 					for(int i = 0; i < arguments.Length; ++i)
 						transform.SetIndex(i, i);
-					OnTransformationAdded(transform, images);
+					OnTransformationAdded(transform, images);*/
+
+					string byExpr = "0";
+					for(int argidx = 0; argidx < arguments.Length; ++argidx)
+						if(byExpr == "0")
+							byExpr = "2.0f * Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
+						else
+							byExpr += ", 2.0f * Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
+					CreateTransformStar(byExpr, null, images);
 				}
 				return null;
 			});
-			/*ActionManager.CreateAction("Select all images and spread out all dimensions", "spread all", delegate(object[] parameters) {
+			ActionManager.CreateAction<string, HashSet<int>>("Animate the given argument", "animate", delegate(object[] parameters) {
+				string byExpr = (string)parameters[0];
+				HashSet<int> indices = (HashSet<int>)parameters[1];
+				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
+				indices_enum.MoveNext();
+				int index = indices_enum.Current;
+
 				if(arguments != null)
 				{
-					imageCloud.SelectAll();
-
-					WheelTransform transform = new WheelTransform();
-					transform.SetArguments(arguments);
-					for(int i = 0; i < arguments.Length; ++i)
-						transform.SetIndex(i, i);
-					OnTransformationAdded(transform, selection);
+					string output, warnings;
+					Console_Execute(string.Format("skip all BY " + byExpr + " != (int)(time * 10.0f) % " + arguments[index].values.Length.ToString()), out output, out warnings);
+					return output + warnings;
 				}
-			});*/
+				return null;
+			});
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly", "rspread", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
@@ -453,7 +461,7 @@ namespace csharp_viewer
 
 #if USE_STD_IO
 			scrCle.MethodCall += actMgr.Invoke;
-			scrCle.MethodCallInvoker = this;
+			scrCle_Invoker = this;
 			scrCle.Run();
 #endif
 		}
@@ -466,11 +474,29 @@ namespace csharp_viewer
 			UnloadDatabase(); // Important: Do this only after renderThread has finished
 		}
 
+		private void Console_Execute(string command, out string output, out string warnings)
+		{
+			ISQL.Compiler.Execute(command, compiler_MethodCall, TransformCompiled, out output, out warnings);
+		}
+		private string compiler_MethodCall(string method, object[] args)
+		{
+			string stdout;
+			if(scrCle_Invoker != null)
+			{
+				IAsyncResult invokeResult = scrCle_Invoker.BeginInvoke(new ISQL.Compiler.MethodCallDelegate(actMgr.Invoke), new object[] { method, args });
+				invokeResult.AsyncWaitHandle.WaitOne();
+				stdout = (string)scrCle_Invoker.EndInvoke(invokeResult);
+			}
+			else
+				stdout = actMgr.Invoke(method, args);
+			return stdout;
+		}
+
 		private void FindDirectory(ref string dirname)
 		{
 			if(!System.IO.Directory.Exists(dirname))
 			{
-				string relative_dirname = scrCle.workingDirectory + dirname;
+				string relative_dirname = scrCle.workingDirectory + Path.DirectorySeparatorChar + dirname;
 				if(!System.IO.Directory.Exists(relative_dirname))
 					throw new System.IO.DirectoryNotFoundException(dirname);
 				dirname = relative_dirname;
@@ -532,12 +558,14 @@ namespace csharp_viewer
 			}
 
 			imageCloud.SelectionChanged += CallSelectionChangedHandlers;
-			imageCloud.TransformAdded += dimMapper_TransformAdded;
-
-			dimMapper.Load(arguments);
+			imageCloud.SelectionMoved += CallSelectionMovedHandlers;
+			imageCloud.TransformAdded += ImageCloud_TransformAdded;
 
 			actMgr.Load(arguments);
 			actMgr.FrameCaptureFinished += actMgr_FrameCaptureFinished;
+
+			browser.SelectionChanged += CallSelectionChangedHandlers;
+			browser.SelectionMoved += CallSelectionMovedHandlers;
 
 			images_mutex.ReleaseMutex();
 
@@ -940,19 +968,6 @@ namespace csharp_viewer
 
 			Random rand = new Random();
 
-//imageCloud.AddTransform(new AnimationTransform(0, arguments));
-//imageCloud.AddTransform(new ThetaPhiTransform(2, 1));
-//ThetaPhiTransform foo = new ThetaPhiTransform();
-//foo.SetArguments(arguments); foo.SetIndex(0, 2); foo.SetIndex(1, 1);
-
-/*GraphTransform foo = new GraphTransform();
-foo.SetArguments(arguments); foo.SetIndex(0, 2); foo.SetIndex(1, 1);
-imageCloud.AddTransform(foo);*/
-
-/*WheelTransform foo = new WheelTransform();
-foo.SetArguments(arguments); for(int i = 0; i < arguments.Length; ++i) foo.SetIndex(i, i);
-imageCloud.AddTransform(foo);*/
-
 			int indexlist_length = indexlist.Count;
 			//int[] selectedimagekey = new int[argidx.Length];
 			while(indexlist_length != 0 && closing == false)
@@ -1103,6 +1118,10 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		{
 			ActionManager.Do(OnSelectionChangedAction);
 		}
+		private void CallSelectionMovedHandlers()
+		{
+			ActionManager.Do(OnSelectionMovedAction);
+		}
 		private void OnSelectionChanged()
 		{
 			/*int[] imagekey = new int[arguments.Length];
@@ -1124,17 +1143,29 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			images_mutex.ReleaseMutex();
 		}
+		private void OnSelectionMoved()
+		{
+			images_mutex.WaitOne();
+
+			if(imageCloud != null)
+				imageCloud.OnSelectionMoved();
+
+			images_mutex.ReleaseMutex();
+		}
 
 		private void ArgumentIndex_ArgumentLabelMouseDown(Cinema.CinemaArgument argument, int argumentIndex)
 		{
-			dimMapper.Show();
-			dimMapper.BringToFront();
 		}
 
-		private void dimMapper_TransformAdded(ImageTransform newtransform)
+		private void ImageCloud_TransformAdded(ImageTransform newtransform)
 		{
 			if(selection != null)
 				ActionManager.Do(OnTransformationAddedAction, newtransform, selection);
+		}
+		private string TransformCompiled(ImageTransform transform, IEnumerable<TransformedImage> images)
+		{
+			ActionManager.Do(OnTransformationAddedAction, transform, selection);
+			return "";
 		}
 		private void OnTransformationAdded(ImageTransform newtransform, IEnumerable<TransformedImage> images)
 		{
@@ -1163,35 +1194,57 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			CallSelectionChangedHandlers();
 		}
 
-		private void CreateTransformX(string byExpr, IEnumerable<TransformedImage> images)
+		private void CreateTransformX(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileTranslationTransform(byExpr, "0.0f", "0.0f", true, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformY(string byExpr, IEnumerable<TransformedImage> images)
+		private void CreateTransformY(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", byExpr, "0.0f", true, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformZ(string byExpr, IEnumerable<TransformedImage> images)
+		private void CreateTransformZ(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", "0.0f", byExpr, true, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformThetaPhi(string byExpr, IEnumerable<TransformedImage> images)
+		private void CreateTransformThetaPhi(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr, true, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformSkip(string byExpr, IEnumerable<TransformedImage> images)
+		private void CreateTransformStar(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		{
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CompileStarTransform(byExpr, true, ref warnings);
+
+			OnTransformationAdded(transform, images);
+		}
+		private void CreateTransformLookAt(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		{
+			string indices = null;
+			foreach(int index in byExpr_usedArgumentIndices)
+				if(indices == null)
+					indices = index.ToString();
+				else
+					indices += ", " + index.ToString();
+
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr, indices, ref warnings);
+
+			transform.SetArguments(arguments);
+			OnTransformationAdded(transform, images);
+		}
+		private void CreateTransformSkip(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr, true, ref warnings);
@@ -1250,10 +1303,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			glImageCloud.DoubleClick += glImageCloud_DoubleClick;
 			glImageCloud.KeyDown += glImageCloud_KeyDown;
 
-			// Start timer
-			timer = new System.Diagnostics.Stopwatch();
-			timer.Start();
-
 			glImageCloud_loaded = true;
 
 			//if(cmdline.Length == 1)
@@ -1262,6 +1311,13 @@ foreach(ImageTransform transform in imageCloud.transforms)
 //LoadDatabaseFromImages(new string[] {"/Users/sklaassen/Desktop/work/db/cinema_debug/image/1.000000/-30/-30.png"});
 //if(cmdline.Length == 1)
 //	LoadDatabaseFromDirectory(cmdline[0], false);
+
+			browser.Init(imageCloud);
+			browser.OnLoad();
+
+			// Start timer
+			timer = new System.Diagnostics.Stopwatch();
+			timer.Start();
 
 			while(!form_closing)
 			{
@@ -1276,12 +1332,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				actMgr.Update(ref dt);
 
 				glImageCloud.Render(dt);
-				/*glImageCloud.MakeCurrent();
-				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-
-				imageCloud.Draw(dt);
-				argIndex.Draw(glImageCloud.PointToClient(Control.MousePosition), glImageCloud.Size);
-				glImageCloud.SwapBuffers();*/
 
 				images_mutex.ReleaseMutex();
 
@@ -1362,6 +1412,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			default:
 				images_mutex.WaitOne();
 				imageCloud.KeyDown(sender, e);
+				browser.OnKeyDown(e);
 				images_mutex.ReleaseMutex();
 				break;
 			}

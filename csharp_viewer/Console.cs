@@ -17,15 +17,21 @@ namespace csharp_viewer
 		private string history_current;
 
 		// Execution delegate
-		public delegate string MethodCallDelegate(string method, object[] args); //EDIT: deprecated
-		public event MethodCallDelegate MethodCall; //EDIT: deprecated
-		public System.Windows.Forms.Control MethodCallInvoker = null; //EDIT: deprecated
+		public delegate void ExecuteDelegate(string command, out string output, out string warnings);
+		public event ExecuteDelegate ExecuteCommand;
 
 		// Working directory
-		public string workingDirectory = Directory.GetCurrentDirectory() + '/';
+		public string workingDirectory = Directory.GetCurrentDirectory();
 
 		public Console()
 		{
+			ActionManager.CreateAction("List files and directories of the current working directory", "ls", delegate(object[] parameters) {
+				return ListFiles();
+			});
+			ActionManager.CreateAction<string>("Change working directory", "cd", delegate(object[] parameters) {
+				return ChangeWorkingDirectory((string)parameters[0]);
+			});
+
 			HISTORY_PATH = System.Reflection.Assembly.GetEntryAssembly().Location;
 			HISTORY_PATH = HISTORY_PATH.Substring(0, Math.Max(HISTORY_PATH.LastIndexOf('/'), HISTORY_PATH.LastIndexOf('\\')) + 1);
 			HISTORY_PATH += ".history";
@@ -133,31 +139,43 @@ namespace csharp_viewer
 
 			try {
 				string output, warnings;
-				ISQL.Compiler.Execute(command, compiler_MethodCall, out output, out warnings);
+				ExecuteCommand(command, out output, out warnings);
 				return (warnings + output).TrimEnd(new char[] { ' ', '\t', '\n' });
 			}
 			catch(Exception ex) {
 				return ex.Message;
 			}
 		}
-		private string compiler_MethodCall(string method, object[] args)
-		{
-			if(MethodCall == null)
-				return null;
 
-			string stdout;
-			if(!ConsoleMethodCall(method, args, out stdout))
+		private string ListFiles()
+		{
+			string stdout = workingDirectory + ":\n";
+			int workingDirectoryLength = workingDirectory.Length;
+			foreach(string dir in Directory.GetDirectories(workingDirectory))
 			{
-				if(MethodCallInvoker != null)
-				{
-					IAsyncResult invokeResult = MethodCallInvoker.BeginInvoke(MethodCall, new object[] { method, args });
-					invokeResult.AsyncWaitHandle.WaitOne();
-					stdout = (string)MethodCallInvoker.EndInvoke(invokeResult);
-				}
+				string _dir = dir.Substring(workingDirectoryLength + 1);
+				if(Cinema.IsCinemaDB(dir))
+					stdout += _dir.PadRight(31) + " <- cinema database\n";
 				else
-					stdout = MethodCall(method, args);
+					stdout += _dir + '\n';
+			}
+			foreach(string file in Directory.GetFiles(workingDirectory))
+			{
+				string _file = file.Substring(workingDirectoryLength + 1);
+				stdout += _file + '\n';
 			}
 			return stdout;
+		}
+		private string ChangeWorkingDirectory(string dir)
+		{
+			if(!Path.IsPathRooted(dir))
+				dir = Path.Combine(workingDirectory, dir);
+			dir = Path.GetFullPath((new Uri(dir)).LocalPath).TrimEnd(new char[] { '/', '\\' });
+
+			if(Directory.Exists(dir))
+				return (workingDirectory = dir) + '\n';
+			else
+				return "No such directory: " + dir + '\n';
 		}
 
 		private bool ConsoleMethodCall(string method, object[] args, out string stdout)

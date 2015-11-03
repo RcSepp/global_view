@@ -1817,3 +1817,163 @@ clear all
 spread all
 skip all by ( (int) ( time * 4.0 ) % 16 ) != #theta * 4 + #phi
 focus all
+rspread all
+clear x all by $phi
+clear all
+x all by #phi
+clear all
+z all by #phi
+x all by #theta
+clear all
+load "mpas_ani"
+z all by #time
+load "mpas_ani"
+z all by #time
+spread selection
+rspread selection
+show all
+hide all
+show all
+exit
+rspread selection
+rspread all
+rspread all
+rspread selection
+rspread selection
+rspread selection
+cd
+ls
+load "cinema"
+cd
+load "cinema"
+rspread selection
+rspread all
+x all by #theta
+x all by #phi
+clear all
+x all by #phi
+thetaPhi all by $theta, $phi, 5
+select where $theta == 30
+select where $phi == 30
+look all by $theta, $phi
+look all by $theta, $phi
+exit
+look all by $theta, $phi
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 5
+load "mpas_single"
+exit
+x  all by 0
+exit
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta, $phi
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+unload
+cd
+load "mpas_view"
+load "mpas_view"
+load "mpas_view"
+load "mpas_view"
+spread all
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+x all by #time * 4
+clear all
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 5
+x all by #time * 10
+focus all
+load "mpas_view"
+load "mpas_view"
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 5
+show where $theta == 30
+hide where $theta != 30
+load "mpas_view"
+spread all
+hide where $theta != 30
+load "mpas_view"
+spread all
+exit
+load "mpas_view"
+x all by 0
+star
+star all by #theta
+exit
+star all by #theta
+star all by #theta
+star all by #theta, $phi
+clear all
+star all by #theta, #phi
+clear
+clear all
+exit
+spread all
+spread all
+spread all
+spread all
+ls
+exit
+cd
+cd
+exit
+cd
+cd ..
+cd ".."
+cd "~/Desktop"
+cd ".."
+cd "~/Desktop"
+cd "/Desktop"
+ls
+cd "/Desktop"
+cd "/Users/sklaassen/Desktop"
+ls
+ls
+cd "/Users/sklaassen/Desktop"
+ls
+ls
+ls
+ls
+cd "/Users/sklaassen/Desktop"
+ls
+cd "work"
+ls
+load "mpas_060km (old)"
+load "mpas_060km (old)/"
+load "\"mpas_060km (old)\""
+load "\"mpas_060km (old)\""
+cd ".."
+load "\"mpas_060km (old)\""
+ls
+load "\"mpas_060km (old)\""
+ls
+cd ".."
+cd ".."
+load "\"mpas_060km (old)\""
+cd ".."
+load "\"mpas_060km (old)\""
+load "mpas_060km (old)"
+count all
+skip all by #time != (int)time % 30
+clear all
+skip all by #time != ((int)time % 30) * 10
+clear all
+skip all by #time != ((int)(time * 10) % 30)
+animate ""
+exit
+animate "#theta"
+animate by #theta
+exit
+animate by #theta
+cd ".."
+ls
+cd "db"
+load "mpas_ani"
+animate by #time
+focus all
+exit

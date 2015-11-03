@@ -60,7 +60,6 @@ namespace csharp_viewer
 			new Vector3(-(float)Math.Sqrt(0.75), -0.5f, 0.0f)
 		}*/
 
-		public override Description GetDescription() {return new Description(2);}
 		public override int GetIndex(int i) { return i < arguments.Length ? idx[i] : -1; }
 		public override int SetIndex(int i, int index) { return i < arguments.Length ? idx[i] = index : -1; }
 

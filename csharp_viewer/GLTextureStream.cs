@@ -1,5 +1,5 @@
 ﻿//#define DEBUG_GLTEXTURESTREAM
-//#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory // Warning: Tradeoff doesn't work with prefetching!
+#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory // Warning: Tradeoff doesn't work with prefetching!
 
 using System;
 using System.IO;
@@ -41,7 +41,7 @@ namespace csharp_viewer
 				{
 					// Returns (guessed) memory required for Load()
 
-					if(image.renderPriority <= 0) // If image doesn't need to be loaded
+					if(image.renderPriority <= 0 || image.texIsStatic) // If image doesn't need to be loaded
 					{
 						return -memory; // Return memory gain achieved by unloading this image
 					}
@@ -141,8 +141,29 @@ namespace csharp_viewer
 					return false;
 				}
 
-				public int Load(float tradeoffRenderSizeFactor)
+				public int Load(float tradeoffRenderSizeFactor, GLTexture2D texFileNotFound)
 				{
+					if(image.texIsStatic || !File.Exists(image.filename))
+					{
+						image.tex = texFileNotFound;
+						image.texIsStatic = true;
+						return memory = 0;
+					}
+
+					/*try {
+						Bitmap.FromFile(image.filename);
+					}
+					catch(Exception ex)
+					{
+						int foo = image.filename.LastIndexOf('/');
+						string newfilename = image.filename.Substring(0, foo + 1) + "damaged_" + image.filename.Substring(foo + 1);
+						File.Move(image.filename, newfilename);
+
+						image.tex = texFileNotFound;
+						image.texIsStatic = true;
+						return memory = 0;
+					}*/
+
 					// Load image from disk
 					Bitmap newbmp = (Bitmap)Bitmap.FromFile(image.filename);
 					++GLTextureStream.foo;
@@ -231,6 +252,9 @@ namespace csharp_viewer
 
 				public int Unload()
 				{
+					if(image.texIsStatic)
+						return 0;
+
 					if(image.bmp == null)
 						throw new Exception("assert(bmp != null) triggered inside Unload()");
 
@@ -259,6 +283,7 @@ namespace csharp_viewer
 			private readonly TransformedImageCollection images;
 			private readonly int memorysize;
 			private int availablememory;
+			private readonly GLTexture2D texFileNotFound;
 
 			private Thread loaderThread;
 			private bool closeLoaderThread, loaderThreadClosed;
@@ -267,11 +292,12 @@ namespace csharp_viewer
 
 			private float tradeoffRenderSizeFactor = 1.0f;
 
-			public AsyncImageLoader(TransformedImageCollection images, int memorysize)
+			public AsyncImageLoader(TransformedImageCollection images, int memorysize, GLTexture2D texFileNotFound)
 			{
 				this.images = images;
 				this.memorysize = memorysize;
 				this.availablememory = memorysize;
+				this.texFileNotFound = texFileNotFound;
 
 				foo = 0;
 
@@ -315,7 +341,7 @@ namespace csharp_viewer
 							continue; // continue checking next-highest priority image
 						if(requiredmemory <= availablememory) // If we have enough memory to load img
 						{
-							availablememory -= img.Load(tradeoffRenderSizeFactor); // Load image and update available memory
+							availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Load image and update available memory
 							break; // Done
 						}
 						else // If we don't have enough memory to load img
@@ -330,17 +356,17 @@ namespace csharp_viewer
 									availablememory += u_img.Unload(); // Unload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
 									{
-										availablememory -= img.Load(tradeoffRenderSizeFactor); // Load image and update available memory
+										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Load image and update available memory
 										imageLoaded = true;
 										break; // Done
 									}
 								}
 								else if(u_img.MemoryShrinkable()) // If image is loaded, but can be shrinked
 								{
-									availablememory -= u_img.Load(tradeoffRenderSizeFactor); // Reload image and update available memory
+									availablememory -= u_img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Reload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
 									{
-										availablememory -= img.Load(tradeoffRenderSizeFactor); // Load image and update available memory
+										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Load image and update available memory
 										imageLoaded = true;
 										break; // Done
 									}
@@ -419,7 +445,7 @@ namespace csharp_viewer
 			// Load texture
 			texFileNotFound = new GLTexture2D(bmpFileNotFound, true);
 
-			loader = new AsyncImageLoader(images, memorysize);
+			loader = new AsyncImageLoader(images, memorysize, texFileNotFound);
 		}
 		public void Free()
 		{

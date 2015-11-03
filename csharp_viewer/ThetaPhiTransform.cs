@@ -7,7 +7,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class ThetaPhiTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(2);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx.theta; case 1: return idx.phi; default: return -1;}}
 		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx.theta = index; case 1: return idx.phi = index; default: return -1;}}
 
@@ -49,7 +48,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class ThetaTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(1);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
 		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
 
@@ -65,7 +63,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class PhiTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(1);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
 		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
 

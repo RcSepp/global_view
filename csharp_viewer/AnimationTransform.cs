@@ -7,7 +7,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class AnimationTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(1);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
 		public override int SetIndex(int i, int index)
 		{

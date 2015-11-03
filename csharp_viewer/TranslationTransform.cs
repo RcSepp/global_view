@@ -8,7 +8,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class XTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(1);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
 		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
 
@@ -30,7 +29,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class YTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(1);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
 		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
 
@@ -52,7 +50,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class ZTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(1);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
 		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
 
@@ -74,7 +71,6 @@ namespace csharp_viewer
 	[Serializable]
 	public class TranslationTransform : ImageTransform
 	{
-		public override Description GetDescription() {return new Description(1);}
 		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
 		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
 
