@@ -236,22 +236,48 @@ namespace csharp_viewer
 			this.images = images;
 			this.selection = new HashSet<TransformedImage>();
 		}
+
+		private Selection clone = null;
+		private void Unclone() // Call this method when an operation causes this to become dissimilar from clone
+		{
+			if(this.clone != null)
+			{
+				if(this.clone.clone != null)
+					this.clone.clone = null;
+				this.clone = null;
+			}
+		}
 		public Selection Clone()
 		{
 			Selection clone = new Selection(images);
 			foreach(TransformedImage entry in selection)
 				clone.selection.Add(entry);
+
+			clone.clone = this;
+			this.clone = clone;
+
 			return clone;
+		}
+		public bool IsClone(Selection other)
+		{
+			return this.clone == other && other != null;
 		}
 
 		public void Add(TransformedImage image)
 		{
 			if(!selection.Contains(image))
+			{
 				selection.Add(image);
+				Unclone();
+			}
 		}
 		public void Clear()
 		{
-			selection.Clear();
+			if(selection.Count != 0)
+			{
+				selection.Clear();
+				Unclone();
+			}
 		}
 
 		public bool Contains(TransformedImage image)

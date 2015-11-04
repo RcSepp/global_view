@@ -2056,3 +2056,22 @@ rspread3d selection
 clear all
 rspread3d selection
 spread all
+rspread selection
+rspread selection
+rspread3d selection
+hide all
+show where $phi > 30
+hide all
+rspread3d selection
+hide where $phi > 30
+hide where $phi > 0
+hide where $theta != 30
+spread all
+x all by $theta
+z all by $phi
+select all
+focus all
+focus all
+focus all
+count all
+exit

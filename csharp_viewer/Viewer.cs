@@ -77,7 +77,7 @@ namespace csharp_viewer
 		bool closing = false;
 		string name_pattern, depth_name_pattern;
 
-		private Action LoadDatabaseAction, UnloadDatabaseAction, ExitProgramAction;
+		private Action AppStartAction, LoadDatabaseAction, UnloadDatabaseAction, ExitProgramAction;
 		private Action OnSelectionChangedAction, OnSelectionMovedAction, OnTransformationAddedAction, ClearTransformsAction;
 		//private Action FocusAction, MoveAction, ShowAction, HideAction, ClearAction, CountAction, GroupAction;
 
@@ -144,6 +144,7 @@ namespace csharp_viewer
 
 			this.cmdline = cmdline;
 
+			AppStartAction = ActionManager.CreateAction(null, this, "ResetAll");
 			OnSelectionChangedAction = ActionManager.CreateAction("Change Selection", this, "OnSelectionChanged");
 			OnSelectionMovedAction = ActionManager.CreateAction("Move Selection", this, "OnSelectionMoved");
 			OnTransformationAddedAction = ActionManager.CreateAction("Add Transformation", this, "OnTransformationAdded");
@@ -300,7 +301,7 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
 				images_mutex.WaitOne();
 				selection.Clear();
-				OnSelectionChanged();
+				OnSelectionChanged(selection);
 				images_mutex.ReleaseMutex();
 				return null;
 			});
@@ -464,6 +465,20 @@ namespace csharp_viewer
 			scrCle_Invoker = this;
 			scrCle.Run();
 #endif
+		}
+
+		private void ResetAll()
+		{
+			images_mutex.WaitOne();
+
+			selection.Clear();
+			foreach(TransformedImage image in images)
+				visible.Add(image);
+
+			images_mutex.ReleaseMutex();
+
+			OnSelectionChanged(selection);
+			ClearTransforms();
 		}
 
 		private void form_Closing(object sender, FormClosingEventArgs e)
@@ -1059,7 +1074,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			images_mutex.ReleaseMutex();
 
-			OnSelectionChanged();
+			OnSelectionChanged(selection);
 			ClearTransforms();
 		}
 
@@ -1116,14 +1131,21 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void CallSelectionChangedHandlers()
 		{
-			ActionManager.Do(OnSelectionChangedAction);
+			ActionManager.Do(OnSelectionChangedAction, selection.Clone());
 		}
 		private void CallSelectionMovedHandlers()
 		{
 			ActionManager.Do(OnSelectionMovedAction);
 		}
-		private void OnSelectionChanged()
+		private void OnSelectionChanged(Selection _selection)
 		{
+			if(!_selection.IsClone(selection))
+			{
+				selection.Clear();
+				foreach(TransformedImage selectedimage in _selection)
+					selection.Add(selectedimage);
+			}
+
 			/*int[] imagekey = new int[arguments.Length];
 			for(int i = 0; i < arguments.Length; ++i)
 			{
@@ -1305,6 +1327,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			glImageCloud.KeyDown += glImageCloud_KeyDown;
 
 			glImageCloud_loaded = true;
+
+			ActionManager.Do(AppStartAction);
 
 			//if(cmdline.Length == 1)
 			//	LoadCinemaDatabase(cmdline[0]);

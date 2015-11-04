@@ -55,6 +55,31 @@ namespace csharp_viewer
 		public virtual void OnKeyDown(KeyEventArgs e) {}
 
 
+		private Action MoveImagesAction, MoveImageAction, MoveSelectionAction;
+		private Action ShowImagesAction, ShowImageAction, ShowSelectionAction;
+		private Action HideImagesAction, HideImageAction, HideSelectionAction;
+		public ImageBrowser()
+		{
+			// Create actions for all control functions
+
+			// Selection functions don't need to call an action, because SelectionChanged() calls an action
+
+			// Focus functions don't need to call an action, because changing the view calls an action
+
+			MoveImagesAction = ActionManager.CreateAction("", (ImageBrowser)this, "DoMoveImages");
+			MoveImageAction = ActionManager.CreateAction("", (ImageBrowser)this, "DoMoveImage");
+			MoveSelectionAction = ActionManager.CreateAction("", this, "DoMoveSelection");
+
+			ShowImagesAction = ActionManager.CreateAction("", (ImageBrowser)this, "DoShowImages");
+			ShowImageAction = ActionManager.CreateAction("", (ImageBrowser)this, "DoShowImage");
+			ShowSelectionAction = ActionManager.CreateAction("", this, "DoShowSelection");
+
+			HideImagesAction = ActionManager.CreateAction("", (ImageBrowser)this, "DoHideImages");
+			HideImageAction = ActionManager.CreateAction("", (ImageBrowser)this, "DoHideImage");
+			HideSelectionAction = ActionManager.CreateAction("", this, "DoHideSelection");
+		}
+
+
 		// Control functions
 
 		protected void ShowContextMenu(ImageContextMenu.MenuGroup cm)
@@ -90,8 +115,12 @@ namespace csharp_viewer
 		{
 			imageCloud.Focus(Viewer.selection);
 		}
-
+			
 		public void Move(IEnumerable<TransformedImage> images, Vector3 deltapos)
+		{
+			ActionManager.Do(MoveImagesAction, images, deltapos); //EDIT: Should be images.Clone()
+		}
+		private void DoMoveImages(IEnumerable<TransformedImage> images, Vector3 deltapos)
 		{
 			bool selectionmoved = false;
 			foreach(TransformedImage image in images)
@@ -107,6 +136,10 @@ namespace csharp_viewer
 		}
 		public void Move(TransformedImage image, Vector3 deltapos)
 		{
+			ActionManager.Do(MoveImageAction, image, deltapos);
+		}
+		private void DoMoveImage(TransformedImage image, Vector3 deltapos)
+		{
 			image.pos += deltapos;
 			image.skipPosAnimation();
 
@@ -115,7 +148,16 @@ namespace csharp_viewer
 		}
 		public void MoveSelection(Vector3 deltapos)
 		{
-			Move(Viewer.selection, deltapos);
+			ActionManager.Do(MoveSelectionAction, deltapos);
+		}
+		private void DoMoveSelection(Vector3 deltapos)
+		{
+			foreach(TransformedImage image in Viewer.selection)
+			{
+				image.pos += deltapos;
+				image.skipPosAnimation();
+			}
+			SelectionMoved();
 		}
 
 		public void MoveIntoView(TransformedImage image)
@@ -125,6 +167,10 @@ namespace csharp_viewer
 
 		public void Show(IEnumerable<TransformedImage> images)
 		{
+			ActionManager.Do(ShowImagesAction, images); //EDIT: Should be images.Clone()
+		}
+		private void DoShowImages(IEnumerable<TransformedImage> images)
+		{
 			foreach(TransformedImage image in images)
 			{
 				image.visible = true;
@@ -133,30 +179,65 @@ namespace csharp_viewer
 		}
 		public void Show(TransformedImage image)
 		{
+			ActionManager.Do(ShowImageAction, image);
+		}
+		private void DoShowImage(TransformedImage image)
+		{
 			image.visible = true;
 			Viewer.visible.Add(image);
 		}
 		public void ShowSelection()
 		{
-			Show(Viewer.selection);
+			ActionManager.Do(ShowSelectionAction);
+		}
+		public void DoShowSelection()
+		{
+			foreach(TransformedImage selectedimage in Viewer.selection)
+			{
+				selectedimage.visible = true;
+				Viewer.visible.Add(selectedimage);
+			}
 		}
 
 		public void Hide(IEnumerable<TransformedImage> images)
 		{
+			ActionManager.Do(HideImagesAction, images); //EDIT: Should be images.Clone()
+		}
+		private void DoHideImages(IEnumerable<TransformedImage> images)
+		{
+			//bool selectionhidden = false;
 			foreach(TransformedImage image in images)
 			{
 				image.visible = false;
 				Viewer.visible.Remove(image);
+
+				//if(image.selected)
+				//	selectionhidden = true;
 			}
+			//if(selectionhidden)
+			//	SelectionMoved();
 		}
 		public void Hide(TransformedImage image)
+		{
+			ActionManager.Do(HideImageAction, image);
+		}
+		private void DoHideImage(TransformedImage image)
 		{
 			image.visible = false;
 			Viewer.visible.Remove(image);
 		}
 		public void HideSelection()
 		{
-			Hide(Viewer.selection);
+			ActionManager.Do(HideSelectionAction);
+		}
+		private void DoHideSelection()
+		{
+			foreach(TransformedImage selectedimage in Viewer.selection)
+			{
+				selectedimage.visible = false;
+				Viewer.visible.Remove(selectedimage);
+			}
+			//SelectionMoved();
 		}
 	}
 

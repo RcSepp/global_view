@@ -146,13 +146,21 @@ namespace csharp_viewer
 		private static MethodInfo GetMethod(Type clstype, string method)
 		{
 			MethodInfo mi;
-			if((mi = clstype.GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)) != null)
-				return mi;
-			return clstype.GetMethod(method, BindingFlags.Public | BindingFlags.Instance);
+			do
+			{
+				if((mi = clstype.GetMethod(method, BindingFlags.NonPublic | BindingFlags.Instance)) != null)
+					return mi;
+				if((mi = clstype.GetMethod(method, BindingFlags.Public | BindingFlags.Instance)) != null)
+					return mi;
+			} while((clstype = clstype.BaseType) != null);
+			return null;
 		}
 
 		public static Action CreateAction(string desc, object instance, string method)
 		{
+			if(desc == null || desc == "")
+				desc = method;
+
 			Type clstype = instance.GetType();
 			MethodInfo methodinfo = GetMethod(clstype, method);
 			if(methodinfo == null)
@@ -477,7 +485,7 @@ namespace csharp_viewer
 			this.argtypes = argtypes;
 		}
 
-		public abstract string Do(object[] parameters = null);
+		public abstract string Do(params object[] parameters);
 		public virtual void Undo(object[] parameters = null) {}
 		public virtual bool CanUndo() { return false; }
 	}
