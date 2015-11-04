@@ -394,6 +394,22 @@ namespace csharp_viewer
 					#endif
 				}
 
+				// Free memory
+				foreach(Image image in prioritySortedImages)
+				{
+					if(image.image.bmp != null)
+					{
+						image.image.bmp.Dispose();
+						image.image.bmp = null;
+					}
+
+					/*if(image.image.tex != null  && !image.image.texIsStatic) //EDIT: Do this in main threat
+					{
+						GL.DeleteTexture(image.image.tex.tex);
+						image.image.tex = null;
+					}*/
+				}
+
 				loaderThreadClosed = true;
 			}
 		}
@@ -406,7 +422,7 @@ namespace csharp_viewer
 			return b;
 		}
 
-		public GLTextureStream(TransformedImageCollection images, int memorysize, bool depthimages = false)
+		public GLTextureStream(TransformedImageCollection images, int memorysize)
 		{
 			#if DEBUG_GLTEXTURESTREAM
 			memorysize = 8 * 79 * 79;

@@ -194,9 +194,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 	public class ImageCloud : GLControl
 	{
-		private const float FOV_Y = 75.0f * MathHelper.Pi / 180.0f; //90.0f
-		private const float Z_NEAR = 0.1f;
-		private const float Z_FAR = 1000.0f;
+		public static float FOV_Y = 75.0f * MathHelper.Pi / 180.0f; //90.0f
+		public static float Z_NEAR = 0.1f;
+		public static float Z_FAR = 1000.0f;
 
 		private TransformedImageCollection images;
 		private Cinema.CinemaArgument[] arguments;
@@ -442,12 +442,14 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		bool floatimages;
 		GLTextureStream texstream;
 		CoordinateSystem coordsys;
+		LineGrid grid;
 		ImageContextMenu ContextMenu;
 		ImageContextMenu.MenuGroup cmImage;
 		public void ShowContextMenu(ImageContextMenu.MenuGroup cm)
 		{
 			ContextMenu.Show(cm, glcontrol.PointToClient(Control.MousePosition), backbuffersize);
 		}
+		int fragmentcounter;
 
 		// Options
 
@@ -498,8 +500,11 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			this.Controls.Add(colorTableMgr);
 
 			coordsys = new CoordinateSystem();
+			grid = new LineGrid();
 
 			ContextMenu = new ImageContextMenu();
+
+			fragmentcounter = GL.GenQuery();
 		}
 
 		public void Load(Cinema.CinemaArgument[] arguments, TransformedImageCollection images, Dictionary<string, HashSet<object>> valuerange, Size imageSize, bool floatimages = false, bool depthimages = false)
@@ -535,11 +540,11 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 			GL.ActiveTexture(TextureUnit.Texture0);
 
-			//texstream = new GLTextureStream(images, 256*1024*1024, depthimages); // Optimize for 1GB of VRAM
-			texstream = new GLTextureStream(images, 64*1024*1024, depthimages); // Optimize for 256MB of VRAM
-			//texstream = new GLTextureStream(images, 8*1024*1024, depthimages); // Optimize for 32MB of VRAM
-			//texstream = new GLTextureStream(images, 1024*1024, depthimages); // Optimize for 4MB of VRAM
-			//texstream = new GLTextureStream(images, 128*1024, depthimages); // Optimize for 512KB of VRAM
+			//texstream = new GLTextureStream(images, 256*1024*1024); // Optimize for 1GB of VRAM
+			texstream = new GLTextureStream(images, 64*1024*1024); // Optimize for 256MB of VRAM
+			//texstream = new GLTextureStream(images, 8*1024*1024); // Optimize for 32MB of VRAM
+			//texstream = new GLTextureStream(images, 1024*1024); // Optimize for 4MB of VRAM
+			//texstream = new GLTextureStream(images, 128*1024); // Optimize for 512KB of VRAM
 
 			// Create mesh for depth rendering
 			Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
@@ -753,8 +758,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					AABB overallAabb = new AABB();
 					foreach(TransformedImage image in images.Values)
 						overallAabb.Include(image.GetBounds());
-					camera_speed = 0.1f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
-					camera_speed = Math.Max(0.0001f, camera_speed);
+					camera_speed = 10.0f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
+					camera_speed = Math.Max(0.1f, camera_speed);
 					camera_speed = Math.Min(10.0f, camera_speed);
 				}
 				else
@@ -763,7 +768,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			// >>> Update free-view matrix
 
-			//if(glcontrol.ParentForm.Focused)
 			if(glcontrol.Focused)
 			{
 				bool viewChanged = false;
@@ -960,16 +964,18 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
 					{
 						sdr3D.Bind();
-						iter.image.Render(mesh3D, sdr3D, depthRenderingEnabled_fade, freeview, iter.matrix);
+						iter.image.Render(mesh3D, sdr3D, depthRenderingEnabled_fade, freeview, iter.matrix, fragmentcounter);
 					}
 					else
 					{
 						sdr2D.Bind();
-						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.matrix);
+						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.matrix, fragmentcounter);
 					}
 				}
 #endif
 			}
+
+			grid.Draw(freeview, selectionAabb, new Color4(0.5f, 1.0f, 0.5f, 1.0f), backbuffersize);
 
 			if( showCoordinateSystem && selectionAabb != null)
 			{
@@ -1113,6 +1119,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		private bool mouseDownInsideImageCloud = false;
 		public void MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
+			if(!glcontrol.Focused)
+				glcontrol.Focus();
+
 			mouseDownInsideImageCloud = false;
 
 			if(ContextMenu.MouseDown(sender, e, backbuffersize))
@@ -1199,7 +1208,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 					Viewer.browser.OnImageMouseDown(closest_image);
 				}
-				else
+				else if(e.Button == MouseButtons.Left)
 				{
 					dragImage = null;
 
@@ -1214,7 +1223,10 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		}
 		public void MouseUp(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
-			if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 4)
+			if(!glcontrol.Focused)
+				return;
+
+			if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 2)
 			{
 				if(e.Button == MouseButtons.Left)
 					Viewer.browser.OnImageClick(dragImage);
@@ -1240,6 +1252,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			
 		public void MouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
+			if(!glcontrol.Focused)
+				return;
+
 			if(!mouseDownInsideImageCloud)
 			{
 				if(ContextMenu.MouseMove(sender, e, backbuffersize))
@@ -1272,8 +1287,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				//ActionManager.Do(MoveAction, newpos - dragImage.pos + dragImageOffset, selection);
 
 				InvalidateOverallBounds();
-			}
-			else if(defineAlignmentStage != DefineAlignmentStage.None)
+			} else if(defineAlignmentStage != DefineAlignmentStage.None)
 			{
 				Vector3 vnear = new Vector3(mousePos.X, mousePos.Y, 0.0f);
 				Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
@@ -1298,66 +1312,69 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					break;
 				}
 			}
-			else if((e.Button & MouseButtons.Left) != 0 && Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) > 20)
+			else if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) > 2)
 			{
 				mouseDownLocation = new Point(-100, -100); // Make sure mouse rect movement stays enabled
 
-				// Update mouse rect
-				if(mouseRect == null)
-					mouseRect = new MouseRect();
-				mouseRect.min.X = Math.Min(mouseDownPos.X, mousePos.X);
-				mouseRect.min.Y = Math.Min(mouseDownPos.Y, mousePos.Y);
-				mouseRect.max.X = Math.Max(mouseDownPos.X, mousePos.X);
-				mouseRect.max.Y = Math.Max(mouseDownPos.Y, mousePos.Y);
+				if((e.Button & MouseButtons.Left) != 0)
+				{
+					// Update mouse rect
+					if(mouseRect == null)
+						mouseRect = new MouseRect();
+					mouseRect.min.X = Math.Min(mouseDownPos.X, mousePos.X);
+					mouseRect.min.Y = Math.Min(mouseDownPos.Y, mousePos.Y);
+					mouseRect.max.X = Math.Max(mouseDownPos.X, mousePos.X);
+					mouseRect.max.Y = Math.Max(mouseDownPos.Y, mousePos.Y);
 
-				// >>> Perform frustum intersection with all images
+					// >>> Perform frustum intersection with all images
 
-				Frustum mouseRectFrustum;
-				//Vector3 pmin = new Vector3(mouseRect.min.X, mouseRect.min.Y, 0.0f); // A point on the bottom left edge of the mouse rect frustum
-				//Vector3 pmax = new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f); // A point on the top right edge of the mouse rect frustum
-				Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-				Vector3 ptl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
-				Vector3 ptl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, Z_NEAR), invviewprojmatrix);
-				Vector3 ptr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
-				Vector3 ptr_far = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, Z_NEAR), invviewprojmatrix);
-				Vector3 pbl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
-				Vector3 pbl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, Z_NEAR), invviewprojmatrix);
-				Vector3 pbr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
+					Frustum mouseRectFrustum;
+					//Vector3 pmin = new Vector3(mouseRect.min.X, mouseRect.min.Y, 0.0f); // A point on the bottom left edge of the mouse rect frustum
+					//Vector3 pmax = new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f); // A point on the top right edge of the mouse rect frustum
+					Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+					Vector3 ptl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
+					Vector3 ptl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, Z_NEAR), invviewprojmatrix);
+					Vector3 ptr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
+					Vector3 ptr_far = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, Z_NEAR), invviewprojmatrix);
+					Vector3 pbl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
+					Vector3 pbl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, Z_NEAR), invviewprojmatrix);
+					Vector3 pbr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
 
-				// Left plane
-				mouseRectFrustum.pleft = new Plane(ptl, ptl_far, pbl);
+					// Left plane
+					mouseRectFrustum.pleft = new Plane(ptl, ptl_far, pbl);
 
-				// Right plane
-				mouseRectFrustum.pright = new Plane(ptr, pbr, ptr_far);
+					// Right plane
+					mouseRectFrustum.pright = new Plane(ptr, pbr, ptr_far);
 
-				// Top plane
-				mouseRectFrustum.ptop = new Plane(ptl, ptr, ptl_far);
+					// Top plane
+					mouseRectFrustum.ptop = new Plane(ptl, ptr, ptl_far);
 
-				// Bottom plane
-				mouseRectFrustum.pbottom = new Plane(pbl, pbl_far, pbr);
+					// Bottom plane
+					mouseRectFrustum.pbottom = new Plane(pbl, pbl_far, pbr);
 
-				// Near plane
-				mouseRectFrustum.pnear.a = freeview.viewprojmatrix.M13;
-				mouseRectFrustum.pnear.b = freeview.viewprojmatrix.M23;
-				mouseRectFrustum.pnear.c = freeview.viewprojmatrix.M33;
-				mouseRectFrustum.pnear.d = freeview.viewprojmatrix.M43;
-				mouseRectFrustum.pnear.Normalize();
+					// Near plane
+					mouseRectFrustum.pnear.a = freeview.viewprojmatrix.M13;
+					mouseRectFrustum.pnear.b = freeview.viewprojmatrix.M23;
+					mouseRectFrustum.pnear.c = freeview.viewprojmatrix.M33;
+					mouseRectFrustum.pnear.d = freeview.viewprojmatrix.M43;
+					mouseRectFrustum.pnear.Normalize();
 
-				// Far plane
-				mouseRectFrustum.pfar.a = freeview.viewprojmatrix.M14 - freeview.viewprojmatrix.M13;
-				mouseRectFrustum.pfar.b = freeview.viewprojmatrix.M24 - freeview.viewprojmatrix.M23;
-				mouseRectFrustum.pfar.c = freeview.viewprojmatrix.M34 - freeview.viewprojmatrix.M33;
-				mouseRectFrustum.pfar.d = freeview.viewprojmatrix.M44 - freeview.viewprojmatrix.M43;
-				mouseRectFrustum.pfar.Normalize();
+					// Far plane
+					mouseRectFrustum.pfar.a = freeview.viewprojmatrix.M14 - freeview.viewprojmatrix.M13;
+					mouseRectFrustum.pfar.b = freeview.viewprojmatrix.M24 - freeview.viewprojmatrix.M23;
+					mouseRectFrustum.pfar.c = freeview.viewprojmatrix.M34 - freeview.viewprojmatrix.M33;
+					mouseRectFrustum.pfar.d = freeview.viewprojmatrix.M44 - freeview.viewprojmatrix.M43;
+					mouseRectFrustum.pfar.Normalize();
 
-				Matrix4 invvieworient = freeview.viewmatrix;
-				invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
-				invvieworient.Transpose();
-				selection.Clear();
-				foreach(TransformedImage image in images.Values)
-					if(image.IsVisible() && mouseRectFrustum.DoFrustumCulling(image.GetWorldMatrix(invvieworient), Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
-						selection.Add(image);
-				SelectionChanged();
+					Matrix4 invvieworient = freeview.viewmatrix;
+					invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
+					invvieworient.Transpose();
+					selection.Clear();
+					foreach(TransformedImage image in images.Values)
+						if(image.IsVisible() && mouseRectFrustum.DoFrustumCulling(image.GetWorldMatrix(invvieworient), Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+							selection.Add(image);
+					SelectionChanged();
+				}
 			}
 		}
 		public void DoubleClick(object sender, Point mousepos)
@@ -1415,8 +1432,10 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			switch(e.KeyCode)
 			{
 			case Keys.C:
-				ViewControl[] values = (ViewControl[])Enum.GetValues(typeof(ViewControl));
-				ActionManager.Do(SetViewControlAction, (int)viewControl + 1 == values.Length ? values[0] : values[(int)viewControl + 1]);
+				//ViewControl[] values = (ViewControl[])Enum.GetValues(typeof(ViewControl));
+				//ActionManager.Do(SetViewControlAction, (int)viewControl + 1 == values.Length ? values[0] : values[(int)viewControl + 1]);
+				if(viewControl != ViewControl.TwoDimensional)
+					ActionManager.Do(SetViewControlAction, viewControl == ViewControl.ViewCentric ? ViewControl.CoordinateSystemCentric : ViewControl.ViewCentric);
 				break;
 
 			/*case Keys.O:

@@ -27,7 +27,7 @@ namespace csharp_viewer
 		public int originalWidth = 0, originalHeight = 0;
 		public float originalAspectRatio = 1.0f;
 		public int renderWidth, renderHeight;
-		public int renderPriority = 0;
+		public float renderPriority = 0;
 		public System.Drawing.Bitmap bmp = null;
 		private System.Drawing.Bitmap oldbmp = null;
 		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
@@ -153,16 +153,14 @@ namespace csharp_viewer
 
 				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
-					if(renderPriority != 1000)
-						ImageCloud.Status(renderPriority.ToString());
-
 					transform *= freeview.viewprojmatrix;
 
 					// Set render priority and dimensions (thread safety: priority has to be set after width/height)
 					Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
 					renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
 					renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
-					renderPriority = 1000;
+					//if(renderPriority == 0)
+						renderPriority = 1000;
 
 					return true;
 				}
@@ -239,7 +237,7 @@ namespace csharp_viewer
 				}
 			}
 		}
-		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform)
+		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform, int fragmentcounter)
 		{
 			bool texloaded;
 			if(texIsStatic)
@@ -280,10 +278,16 @@ namespace csharp_viewer
 				GL.Uniform1(sdr_DepthScale, depthscale);*/
 
 			mesh.Bind(sdr, tex);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
+			//GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
 			mesh.Draw();
+			//GL.EndQuery(QueryTarget.SamplesPassed);
 
 			foreach(ImageTransform t in transforms)
 				t.RenderImage(key, this, freeview);
+
+			/*int numfragments;
+			GL.GetQueryObject(fragmentcounter, GetQueryObjectParam.QueryResult, out numfragments);
+			renderPriority = numfragments;*/
 		}
 
 		public Matrix4 GetWorldMatrix(Matrix4 invvieworient)

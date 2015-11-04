@@ -1309,3 +1309,47 @@ clear all
 thetaPhi all by (float) #time * 2.0f * pi / 173.0f, pi / 2.0f, 20.0f
 look all by $theta * pi / 180, $phi * pi / 180
 focus all
+load "mpas2"
+spread all
+load "mpas_view"
+z all by time
+focus all
+clear all
+z all by $time
+focus all
+spread all
+rspread3d all
+clear all
+focus all
+animate #time
+animate by #time
+animate by #frame
+focus all
+focus all
+animate by #frame
+focus all
+animate by #frame
+load "mpas_view"
+load "mpas_view"
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+thetaPhi all by $theta * pi / 180, $phi * pi / 180
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 5
+clear all
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 8
+x all by #time * 10
+focus all
+load "mpas_view"
+load "mpas2"
+spread all
+select where #time > 50
+focus all
+load "mpas_view"
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 8
+x all by #time * 30
+select where #time == 2
+focus selection
+focus selection
+select where #time == 2
+z selected by -10
+z selection by -10

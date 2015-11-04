@@ -1283,6 +1283,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			GL.Viewport(glImageCloud.Size);
 			GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
 			GL.Enable(EnableCap.Blend);
+			GL.DepthFunc(DepthFunction.Lequal);
 			//GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
 
 			Common.CreateCommonMeshes();

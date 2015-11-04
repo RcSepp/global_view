@@ -1977,3 +1977,82 @@ load "mpas_ani"
 animate by #time
 focus all
 exit
+spread all
+rspread3d all
+rspread3d all
+
+
+rspread3d all
+rspread3d all
+rspread3d all
+rspread3d all
+rspread3d all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+rspread all
+rspread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+select all
+x by 100
+x all by 100
+x all by 100
+spread all
+spread all
+spread all
+cd
+ls
+cd "mpas_single"
+cd ".."
+load "mpas_single"
+load "mpas_view"
+spread all
+load "mpas_view"
+x all by $theta * $phi
+clear all
+x all by $theta * $phi / 100
+select all
+rspreadrandom3D
+rspread3d
+rspread3d all
+spread all
+spread all
+rspread3d selected
+rspread3d none
+rspread3d selection
+rspread3d selection
+clear all
+rspread3d selection
+spread all

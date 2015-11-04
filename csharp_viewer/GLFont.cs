@@ -51,10 +51,28 @@ namespace csharp_viewer
 
 	public abstract class GLFont
 	{
-		public abstract void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color);
+		protected abstract void DrawString(float x, float y, float w, string text, System.Drawing.Size backbufferSize, Color4 color);
+		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
+		{
+			DrawString(x, y, 0.0f, text, backbufferSize, color);
+		}
 		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize)
 		{
-			DrawString(x, y, text, backbufferSize, Color4.White);
+			DrawString(x, y, 0.0f, text, backbufferSize, Color4.White);
+		}
+		public void DrawStringAt(Vector3 pos, Matrix4 worldviewprojmatrix, string text, Size backbuffersize, Color4 color)
+		{
+			Vector3 v_screen = Vector3.TransformPerspective(pos, worldviewprojmatrix);
+			if(v_screen.X > -1.1f && v_screen.X < 1.1f && v_screen.Y > -1.1f && v_screen.Y < 1.1f && v_screen.Z > 0.0f && v_screen.Z < 1.0f)
+			{
+				v_screen.X = (0.5f + v_screen.X / 2.0f) * (float)backbuffersize.Width;
+				v_screen.Y = (0.5f - v_screen.Y / 2.0f) * (float)backbuffersize.Height;
+				DrawString(v_screen.X, v_screen.Y, v_screen.Z, text, backbuffersize, color);
+			}
+		}
+		public void DrawStringAt(Vector3 pos, Matrix4 worldviewprojmatrix, string text, Size backbuffersize)
+		{
+			DrawStringAt(pos, worldviewprojmatrix, text, backbuffersize, Color4.White);
 		}
 		public abstract Vector2 MeasureString(string text);
 	}
@@ -96,7 +114,7 @@ namespace csharp_viewer
 				0.0f, 0.0f, 1.0f);
 		}
 
-		public override void DrawString(float x, float y, string strnumber, System.Drawing.Size backbufferSize, Color4 color)
+		protected override void DrawString(float x, float y, float w, string strnumber, System.Drawing.Size backbufferSize, Color4 color)
 		{
 			// Fonts look best when they are drawn on integer positions (so they don't have to be interpolated over multiple pixels)
 			x = (float)(int)x;
@@ -133,7 +151,7 @@ namespace csharp_viewer
 				// Transform texture quad vertices to position the letter
 				Matrix4 trans = Matrix4.Identity;
 				trans *= Matrix4.CreateScale(2.0f * digit_size.X / backbufferSize.Width, (2.0f * digit_size.Y - 4.0f) / backbufferSize.Height, 1.0f);
-				trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y + texture.height) / backbufferSize.Height, 0.0f);
+				trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y + texture.height) / backbufferSize.Height, w);
 				GL.UniformMatrix4(fontshader.defparams.worldviewproj, false, ref trans);
 
 				meshquad.Draw();
@@ -187,7 +205,7 @@ namespace csharp_viewer
 				0.0f, 0.0f, 1.0f);
 		}
 
-		public override void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
+		protected override void DrawString(float x, float y, float w, string text, System.Drawing.Size backbufferSize, Color4 color)
 		{
 			// Fonts look best when they are drawn on integer positions (so they don't have to be interpolated over multiple pixels)
 			float linestart = x = (float)(int)x;
@@ -245,7 +263,7 @@ namespace csharp_viewer
 					// Transform texture quad vertices to position the letter
 					Matrix4 trans = Matrix4.Identity;
 					trans *= Matrix4.CreateScale(2.0f * charsize.X / backbufferSize.Width, (2.0f * charsize.Y - 4.0f) / backbufferSize.Height, 1.0f);
-					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y + charsize.Y) / backbufferSize.Height, 0.0f);
+					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y + charsize.Y) / backbufferSize.Height, w);
 					GL.UniformMatrix4(fontshader.defparams.worldviewproj, false, ref trans);
 
 					meshquad.Draw();
@@ -356,7 +374,7 @@ namespace csharp_viewer
 			texture = new GLTexture2D(bmp);
 		}
 
-		public override void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
+		protected override void DrawString(float x, float y, float w, string text, System.Drawing.Size backbufferSize, Color4 color)
 		{
 			// Fonts look best when they are drawn on integer positions (so they don't have to be interpolated over multiple pixels)
 			float linestart = x = (float)(int)x;
@@ -395,7 +413,7 @@ namespace csharp_viewer
 					// Transform texture quad vertices to position the letter
 					Matrix4 trans = Matrix4.Identity;
 					trans *= Matrix4.CreateScale(2.0f * charsize.X / backbufferSize.Width, (2.0f * charsize.Y - 4.0f) / backbufferSize.Height, 1.0f);
-					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y - 0.25f + charsize.Y) / backbufferSize.Height, 0.0f);
+					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * (x + 0.5f) / backbufferSize.Width, 1.0f - 2.0f * (y - 0.25f + charsize.Y) / backbufferSize.Height, w);
 					GL.UniformMatrix4(fontshader.defparams.worldviewproj, false, ref trans);
 
 					Common.meshQuad.Draw();
