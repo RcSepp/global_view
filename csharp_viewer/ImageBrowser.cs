@@ -26,7 +26,7 @@ namespace csharp_viewer
 		// Options
 		protected enum Option
 		{
-			BackColor, ViewControl, ShowCoordinateSystem
+			BackColor, ViewControl, ViewRotationCenter, ShowCoordinateSystem, ShowLineGrid, EnableMouseRect
 		}
 		protected void SetOption(Option option, object value)
 		{
@@ -38,8 +38,18 @@ namespace csharp_viewer
 			case Option.ViewControl:
 				imageCloud.viewControl = (ImageCloud.ViewControl)value;
 				break;
+			case Option.ViewRotationCenter:
+				imageCloud.viewControl = ImageCloud.ViewControl.PointCentric;
+				imageCloud.viewRotationCenter = (Vector3)value;
+				break;
 			case Option.ShowCoordinateSystem:
 				imageCloud.showCoordinateSystem = (bool)value;
+				break;
+			case Option.ShowLineGrid:
+				imageCloud.showLineGrid = (bool)value;
+				break;
+			case Option.EnableMouseRect:
+				imageCloud.enableMouseRect = (bool)value;
 				break;
 			}
 		}
@@ -47,11 +57,12 @@ namespace csharp_viewer
 
 		// Event handlers
 		public virtual void OnLoad() {}
-		public virtual void OnImageMouseDown(TransformedImage image) {}
+		public virtual void OnImageMouseDown(TransformedImage image, out bool enableDrag) { enableDrag = false; }
+		public virtual void OnNonImageMouseDown() {}
 		public virtual void OnImageClick(TransformedImage image) {}
 		public virtual void OnImageRightClick(TransformedImage image) {}
 		public virtual void OnImageDoubleClick(TransformedImage image) {}
-		public virtual void OnImageMove(TransformedImage image, Vector3 delta) {}
+		public virtual void OnImageDrag(TransformedImage image, Vector3 delta) {}
 		public virtual void OnKeyDown(KeyEventArgs e) {}
 
 
@@ -60,7 +71,7 @@ namespace csharp_viewer
 		private Action HideImagesAction, HideImageAction, HideSelectionAction;
 		public ImageBrowser()
 		{
-			// Create actions for all control functions
+			// Create actions for control functions
 
 			// Selection functions don't need to call an action, because SelectionChanged() calls an action
 
@@ -87,6 +98,13 @@ namespace csharp_viewer
 			imageCloud.ShowContextMenu(cm);
 		}
 
+		protected string ExecuteISQL(string command)
+		{
+			string output, warnings;
+			ISQL.Compiler.Execute(command, ActionManager.mgr.Invoke, null, out output, out warnings);
+			return output + warnings;
+		}
+
 		protected void Select(TransformedImage image)
 		{
 			Viewer.selection.Clear();
@@ -103,17 +121,17 @@ namespace csharp_viewer
 			Viewer.selection.Clear();
 		}
 
-		protected void Focus(TransformedImage image)
+		protected void Focus(TransformedImage image, bool animate = true)
 		{
-			imageCloud.FocusSingle(image);
+			imageCloud.FocusSingle(image, animate);
 		}
-		protected void Focus(IEnumerable<TransformedImage> images)
+		protected void Focus(IEnumerable<TransformedImage> images, bool animate = true)
 		{
-			imageCloud.Focus(images);
+			imageCloud.Focus(images, animate);
 		}
-		protected void FocusSelection()
+		protected void FocusSelection(bool animate = true)
 		{
-			imageCloud.Focus(Viewer.selection);
+			imageCloud.Focus(Viewer.selection, animate);
 		}
 			
 		public void Move(IEnumerable<TransformedImage> images, Vector3 deltapos)
@@ -259,8 +277,10 @@ namespace csharp_viewer
 			//ISQL.Compiler.Execute(string.Format("x all BY #theta * 3.0f"), ActionManager.mgr.Invoke, out output, out warnings);
 		}
 
-		public override void OnImageMouseDown(TransformedImage image)
+		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
 		{
+			enableDrag = true;
+
 			if(!Viewer.selection.Contains(image))
 			{
 				if(InputDevices.kbstate.IsKeyDown(OpenTK.Input.Key.LWin))
@@ -268,6 +288,12 @@ namespace csharp_viewer
 				else
 					Select(image);
 			}
+		}
+		public override void OnNonImageMouseDown()
+		{
+			// Clear selection if Windows key (command key on Mac) isn't pressed
+			if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LWin))
+				ClearSelection();
 		}
 		public override void OnImageRightClick(TransformedImage image)
 		{
@@ -278,7 +304,7 @@ namespace csharp_viewer
 			ClearSelection();
 			MoveIntoView(image);
 		}
-		public override void OnImageMove(TransformedImage image, Vector3 delta)
+		public override void OnImageDrag(TransformedImage image, Vector3 delta)
 		{
 			MoveSelection(delta);
 		}
@@ -306,6 +332,101 @@ namespace csharp_viewer
 			case Keys.Delete:
 				HideSelection();
 				break;
+			}
+		}
+	}
+
+	public class MPASBrowser : ImageBrowser
+	{
+		int expandedTimeIdx = -1;
+
+		public override void OnLoad()
+		{
+			SetOption(Option.BackColor, Color4.DarkSlateBlue);
+			//SetOption(Option.ViewControl, ImageCloud.ViewControl.CoordinateSystemCentric);
+			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
+			SetOption(Option.ShowCoordinateSystem, false);
+			SetOption(Option.ShowLineGrid, false);
+			SetOption(Option.EnableMouseRect, false);
+
+			ExecuteISQL(string.Format("hide WHERE (int) $phi < -90 || (int) $phi > 90"));
+
+			ExecuteISQL(string.Format("x all BY #time * 3.0f"));
+			ExecuteISQL(string.Format("look all BY pi - $theta * pi / 180.0f, pi / 2.0f - $phi * pi / 180.0f"));
+
+			Focus(Viewer.images, false);
+		}
+
+		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
+		{
+			enableDrag = false;
+
+			if(Control.MouseButtons != MouseButtons.Left || image.selected == true)
+				return;
+
+			int timeidx = Array.IndexOf(image.args[0].values, image.values[0]);
+
+			int selection_timeidx;
+			if(Viewer.selection.Count == 0)
+				selection_timeidx = -1;
+			else
+			{
+				IEnumerator<TransformedImage> selection_enum = Viewer.selection.GetEnumerator();
+				selection_enum.MoveNext();
+				selection_timeidx = Array.IndexOf(selection_enum.Current.args[0].values, selection_enum.Current.values[0]);
+			}
+
+			if(timeidx == expandedTimeIdx)
+			{
+				Select(image);
+
+				if(selection_timeidx != expandedTimeIdx)
+					ExecuteISQL(string.Format("focus WHERE #time == {0}", timeidx));
+
+				SetOption(Option.ViewRotationCenter, new Vector3((float)timeidx * 3.0f + 5.0f, 0.0f, 0.0f));
+			}
+			else
+			{
+				SetOption(Option.ViewControl, ImageCloud.ViewControl.CoordinateSystemCentric);
+
+				ExecuteISQL(string.Format("select WHERE #time == {0}", timeidx));
+				FocusSelection();
+			}
+		}
+		public override void OnImageDoubleClick(TransformedImage image)
+		{
+			int timeidx = Array.IndexOf(image.args[0].values, image.values[0]);
+
+			if(timeidx == expandedTimeIdx)
+			{
+				expandedTimeIdx = -1;
+
+				SetOption(Option.ViewControl, ImageCloud.ViewControl.CoordinateSystemCentric);
+
+				ExecuteISQL(string.Format("clear all"));
+				ExecuteISQL(string.Format("x all BY #time * 3.0f"));
+				ExecuteISQL(string.Format("look all BY pi - $theta * pi / 180.0f, pi / 2.0f - $phi * pi / 180.0f"));
+
+				ExecuteISQL(string.Format("select WHERE #time == {0}", timeidx));
+				FocusSelection();
+			}
+			else
+			{
+				expandedTimeIdx = timeidx;
+
+				ExecuteISQL(string.Format("clear all"));
+				ExecuteISQL(string.Format("x BY #time * 3.0f WHERE #time < {0}", timeidx));
+				ExecuteISQL(string.Format("x BY #time * 3.0f + 5.0f WHERE #time == {0}", timeidx));
+				ExecuteISQL(string.Format("x BY #time * 3.0f + 10.0f WHERE #time > {0}", timeidx));
+
+				FocusSelection();
+				SetOption(Option.ViewRotationCenter, new Vector3((float)timeidx * 3.0f + 5.0f, 0.0f, 0.0f));
+				//SetOption(Option.ViewControl, ImageCloud.ViewControl.PointCentric);
+
+				ExecuteISQL(string.Format("thetaPhi BY pi - $theta * pi / 180.0f, pi / 2.0f - $phi * pi / 180.0f, 5.0f WHERE #time == {0}", timeidx));
+
+				FocusSelection();
+				Select(image);
 			}
 		}
 	}

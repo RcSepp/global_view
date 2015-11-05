@@ -75,16 +75,14 @@ namespace csharp_viewer
 		{{
 			Vector3 tpr = new Vector3({0});
 
-			//pos = new Vector3((float)(Math.Cos(tpr.X) * Math.Sin(tpr.Y)) * 4.1f, (float)Math.Sin(tpr.X) * 4.1f, (float)(Math.Cos(tpr.X) * Math.Cos(tpr.Y)) * 4.1f);
-			pos = new Vector3(tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Cos(tpr.X)), tpr.Z * (float)Math.Cos(tpr.Y), tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Sin(tpr.X)));
+			pos = new Vector3(tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Sin(tpr.X)), tpr.Z * (float)Math.Cos(tpr.Y), tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Cos(tpr.X)));
 		}}
 
 		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
 		{{
 			Vector3 tpr = new Vector3({0});
 
-			//Vector3 pos = new Vector3((float)(Math.Cos(tpr.X) * Math.Sin(tpr.Y)) * 4.1f, (float)Math.Sin(tpr.X) * 4.1f, (float)(Math.Cos(tpr.X) * Math.Cos(tpr.Y)) * 4.1f);
-			Vector3 pos = new Vector3(tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Cos(tpr.X)), tpr.Z * (float)Math.Cos(tpr.Y), tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Sin(tpr.X)));
+			Vector3 pos = new Vector3(tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Sin(tpr.X)), tpr.Z * (float)Math.Cos(tpr.Y), tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Cos(tpr.X)));
 
 			return new AABB(pos - new Vector3(0.5f, 0.5f, 0.5f), pos + new Vector3(0.5f, 0.5f, 0.5f));
 		}}
@@ -235,15 +233,21 @@ namespace csharp_viewer
 			viewangle.phi = MathHelper.Pi - (float)Math.Atan2((float)Math.Sqrt(viewdir.X*viewdir.X + viewdir.Z*viewdir.Z), viewdir.Y);
 
 			float[] tp = {{ {1} }};
+			tp[0] += 10.0f * (float)Math.PI;
 			tp[0] %= 2.0f * (float)Math.PI;
+			tp[1] += 10.0f * (float)Math.PI;
 			tp[1] %= (float)Math.PI;
-			float totalangle = Math.Abs(viewangle.theta - tp[0]) + Math.Abs(viewangle.phi - tp[1]);
+			float totalangle = AngularDistance(viewangle.theta, tp[0])/*Math.Abs(viewangle.theta - tp[0])*/ + Math.Abs(viewangle.phi - tp[1]);
 			ImageAndAngle bestImage = bestImages.Get(arguments, imagekey);
 			if(totalangle < bestImage.angle)
 			{{
 				bestImage.angle = totalangle;
 				bestImage.image = image;
 			}}
+		}}
+		private static float AngularDistance(float a, float b)
+		{{
+			return Math.Min(Math.Abs(a - b), Math.Abs(((a + (float)Math.PI) % (2.0f * (float)Math.PI)) - ((b + (float)Math.PI) % (2.0f * (float)Math.PI))));
 		}}
 	}}
 }}", indices, tp);

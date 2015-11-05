@@ -12,7 +12,7 @@ namespace csharp_viewer
 	public class LineGrid
 	{
 		private const int LABEL_CAM_DISTANCE = 200;
-		private const double LABEL_CAM_DISTANCE_FADE = 4.0;
+		private const double LABEL_CAM_DISTANCE_FADE = 20.0;
 		private const double LABEL_AXIS_DISTANCE_FADE = 4.0;
 
 		private Color4 POSITIVE_AXIS_COLOR = new Color4(100, 120, 140, 255);

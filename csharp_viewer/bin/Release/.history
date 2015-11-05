@@ -1353,3 +1353,34 @@ focus selection
 select where #time == 2
 z selected by -10
 z selection by -10
+hide where #time > 0
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 8
+hide where #time > 0
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 8
+hide where #time > 0
+look all by $theta * pi / 180, $phi * pi / 180, 8
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 8
+animate by #time
+hide where $theta != 0
+hide where $phi != 90
+clear all
+skip visible by (time % 50) != #time
+clear all
+skip visible by (time % 5) != #time
+clear all
+spread visible
+hide where $theta != 0
+hide where $phi != 90
+spread visible
+hide where $phi != 90
+hide where $theta != 0
+animate by #time
+move all by 2, 2, 0
+x all by 2
+y all by 2
+focus visible
+show where $phi == 0
+hide where $phi != 0
+hide where $phi != 0
+hide where $theta != 0
+animate by #time

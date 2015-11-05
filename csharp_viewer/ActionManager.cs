@@ -426,7 +426,7 @@ namespace csharp_viewer
 					if(output != null)
 						stdout += output;
 				} catch(Exception ex) {
-					stdout += ex.InnerException.ToString();
+					stdout += ex.InnerException != null ? ex.InnerException.ToString() : ex.ToString();
 				}
 			}
 

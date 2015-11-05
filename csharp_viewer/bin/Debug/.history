@@ -2075,3 +2075,42 @@ focus all
 focus all
 count all
 exit
+hide where #time != 0
+focus all
+focus visible
+hide where #time != 0
+focus visible
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+unload
+cd
+cd ".."
+cd "global_view/csharp_viewer"
+cd "example"
+;s
+ls
+load "example_db"
+ls
+spread all
+load "mpas_single"
+spread all
+spread all
+unload
+load("mpas_single")
+load "mpas_single"
+spread all
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+exit
+rspread all

@@ -49,6 +49,7 @@ namespace csharp_viewer
 #endif
 		Control scrCle_Invoker = null;
 		public static ImageBrowser browser = new SimpleBrowser();
+		//public static ImageBrowser browser = new MPASBrowser();
 
 #if !DISABLE_DATAVIZ
 		Panel pnlPCView;
@@ -65,7 +66,7 @@ namespace csharp_viewer
 		// Main database collections
 		//Dictionary<int[], TransformedImage> images = new Dictionary<int[], TransformedImage>(new IntArrayEqualityComparer()); // A hashmap of images accessed by an index array (consisting of one index per dimension)
 		public static TransformedImageCollection images = new TransformedImageCollection();
-		public static Mutex images_mutex = new Mutex();
+		public static Mutex image_render_mutex = new Mutex();
 		public static Cinema.CinemaArgument[] arguments; // An array of descriptors for each dimension
 		//HashSet<string> valueset = new HashSet<string>(); // A set of all value types appearing in the metadata of at least one image
 		Dictionary<string, HashSet<object>> valuerange = new Dictionary<string, HashSet<object>>(); // A set of all value types, containing a set of all possible values in the metadata all images
@@ -77,7 +78,7 @@ namespace csharp_viewer
 		bool closing = false;
 		string name_pattern, depth_name_pattern;
 
-		private Action AppStartAction, LoadDatabaseAction, UnloadDatabaseAction, ExitProgramAction;
+		private Action AppStartAction, ExitProgramAction;
 		private Action OnSelectionChangedAction, OnSelectionMovedAction, OnTransformationAddedAction, ClearTransformsAction;
 		//private Action FocusAction, MoveAction, ShowAction, HideAction, ClearAction, CountAction, GroupAction;
 
@@ -225,59 +226,62 @@ namespace csharp_viewer
 
 
 
-			LoadDatabaseAction = ActionManager.CreateAction("Load database", "load", this, "LoadCinemaDatabase");
-			LoadDatabaseAction = ActionManager.CreateAction("Unload database", "unload", this, "UnloadDatabase");
+			ActionManager.CreateAction<string>("Load database", "load", delegate(object[] parameters) {
+				LoadAny((string)parameters[0]);
+				return null;
+			});
+			ActionManager.CreateAction("Unload database", "unload", this, "UnloadDatabase");
 			//ClearTransformsAction = ActionManager.CreateAction("Clear Transformations", "clear", this, "ClearTransforms");
 			ActionManager.CreateAction("Exit program", "exit", this, "Exit");
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Select images", "select", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				imageCloud.Select(images);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Focus images", "focus", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
-				images_mutex.WaitOne();
-				imageCloud.Focus(images);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.WaitOne();
+				imageCloud.Focus(images, true);
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<Vector3, IEnumerable<TransformedImage>>("Move images", "move", delegate(object[] parameters) {
 				Vector3 deltapos = (Vector3)parameters[0];
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[1];
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				imageCloud.Move(deltapos, images);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Show images", "show", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				browser.Show(images);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Hide images", "hide", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				browser.Hide(images);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Clear image transforms", "clear", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				imageCloud.Clear(images);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Count images", "count", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				string result = imageCloud.Count(images).ToString();
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return result;
 			});
 			ActionManager.CreateAction<string, IEnumerable<TransformedImage>>("Create image group", "form", delegate(object[] parameters) {
@@ -285,9 +289,9 @@ namespace csharp_viewer
 				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[1];
 				if(groups.ContainsKey(groupname))
 					return "Group " + groupname + " already exists";
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				groups.Add(groupname, imageCloud.CreateGroup(images));
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction("Create translation transform in x-direction", "x", this, "CreateTransformX");
@@ -299,10 +303,10 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Create skip transform", "skip", this, "CreateTransformSkip");
 
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				selection.Clear();
 				OnSelectionChanged(selection);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 
@@ -426,10 +430,10 @@ namespace csharp_viewer
 					float ext = (float)Math.Sqrt(numimages), halfext = ext / 2.0f;
 
 					Random rand = new Random();
-					images_mutex.WaitOne();
+					image_render_mutex.WaitOne();
 					foreach(TransformedImage image in images)
 						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)0.0f);
-					images_mutex.ReleaseMutex();
+					image_render_mutex.ReleaseMutex();
 
 					imageCloud.InvalidateOverallBounds();
 
@@ -447,10 +451,10 @@ namespace csharp_viewer
 					float ext = (float)Math.Pow(numimages, 1.0 / 3.0), halfext = ext / 2.0f;
 
 					Random rand = new Random();
-					images_mutex.WaitOne();
+					image_render_mutex.WaitOne();
 					foreach(TransformedImage image in images)
 						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext);
-					images_mutex.ReleaseMutex();
+					image_render_mutex.ReleaseMutex();
 
 					imageCloud.InvalidateOverallBounds();
 
@@ -469,13 +473,13 @@ namespace csharp_viewer
 
 		private void ResetAll()
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 
 			selection.Clear();
 			foreach(TransformedImage image in images)
 				visible.Add(image);
 
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 
 			OnSelectionChanged(selection);
 			ClearTransforms();
@@ -487,6 +491,7 @@ namespace csharp_viewer
 			while(!renderThread_finished) {Thread.Sleep(1);}
 
 			UnloadDatabase(); // Important: Do this only after renderThread has finished
+			imageCloud.Free();
 		}
 
 		private void Console_Execute(string command, out string output, out string warnings)
@@ -507,18 +512,19 @@ namespace csharp_viewer
 			return stdout;
 		}
 
-		private void FindDirectory(ref string dirname)
+		private void FindFileOrDirectory(ref string path)
 		{
-			if(!System.IO.Directory.Exists(dirname))
+			bool isdir;
+			if(!(isdir = System.IO.Directory.Exists(path)) && !System.IO.File.Exists(path))
 			{
-				string relative_dirname = scrCle.workingDirectory + Path.DirectorySeparatorChar + dirname;
-				if(!System.IO.Directory.Exists(relative_dirname))
-					throw new System.IO.DirectoryNotFoundException(dirname);
-				dirname = relative_dirname;
+				string relativePath = scrCle.workingDirectory + Path.DirectorySeparatorChar + path;
+				if(!(isdir = System.IO.Directory.Exists(relativePath)) && !System.IO.File.Exists(relativePath))
+					throw new System.IO.FileNotFoundException(path);
+				path = relativePath;
 			}
 
-			if(!dirname.EndsWith("/") && !dirname.EndsWith("\\"))
-				dirname += Path.DirectorySeparatorChar;
+			if(isdir && !path.EndsWith("/") && !path.EndsWith("\\"))
+				path += Path.DirectorySeparatorChar;
 		}
 
 		private void PreLoad()
@@ -536,7 +542,7 @@ namespace csharp_viewer
 					selection[i].Add(Array.IndexOf(arguments[i].values, arguments[i].defaultValue));
 			}*/
 
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 
 			if(imageCloud != null)
 			{
@@ -582,13 +588,7 @@ namespace csharp_viewer
 			browser.SelectionChanged += CallSelectionChangedHandlers;
 			browser.SelectionMoved += CallSelectionMovedHandlers;
 
-			images_mutex.ReleaseMutex();
-
-			/*// Load textures for all images in images
-			images_mutex.WaitOne();
-			foreach(TransformedImage img in images.Values)
-				img.LoadTexture();
-			images_mutex.ReleaseMutex();*/
+			image_render_mutex.ReleaseMutex();
 
 
 			//ActionManager.Do(ClearTransformsAction);
@@ -619,7 +619,7 @@ namespace csharp_viewer
 			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });*/
 		}
 
-		private void LoadAny(string[] argv)
+		private void LoadFromCommandLine(string[] argv)
 		{
 			if(argv == null | argv.Length == 0)
 				return;
@@ -649,33 +649,37 @@ namespace csharp_viewer
 				throw new ArgumentException("no files specified");
 
 			if(filenames.Count == 1)
+				LoadAny(argv[0]);
+			else
+				throw new NotImplementedException("Multiple file load not yet implemented");
+		}
+		private void LoadAny(string filename, bool recursive = false, string name_pattern = null)
+		{
+			FindFileOrDirectory(ref filename);
+
+			if(Directory.Exists(filename))
 			{
-				if(Directory.Exists(argv[0]))
-				{
-					if(Cinema.IsCinemaDB(argv[0]))
-						LoadCinemaDatabase(argv[0]);
-					else
-						LoadDatabaseFromDirectory(argv[0], name_pattern, recursive);
-				}
-				else if(File.Exists(argv[0]))
-				{
-					if(argv[0].EndsWith(".png", StringComparison.OrdinalIgnoreCase) || argv[0].EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
-						LoadDatabaseFromImages(new string[] { argv[0] }, name_pattern);
-					else
-						throw new FileLoadException(argv[0] + " is not a PNG image");
-				}
+				if(Cinema.IsCinemaDB(filename))
+					LoadCinemaDatabase(filename);
 				else
-					throw new FileNotFoundException(argv[0] + " not found");
+					LoadDatabaseFromDirectory(filename, name_pattern, recursive);
+			}
+			else if(File.Exists(filename))
+			{
+				if(filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
+					LoadDatabaseFromImages(new string[] { filename }, name_pattern);
+				else
+					throw new FileLoadException(filename + " is not a PNG image");
 			}
 			else
-				throw new NotImplementedException("Multiple file load not implemented yet");
+				throw new FileNotFoundException(filename + " not found");
 		}
 
 		private void LoadCinemaDatabase(string filename)
 		{
-			PreLoad();
+			FindFileOrDirectory(ref filename);
 
-			FindDirectory(ref filename);
+			PreLoad();
 
 			// Parse meta data from info.json
 			Cinema.ParseCinemaDescriptor(filename, out arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
@@ -730,11 +734,11 @@ namespace csharp_viewer
 					cimg.depth_filename = depthpath;
 					Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 					cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
-					images_mutex.WaitOne();
+					image_render_mutex.WaitOne();
 					//images.Add(cimg.key, cimg);
 					images.Add(cimg);
 					visible.Add(cimg);
-					images_mutex.ReleaseMutex();
+					image_render_mutex.ReleaseMutex();
 
 					for(int i = 0; i < arguments.Length; ++i)
 					{
@@ -768,6 +772,7 @@ namespace csharp_viewer
 						}
 					}
 				} while(!done);
+
 				#if !DISABLE_DATAVIZ
 				if(dataviz != null)
 				dataviz.ImagesAdded();
@@ -795,7 +800,9 @@ namespace csharp_viewer
 		}
 		private void LoadDatabaseFromDirectory(string dirname, string name_pattern = null, bool recursive = false)
 		{
-			FindDirectory(ref dirname);
+			FindFileOrDirectory(ref dirname);
+
+			PreLoad();
 
 			List<string> filenames = new List<string>();
 			foreach(string filename in Directory.EnumerateFiles(dirname, "*.*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
@@ -912,10 +919,10 @@ namespace csharp_viewer
 				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 
 				cimg.key = key;
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				images.Add(cimg);
 				visible.Add(cimg);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 
 				if(cimg.meta != null)
 					foreach(KeyValuePair<string, object> meta in cimg.meta)
@@ -981,6 +988,8 @@ namespace csharp_viewer
 				}
 			} while(!done);
 
+			Thread.Sleep(5000);
+
 			Random rand = new Random();
 
 			int indexlist_length = indexlist.Count;
@@ -1028,7 +1037,7 @@ namespace csharp_viewer
 foreach(ImageTransform transform in imageCloud.transforms)
 	cimg.AddTransform(transform);
 
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 
 				//images.Add(cimg.key, cimg);
 				images.Add(cimg);
@@ -1038,7 +1047,9 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				if(selection != null && selection.Contains(cimg))
 					CallSelectionChangedHandlers();
 
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
+
+				imageCloud.AddImage(cimg);
 
 				if(cimg.meta != null)
 					foreach(KeyValuePair<string, object> meta in cimg.meta)
@@ -1057,22 +1068,23 @@ foreach(ImageTransform transform in imageCloud.transforms)
 					dataviz.ImagesAdded();
 #endif
 
-				Thread.Sleep(10);
+				Thread.Sleep(1000);
 			}
 		}
 
 		private void UnloadDatabase()
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 
 			imageCloud.Unload();
 			actMgr.Unload();
 
 			arguments = null;
 			selection.Clear();
+			visible.Clear();
 			images.Clear();
 
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 
 			OnSelectionChanged(selection);
 			ClearTransforms();
@@ -1153,7 +1165,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				imagekey[i] = e.Current;
 			}*/
 
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 
 			if(imageCloud != null)
 				imageCloud.OnSelectionChanged();
@@ -1163,16 +1175,16 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				dataviz.OnSelectionChanged(imagekey, images);
 #endif
 
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 		}
 		private void OnSelectionMoved()
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 
 			if(imageCloud != null)
 				imageCloud.OnSelectionMoved();
 
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 		}
 
 		private void ArgumentIndex_ArgumentLabelMouseDown(Cinema.CinemaArgument argument, int argumentIndex)
@@ -1194,12 +1206,12 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			if(images == null)
 				return;
 
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 			imageCloud.AddTransform(newtransform);
 
 			foreach(TransformedImage image in images)
 				image.AddTransform(newtransform);
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to added transform)
 			CallSelectionChangedHandlers();
@@ -1276,7 +1288,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 		private void ClearTransforms()
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 			imageCloud.ClearTransforms();
 
 			foreach(TransformedImage image in images.Values)
@@ -1284,7 +1296,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				image.ClearTransforms();
 				image.skipPosAnimation();
 			}
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to removed transforms)
 			CallSelectionChangedHandlers();
@@ -1319,6 +1331,10 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			imageCloud.Init(glImageCloud);
 			imageCloud.OnSizeChanged(glImageCloud.Size);
 
+			glImageCloud.AllowDrop = true;
+			glImageCloud.DragEnter += glImageCloud_DragEnter;
+			glImageCloud.DragDrop += glImageCloud_DragDrop;
+
 			glImageCloud.MouseDown += glImageCloud_MouseDown;
 			glImageCloud.MouseUp += glImageCloud_MouseUp;
 			glImageCloud.MouseMove += glImageCloud_MouseMove;
@@ -1332,7 +1348,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			//if(cmdline.Length == 1)
 			//	LoadCinemaDatabase(cmdline[0]);
-			LoadAny(cmdline);
+			LoadFromCommandLine(cmdline);
 //LoadDatabaseFromImages(new string[] {"/Users/sklaassen/Desktop/work/db/cinema_debug/image/1.000000/-30/-30.png"});
 //if(cmdline.Length == 1)
 //	LoadDatabaseFromDirectory(cmdline[0], false);
@@ -1344,9 +1360,11 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			timer = new System.Diagnostics.Stopwatch();
 			timer.Start();
 
+			float averageDt = 0.0f;
+			int frameCounter = 0;
 			while(!form_closing)
 			{
-				if (images_mutex.WaitOne(1) == false)
+				if (image_render_mutex.WaitOne(1) == false)
 					continue;
 
 				InputDevices.Update();
@@ -1354,11 +1372,24 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				float dt = (float)timer.Elapsed.TotalSeconds;
 				timer.Restart();
 
+				//dt = Math.Min(0.1f, dt); // Avoid high dt during lags
+
+				if(dt < 1.0f)
+				{
+					averageDt = dt + (float)frameCounter * averageDt;
+					averageDt /= (float)++frameCounter;
+				}
+				else
+				{
+					dt = averageDt;
+					++frameCounter;
+				}
+
 				actMgr.Update(ref dt);
 
 				glImageCloud.Render(dt);
 
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 
 				glImageCloud.SwapBuffers();
 
@@ -1369,48 +1400,62 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			renderThread_finished = true;
 		}
 
+		void glImageCloud_DragEnter(object sender, DragEventArgs e)
+		{
+			if(e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy;
+		}
+
+		void glImageCloud_DragDrop(object sender, DragEventArgs e)
+		{
+			string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+			if(files.Length == 1)
+				LoadAny(files[0], true);
+			else if(files.Length > 1)
+				LoadDatabaseFromImages(files);
+		}
+
 		private bool mouseDownInsideArgIndex = false;
 		private void glImageCloud_MouseDown(object sender, MouseEventArgs e)
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 			#if USE_ARG_IDX
 			if(argIndex.MouseDown(glImageCloud.Size, e))
 				mouseDownInsideArgIndex = true;
 			else
 			#endif
 				imageCloud.MouseDown(sender, e);
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 		}
 		private void glImageCloud_MouseUp(object sender, MouseEventArgs e)
 		{
 			mouseDownInsideArgIndex = false;
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 			#if USE_ARG_IDX
 			if(!argIndex.MouseUp(glImageCloud.Size, e))
 			#endif
 				imageCloud.MouseUp(sender, e);
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 		}
 		private void glImageCloud_MouseMove(object sender, MouseEventArgs e)
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 			#if USE_ARG_IDX
 			if(!argIndex.MouseMove(glImageCloud.Size, e) && !mouseDownInsideArgIndex)
 			#endif
 				imageCloud.MouseMove(sender, e);
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 		}
 		private void glImageCloud_MouseWheel(object sender, MouseEventArgs e)
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 			imageCloud.MouseWheel(sender, e);
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 		}
 		private void glImageCloud_DoubleClick(object sender, EventArgs e)
 		{
-			images_mutex.WaitOne();
+			image_render_mutex.WaitOne();
 			imageCloud.DoubleClick(sender, this.PointToClient(MousePosition));
-			images_mutex.ReleaseMutex();
+			image_render_mutex.ReleaseMutex();
 		}
 		private delegate void bar(object sender, EventArgs e);
 		private void glImageCloud_KeyDown(object sender, KeyEventArgs e)
@@ -1435,10 +1480,10 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				actMgr.Clear();
 				break;
 			default:
-				images_mutex.WaitOne();
+				image_render_mutex.WaitOne();
 				imageCloud.KeyDown(sender, e);
 				browser.OnKeyDown(e);
-				images_mutex.ReleaseMutex();
+				image_render_mutex.ReleaseMutex();
 				break;
 			}
 		}

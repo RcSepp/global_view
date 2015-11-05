@@ -424,9 +424,10 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 		public enum ViewControl
 		{
-			ViewCentric, CoordinateSystemCentric, TwoDimensional
+			ViewCentric, CoordinateSystemCentric, PointCentric, TwoDimensional
 		}
 		public ViewControl viewControl = ViewControl.ViewCentric;
+		public Vector3 viewRotationCenter = Vector3.Zero;
 
 		private bool depthRenderingEnabled = true;
 		private float depthRenderingEnabled_fade;
@@ -454,6 +455,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		// Options
 
 		public bool showCoordinateSystem = true;
+		public bool showLineGrid = true;
+		public bool enableMouseRect = true;
 
 		// Actions
 
@@ -487,6 +490,12 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 #endif
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
+
+			//texstream = new GLTextureStream(256*1024*1024); // Optimize for 1GB of VRAM
+			texstream = new GLTextureStream(64*1024*1024); // Optimize for 256MB of VRAM
+			//texstream = new GLTextureStream(8*1024*1024); // Optimize for 32MB of VRAM
+			//texstream = new GLTextureStream(1024*1024); // Optimize for 4MB of VRAM
+			//texstream = new GLTextureStream(128*1024); // Optimize for 512KB of VRAM
 
 			#if USE_ARG_IDX
 			argIndex.Bounds = new Rectangle(30, 10, 600, 16);
@@ -540,11 +549,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 			GL.ActiveTexture(TextureUnit.Texture0);
 
-			//texstream = new GLTextureStream(images, 256*1024*1024); // Optimize for 1GB of VRAM
-			texstream = new GLTextureStream(images, 64*1024*1024); // Optimize for 256MB of VRAM
-			//texstream = new GLTextureStream(images, 8*1024*1024); // Optimize for 32MB of VRAM
-			//texstream = new GLTextureStream(images, 1024*1024); // Optimize for 4MB of VRAM
-			//texstream = new GLTextureStream(images, 128*1024); // Optimize for 512KB of VRAM
+			texstream.AddImages(images);
 
 			// Create mesh for depth rendering
 			Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
@@ -605,19 +610,15 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			selectionAabb = null;
 			if(texstream != null)
 			{
-				texstream.Free();
-				texstream = null;
+				texstream.ClearImages();
+				/*texstream.Free();
+				texstream = null;*/
 			}
 			sdr2D = null;
 			sdr3D = null;
 			if(mesh3D != null)
 				mesh3D.Free();
 			mesh3D = null;
-			/*if(colorTableMgr != null)
-			{
-				colorTableMgr.Free();
-				colorTableMgr = null;
-			}*/
 			cmImage = null;
 
 			#if USE_ARG_IDX
@@ -625,7 +626,43 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			#endif
 		}
 
-		private void FocusAABB(AABB aabb)
+		public void Free()
+		{
+			if(texstream != null)
+			{
+				texstream.Free();
+				texstream = null;
+			}
+			sdrAabb = null;
+			if(mesh2D != null)
+				mesh2D.Free();
+			mesh2D = null;
+			texdot = null;
+			if(colorTableMgr != null)
+			{
+				//colorTableMgr.Free();
+				colorTableMgr = null;
+			}
+		}
+
+		public void AddImage(TransformedImage image)
+		{
+			texstream.AddImage(image);
+		}
+		public void AddImages(IEnumerable<TransformedImage> images)
+		{
+			texstream.AddImages(images);
+		}
+		public void RemoveImage(TransformedImage image)
+		{
+			texstream.RemoveImage(image);
+		}
+		public void RemoveImages(IEnumerable<TransformedImage> images)
+		{
+			texstream.RemoveImages(images);
+		}
+
+		private void FocusAABB(AABB aabb, bool animate)
 		{
 			Vector3 minposX = new Vector3(float.MaxValue, 0.0f, 0.0f), minposY = new Vector3(0.0f, float.MaxValue, 0.0f);
 			Vector3 maxposX = new Vector3(float.MinValue, 0.0f, 0.0f), maxposY = new Vector3(0.0f, float.MinValue, 0.0f), maxposZ = new Vector3(0.0f, 0.0f, float.MinValue);
@@ -676,7 +713,10 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			// Transform new view position back to global space
 			vieworient.Transpose();
-			freeview.AnimatePosition(Vector3.TransformPosition(V, vieworient));
+			if(animate)
+				freeview.AnimatePosition(Vector3.TransformPosition(V, vieworient));
+			else
+				freeview.viewpos = Vector3.TransformPosition(V, vieworient);
 		}
 
 		public void InvalidateOverallBounds()
@@ -758,7 +798,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					AABB overallAabb = new AABB();
 					foreach(TransformedImage image in images.Values)
 						overallAabb.Include(image.GetBounds());
-					camera_speed = 10.0f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
+					camera_speed = 1.0f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
 					camera_speed = Math.Max(0.1f, camera_speed);
 					camera_speed = Math.Min(10.0f, camera_speed);
 				}
@@ -811,23 +851,23 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					{
 						if(viewControl == ViewControl.ViewCentric)
 							freeview.Rotate(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx));
-						else // viewControl == ViewControl.CoordinateSystemCentric
+						else
 						{
-							if(selectionAabb != null)
-								freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), (selectionAabb.min + selectionAabb.max) / 2.0f);
-							else
-								freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), Vector3.Zero);
+							if(viewControl == ViewControl.CoordinateSystemCentric)
+								viewRotationCenter = selectionAabb != null ? (selectionAabb.min + selectionAabb.max) / 2.0f : Vector3.Zero;
+							
+							freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), viewRotationCenter);
 						}
 						viewChanged = true;
 					}
 				}
-				freeview.Update(camera_speed * dt);
+				freeview.Update(0.1f * camera_speed * dt);
 				if(viewChanged)
 					foreach(ImageTransform transform in transforms)
 						transform.OnCameraMoved(freeview);
 			}
 			else
-				freeview.Update(camera_speed * dt);
+				freeview.Update(0.1f * camera_speed * dt);
 
 			// >>> Render
 
@@ -856,7 +896,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				transform.OnRender(dt, freeview);
 
 			if(images != null)
-				foreach(TransformedImage image in images.Values)
+				foreach(TransformedImage image in Viewer.visible)
 					image.PrepareRender();
 
 			Matrix4 vieworient = freeview.viewmatrix, invvieworient;
@@ -894,15 +934,16 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 				float _time = Global.time;
 				//Global.time += 0.5f; // Prefetch 0.5 second into the future
-				Global.time += 1.1f;
+				//Global.time += 1.1f;
+				Global.time += 7.1f;
 				// If the prefetching intervall is too short, images aren't loaded on time.
 				// If the prefetching intervall is too long, too much memory is consumed.
 				// Optimally the prefetching intervall should depend on the load time.
-				foreach(TransformedImage iter in images.Values)
+				foreach(TransformedImage iter in Viewer.visible)
 					iter.PrefetchRenderPriority(freeview, invvieworient, backbuffersize);
 				Global.time = _time;
 
-				foreach(TransformedImage iter in images.Values)
+				foreach(TransformedImage iter in Viewer.visible)
 				{
 					// Make sure texture is loaded
 					iter.LoadTexture(texstream);
@@ -975,7 +1016,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 #endif
 			}
 
-			grid.Draw(freeview, selectionAabb, new Color4(0.5f, 1.0f, 0.5f, 1.0f), backbuffersize);
+			if(showLineGrid)
+				grid.Draw(freeview, selectionAabb, new Color4(0.5f, 1.0f, 0.5f, 1.0f), backbuffersize);
 
 			if( showCoordinateSystem && selectionAabb != null)
 			{
@@ -1197,27 +1239,26 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 				if(closest_dist < float.MaxValue)
 				{
-					dragImage = closest_image;
-					dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
+					bool enableDrag;
+					Viewer.browser.OnImageMouseDown(closest_image, out enableDrag);
 
-					// dragImagePlane = plane parallel to screen, going through point of intersection
-					Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
-					Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
-					Vector3 vsdir = (vsfar - vsnear).Normalized();
-					dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
+					if(enableDrag)
+					{
+						dragImage = closest_image;
+						dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
 
-					Viewer.browser.OnImageMouseDown(closest_image);
+						// dragImagePlane = plane parallel to screen, going through point of intersection
+						Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
+						Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
+						Vector3 vsdir = (vsfar - vsnear).Normalized();
+						dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
+					}
 				}
 				else if(e.Button == MouseButtons.Left)
 				{
 					dragImage = null;
 
-					// Clear selection if Windows key (command key on Mac) isn't pressed
-					if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LWin) && !selection.IsEmpty)
-					{
-						selection.Clear();
-						SelectionChanged();
-					}
+					Viewer.browser.OnNonImageMouseDown();
 				}
 			}
 		}
@@ -1283,7 +1324,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				// Set newpos to intersection of mouse ray and dragImagePlane
 				Vector3 newpos;
 				dragImagePlane.IntersectLine(vnear, vdir, out newpos);
-				Viewer.browser.OnImageMove(dragImage, newpos - dragImage.pos + dragImageOffset);
+				Viewer.browser.OnImageDrag(dragImage, newpos - dragImage.pos + dragImageOffset);
 				//ActionManager.Do(MoveAction, newpos - dragImage.pos + dragImageOffset, selection);
 
 				InvalidateOverallBounds();
@@ -1316,7 +1357,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			{
 				mouseDownLocation = new Point(-100, -100); // Make sure mouse rect movement stays enabled
 
-				if((e.Button & MouseButtons.Left) != 0)
+				if(enableMouseRect && e.Button == MouseButtons.Left)
 				{
 					// Update mouse rect
 					if(mouseRect == null)
@@ -1467,7 +1508,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			return bmp;
 		}
 
-		public void FocusSingle(TransformedImage image)
+		public void FocusSingle(TransformedImage image, bool animate)
 		{
 			AABB imageBounds;
 			if(viewControl == ViewControl.TwoDimensional)
@@ -1480,11 +1521,11 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			if(imageBounds.max.X >= imageBounds.min.X)
 			{
-				FocusAABB(imageBounds);
+				FocusAABB(imageBounds, animate);
 				Status("Focus images");
 			}
 		}
-		public void Focus(IEnumerable<TransformedImage> images)
+		public void Focus(IEnumerable<TransformedImage> images, bool animate)
 		{
 			AABB aabb = new AABB();
 			if(viewControl == ViewControl.TwoDimensional)
@@ -1499,7 +1540,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					aabb.Include(image.GetBounds());
 			if(aabb.max.X >= aabb.min.X)
 			{
-				FocusAABB(aabb);
+				FocusAABB(aabb, animate);
 				Status("Focus images");
 			}
 		}
@@ -1609,7 +1650,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			foreach(TransformedImage image in images)
 			{
 				image.ClearTransforms();
-				image.skipPosAnimation();
+				//image.skipPosAnimation();
 			}
 			SelectionChanged();
 			//EDIT: Call transforms.Clear(); for all transforms that aren't needed anymore

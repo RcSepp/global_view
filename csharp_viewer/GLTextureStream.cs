@@ -280,30 +280,32 @@ namespace csharp_viewer
 				}
 			}
 
-			private readonly TransformedImageCollection images;
 			private readonly int memorysize;
 			private int availablememory;
+
 			private readonly GLTexture2D texFileNotFound;
 
 			private Thread loaderThread;
 			private bool closeLoaderThread, loaderThreadClosed;
 
 			public List<Image> prioritySortedImages; //EDIT: Make private
+			private Mutex addImageMutex;
 
 			private float tradeoffRenderSizeFactor = 1.0f;
 
-			public AsyncImageLoader(TransformedImageCollection images, int memorysize, GLTexture2D texFileNotFound)
+			public AsyncImageLoader(/*TransformedImageCollection images,*/ int memorysize, GLTexture2D texFileNotFound)
 			{
-				this.images = images;
 				this.memorysize = memorysize;
 				this.availablememory = memorysize;
 				this.texFileNotFound = texFileNotFound;
 
 				foo = 0;
 
-				prioritySortedImages = new List<Image>(images.Count);
+				prioritySortedImages = new List<Image>();
+				addImageMutex = new Mutex();
+				/*prioritySortedImages = new List<Image>(images.Count);
 				foreach(TransformedImage image in images)
-					prioritySortedImages.Add(new Image(image));
+					prioritySortedImages.Add(new Image(image));*/
 
 				closeLoaderThread = loaderThreadClosed = false;
 				loaderThread = new Thread(LoaderThread);
@@ -314,11 +316,49 @@ namespace csharp_viewer
 			{
 				closeLoaderThread = true;
 			}
-
 			public void WaitForThreadClose()
 			{
 				while(!loaderThreadClosed)
 					Thread.Sleep(1);
+			}
+
+			public void AddImage(TransformedImage image)
+			{
+				addImageMutex.WaitOne();
+				prioritySortedImages.Add(new Image(image));
+				addImageMutex.ReleaseMutex();
+			}
+			public void AddImages(IEnumerable<TransformedImage> images)
+			{
+				addImageMutex.WaitOne();
+				foreach(TransformedImage image in images)
+					prioritySortedImages.Add(new Image(image));
+				addImageMutex.ReleaseMutex();
+			}
+			public void RemoveImage(TransformedImage image) // O(n)
+			{
+				addImageMutex.WaitOne();
+				prioritySortedImages.RemoveAll(delegate(Image img) {
+					return img.image == image;
+				});
+				addImageMutex.ReleaseMutex();
+			}
+			public void RemoveImages(IEnumerable<TransformedImage> images) // O(n^2)
+			{
+				addImageMutex.WaitOne();
+				prioritySortedImages.RemoveAll(delegate(Image img) {
+					foreach(TransformedImage image in images)
+						if(img.image == image)
+							return true;
+					return false;
+				});
+				addImageMutex.ReleaseMutex();
+			}
+			public void ClearImages()
+			{
+				addImageMutex.WaitOne();
+				prioritySortedImages.Clear();
+				addImageMutex.ReleaseMutex();
 			}
 
 			private void LoaderThread()
@@ -326,6 +366,8 @@ namespace csharp_viewer
 				while(!closeLoaderThread)
 				{
 					Thread.Sleep(1);
+
+					addImageMutex.WaitOne();
 
 					prioritySortedImages.Sort();
 
@@ -392,6 +434,8 @@ namespace csharp_viewer
 					#else
 					GLTextureStream.foo2 = (availablememory / 262144).ToString() + " MB";
 					#endif
+
+					addImageMutex.ReleaseMutex();
 				}
 
 				// Free memory
@@ -422,7 +466,7 @@ namespace csharp_viewer
 			return b;
 		}
 
-		public GLTextureStream(TransformedImageCollection images, int memorysize)
+		public GLTextureStream(int memorysize)
 		{
 			#if DEBUG_GLTEXTURESTREAM
 			memorysize = 8 * 79 * 79;
@@ -461,7 +505,7 @@ namespace csharp_viewer
 			// Load texture
 			texFileNotFound = new GLTexture2D(bmpFileNotFound, true);
 
-			loader = new AsyncImageLoader(images, memorysize, texFileNotFound);
+			loader = new AsyncImageLoader(memorysize, texFileNotFound);
 		}
 		public void Free()
 		{
@@ -470,6 +514,27 @@ namespace csharp_viewer
 			// Free local resources ...
 
 			loader.WaitForThreadClose();
+		}
+
+		public void AddImage(TransformedImage image)
+		{
+			loader.AddImage(image);
+		}
+		public void AddImages(IEnumerable<TransformedImage> images)
+		{
+			loader.AddImages(images);
+		}
+		public void RemoveImage(TransformedImage image)
+		{
+			loader.RemoveImage(image);
+		}
+		public void RemoveImages(IEnumerable<TransformedImage> images)
+		{
+			loader.RemoveImages(images);
+		}
+		public void ClearImages()
+		{
+			loader.ClearImages();
 		}
 
 		#if DEBUG_GLTEXTURESTREAM
