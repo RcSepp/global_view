@@ -1,34 +1,35 @@
-Global View project by Sebastian Klaassen (Los Alamos National Laboratory)
+# Global View project by Sebastian Klaassen (Los Alamos National Laboratory)
 
 
 This build has been tested and should run on Mac OSX, Linux (tested on Ubuntu 15.04) and Windows (Mono and C# build).
 
->>> Getting Started
+
+## Getting Started
 
 All dependencies are shipped with this build in binary form (FastColoredTextBox.dll, OpenTK.dll, OpenTK.GLControl.dll and Newtonsoft.Json.dll).
 To run Global View, the Mono runtime has to be installed (see http://www.mono-project.com/download/).
 
 Important:
-Due to a bug in the X11 driver of Mono, the program crashes when giving focus to the embedded terminal (on Linux). As a workaround the application can be started with sudo.
+	Due to a bug in the X11 driver of Mono, the program crashes when giving focus to the embedded terminal (on Linux). As a workaround the application can be started with sudo.
 
 To open the example database with Global View:
 	1) Open up a terminal
 	2) Navigate to the .../csharp_viewer/bin/Release/ directory
 	3) Execute "mono csharp_viewer.exe ../../../example/example_db/"
-	or
+or
 	1) ...
 	2) ...
 	3) Execute "mono csharp_viewer.exe"
 	4) type 'load "../../../example/example_db/"' into the console
-	or
+or
 	1) ...
 	2) ...
 	3) Execute "mono csharp_viewer.exe"
 	4) Drag the example_db folder onto the application
 
 Supported file types:
-Cinema databases ... A valid Cinema database contains an image/info.json file.
-List of images or directory containing images ... Use the '-r' command line option to recursively add images from subdirectories. Use the '-p' command line option to pass a name pattern, i.e. '{dir}/{subdir}.{image}.png'.
+	Cinema databases ... A valid Cinema database contains an image/info.json file.
+	List of images or directory containing images ... Use the '-r' command line option to recursively add images from subdirectories. Use the '-p' command line option to pass a name pattern, i.e. '{dir}/{subdir}.{image}.png'.
 
 Inside the global view application the basic controls are:
 	> Control camera with keys W, S, A, D, LShift & Space and using the mouse while holding the right mouse button
@@ -44,7 +45,8 @@ Example command sequence:
 	"animate by #theta" -> animates the "theta" argument (loops through angles of theta)
 	"exit" -> Closes the application
 
->>> The embedded terminal
+
+## The embedded terminal
 
 The embedded terminal steers the Global View by executing simple commands or ISQL commands. To start typing commands, the terminal has to be focused by clicking it with the mouse.
 	-> for details of ISQL refer to the ISQL section below
@@ -54,45 +56,46 @@ exit ... Exits Global View
 ls ... Lists files and folders of the current working directory
 cd <string> ... Changes the current working directory (note that string parameters have to be written in double-quotes, i.e. 'cd ".."', not 'cd ..')
 
->>> ISQL
+
+## ISQL
 
 Image-Database-Structured-Query-Language (ISQL) is a language based on SQL, that allows applying view-mappings to images. The basic syntax of ISQL is the following:
-STATEMENT [SCOPE] (CLAUSE CLAUSE_ARGUMENT)*
+	STATEMENT [SCOPE] (CLAUSE CLAUSE_ARGUMENT)*
 
 SCOPE refers to a group of images. Predefined groups are 'all', 'none', 'visible' and 'selection' (or 'selected'). Instead of a group, the WHERE clause can be used to specify a scope (see WHERE clause). New groups can be defined by 'FORM <group-name> SCOPE|(WHERE ...)', i.e. 'FORM diagonal WHERE $theta == $phi'.
 
 Currently ISQL supports two clauses: WHERE and BY:
-WHERE ... A C# expression evaluating to a boolean. The WHERE clause can be used instead of SCOPE. It performs the operation on all images for which the expression evaluates to true. ('SELECT all' performs eqal to 'SELECT WHERE true' or 'SELECT WHERE 0 == 0')
-BY ... A C# expression evaluating to a float or a comma-delimited list of floats. The BY clause is used to pass numeric arguments to visual mappings, i.e. 'X all BY 1' or 'X all by #theta * $phi'
+	WHERE ... A C# expression evaluating to a boolean. The WHERE clause can be used instead of SCOPE. It performs the operation on all images for which the expression evaluates to true. ('SELECT all' performs eqal to 'SELECT WHERE true' or 'SELECT WHERE 0 == 0')
+	BY ... A C# expression evaluating to a float or a comma-delimited list of floats. The BY clause is used to pass numeric arguments to visual mappings, i.e. 'X all BY 1' or 'X all by #theta * $phi'
 
 C# expressions follow standard C# syntax with the following additions:
-'sin' evaluates to '(float)global::System.Math.Sin'
-'cos' evaluates to '(float)global::System.Math.Cos'
-'tan' evaluates to '(float)global::System.Math.Tan'
-'pi' evaluates to '(float)global::System.Math.PI'
-'time' gets replaced by the time elapsed since the start of Global View (used for time-dependent visual mappings)
-'$<argument-name>' gets replaced by the VALUE of the given argument
-'#<argument-name>' gets replaced by the INDEX of the given argument
-'@<argument-name>' gets replaced by the STRING VALUE of the given argument
+	'sin' evaluates to '(float)global::System.Math.Sin'
+	'cos' evaluates to '(float)global::System.Math.Cos'
+	'tan' evaluates to '(float)global::System.Math.Tan'
+	'pi' evaluates to '(float)global::System.Math.PI'
+	'time' gets replaced by the time elapsed since the start of Global View (used for time-dependent visual mappings)
+	'$<argument-name>' gets replaced by the VALUE of the given argument
+	'#<argument-name>' gets replaced by the INDEX of the given argument
+	'@<argument-name>' gets replaced by the STRING VALUE of the given argument
 
 Global View supports the following statements:
-Control statements:
-SELECT SCOPE... Select images defined by SCOPE
-FOCUS SCOPE ...  Focus images defined by SCOPE (-> move camera to fit AABB of images)
-SHOW SCOPE ... Show images defined by SCOPE (-> make images invisible)
-HIDE SCOPE ... Hide images defined by SCOPE (-> make images visible)
-CLEAR SCOPE ... Remove all view-mappings on images defined by SCOPE
-COUNT SCOPE ... Return number of images in SCOPE
-Visual mapping statements:
-X SCOPE BY ... Create a visual mapping in x-direction
-Y SCOPE BY ... Create a visual mapping in y-direction
-Z SCOPE BY ... Create a visual mapping in z-direction
-THETAPHI SCOPE BY ... Create a visual mapping in polar coordinates (theta, phi, radius)
-STAR SCOPE BY ... Create a visual mapping in star coordinates (spread N coordinates by transforming with the N-dimensional carthesian base)
-LOOK SCOPE BY ... Create a visual mapping that shows only the one image that most closely resembles the current view angle (theta, phi)
-SKIP SCOPE BY ... Create a visual mapping that shows only images for which the BY expression evaluates to false. Animations can be implemented using SKIP, i.e. 'SKIP all BY #theta != (int)(time * 10.0f) % 4'
-Helper statements (shortcuts to more complex visual mappings):
-SPREAD SCOPE ... Create a star mapping by all argument's indices (see STAR statement)
-RSPREAD SCOPE ... Spread images randomly in x- and y-directions
-RSPREAD3D SCOPE ... Spread images randomly in x- and y- and z-directions
-ANIMATE BY ... Animate the argument specified by BY with 10 frames per second
+	Control statements:
+		SELECT SCOPE... Select images defined by SCOPE
+		FOCUS SCOPE ...  Focus images defined by SCOPE (-> move camera to fit AABB of images)
+		SHOW SCOPE ... Show images defined by SCOPE (-> make images invisible)
+		HIDE SCOPE ... Hide images defined by SCOPE (-> make images visible)
+		CLEAR SCOPE ... Remove all view-mappings on images defined by SCOPE
+		COUNT SCOPE ... Return number of images in SCOPE
+	Visual mapping statements:
+		X SCOPE BY ... Create a visual mapping in x-direction
+		Y SCOPE BY ... Create a visual mapping in y-direction
+		Z SCOPE BY ... Create a visual mapping in z-direction
+		THETAPHI SCOPE BY ... Create a visual mapping in polar coordinates (theta, phi, radius)
+		STAR SCOPE BY ... Create a visual mapping in star coordinates (spread N coordinates by transforming with the N-dimensional carthesian base)
+		LOOK SCOPE BY ... Create a visual mapping that shows only the one image that most closely resembles the current view angle (theta, phi)
+		SKIP SCOPE BY ... Create a visual mapping that shows only images for which the BY expression evaluates to false. Animations can be implemented using SKIP, i.e. 'SKIP all BY #theta != (int)(time * 10.0f) % 4'
+	Helper statements (shortcuts to more complex visual mappings):
+		SPREAD SCOPE ... Create a star mapping by all argument's indices (see STAR statement)
+		RSPREAD SCOPE ... Spread images randomly in x- and y-directions
+		RSPREAD3D SCOPE ... Spread images randomly in x- and y- and z-directions
+		ANIMATE BY ... Animate the argument specified by BY with 10 frames per second
