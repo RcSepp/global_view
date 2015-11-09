@@ -2117,3 +2117,5 @@ rspread all
 select all
 spread all
 spread all
+spread all
+x all by $theta

@@ -1384,3 +1384,4 @@ hide where $phi != 0
 hide where $phi != 0
 hide where $theta != 0
 animate by #time
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 8
