@@ -174,9 +174,10 @@ namespace csharp_viewer
 			Action action = new InvokeAction(method, desc, paramtypes, instance, methodinfo, null);
 			if(mgr != null)
 			{
-				if(mgr.registered_actions.ContainsKey(action.name))
-					mgr.registered_actions.Remove(action.name);
-				mgr.registered_actions.Add(action.name, action);
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
 			}
 			return action;
 		}
@@ -198,9 +199,10 @@ namespace csharp_viewer
 			Action action = new InvokeAction(_do, desc, paramtypes, instance, _do_info, _undo_info);
 			if(mgr != null)
 			{
-				if(mgr.registered_actions.ContainsKey(action.name))
-					mgr.registered_actions.Remove(action.name);
-				mgr.registered_actions.Add(action.name, action);
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
 			}
 			return action;
 		}
@@ -220,9 +222,10 @@ namespace csharp_viewer
 			Action action = new InvokeAction(name, desc, paramtypes, instance, methodinfo, null);
 			if(mgr != null)
 			{
-				if(mgr.registered_actions.ContainsKey(action.name))
-					mgr.registered_actions.Remove(action.name);
-				mgr.registered_actions.Add(action.name, action);
+				name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name.ToLower()))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
 			}
 			return action;
 		}
@@ -232,9 +235,10 @@ namespace csharp_viewer
 			Action action = new CallbackAction(method, desc, new Type[] {}, func);
 			if(mgr != null)
 			{
-				if(mgr.registered_actions.ContainsKey(action.name))
-					mgr.registered_actions.Remove(action.name);
-				mgr.registered_actions.Add(action.name, action);
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name.ToLower()))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
 			}
 			return action;
 		}
@@ -243,9 +247,10 @@ namespace csharp_viewer
 			Action action = new CallbackAction(method, desc, new Type[] {typeof(T)}, func);
 			if(mgr != null)
 			{
-				if(mgr.registered_actions.ContainsKey(action.name))
-					mgr.registered_actions.Remove(action.name);
-				mgr.registered_actions.Add(action.name, action);
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name.ToLower()))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
 			}
 			return action;
 		}
@@ -254,9 +259,10 @@ namespace csharp_viewer
 			Action action = new CallbackAction(method, desc, new Type[] {typeof(T1), typeof(T2)}, func);
 			if(mgr != null)
 			{
-				if(mgr.registered_actions.ContainsKey(action.name))
-					mgr.registered_actions.Remove(action.name);
-				mgr.registered_actions.Add(action.name, action);
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name.ToLower()))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
 			}
 			return action;
 		}
@@ -325,13 +331,13 @@ namespace csharp_viewer
 		/*public void Invoke(string action_name)
 		{
 			Action action;
-			if(registered_actions.TryGetValue(action_name, out action))
+			if(registered_actions.TryGetValue(action_name.ToLower(), out action))
 				action.Do();
 		}
 		public void Invoke(string action_name, object[] args)
 		{
 			Action action;
-			if(registered_actions.TryGetValue(action_name, out action))
+			if(registered_actions.TryGetValue(action_name.ToLower(), out action))
 				action.Do(args);
 		}*/
 		public string Invoke(string action_name, object[] args)
@@ -355,7 +361,7 @@ namespace csharp_viewer
 			}
 
 			Action action;
-			if(!registered_actions.TryGetValue(action_name, out action))
+			if(!registered_actions.TryGetValue(action_name.ToLower(), out action))
 			{
 				if(arguments == null)
 				{
@@ -392,7 +398,7 @@ namespace csharp_viewer
 					}
 				}
 
-				if(!registered_actions.TryGetValue(new_action_name, out action))
+				if(!registered_actions.TryGetValue(new_action_name.ToLower(), out action))
 				{
 					stdout += "Command not found " + action_name;
 					return stdout;

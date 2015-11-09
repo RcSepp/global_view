@@ -152,7 +152,7 @@ namespace csharp_viewer
 
 			groups.Add("all", images);
 			groups.Add("none", new List<TransformedImage>());
-			groups.Add("selection", selection);
+			groups.Add("selection", selection); groups.Add("selected", selection);
 			foreach(TransformedImage image in images)
 				visible.Add(image);
 			groups.Add("visible", visible);

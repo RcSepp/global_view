@@ -119,13 +119,13 @@ namespace ISQL
 					if(varExpr.Equals("time"))
 						varExpr = "Global.time";
 					else if(varExpr.Equals("sin"))
-						varExpr = "(float)System.Math.Sin";
+						varExpr = "(float)global::System.Math.Sin";
 					else if(varExpr.Equals("cos"))
-						varExpr = "(float)System.Math.Cos";
+						varExpr = "(float)global::System.Math.Cos";
 					else if(varExpr.Equals("tan"))
-						varExpr = "(float)System.Math.Tan";
+						varExpr = "(float)global::System.Math.Tan";
 					else if(varExpr.Equals("pi"))
-						varExpr = "(float)System.Math.PI";
+						varExpr = "(float)global::System.Math.PI";
 					else
 						continue;
 

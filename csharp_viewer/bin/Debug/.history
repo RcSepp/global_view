@@ -2119,3 +2119,76 @@ spread all
 spread all
 spread all
 x all by $theta
+select all
+focus all
+theta-phi $theta * pi / 180, $phi * pi / 180, 4
+thetaPhi $theta * pi / 180, $phi * pi / 180, 4
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 4
+focus selection
+animate #time
+animate by #time
+animate by #theta
+exit
+clear
+move
+move all by 1, 2, 3
+move by 1, 2, 3
+move new Vector3(1, 2, 3)
+move new Vector3(1, 2, 3) all
+move 1, 2, 3
+exit
+focus selected
+focus selection
+select all
+focus selection
+spread all
+FORM mygroup selection WHERE $theta == $phi
+GROUP mygroup selection WHERE $theta == $phi
+FORM mygroup WHERE $theta == $phi
+form mygroup WHERE $theta == $phi
+form mygroup where $theta == $phi
+form mygroup selection where $theta == $phi
+form mygroup all
+form mygroup all
+form mygroup all
+form "mygroup" all
+spread all
+FORM "mygroup" selection WHERE $theta == $phi
+FORM "mygroup" WHERE $theta == $phi
+form "mygroup" WHERE $theta == $phi
+form "mygroup2" WHERE $theta == $phi
+form "mygroup3" WHERE $theta == $phi
+form "mygroup4" selection WHERE $theta == $phi
+hide mygroup4
+show all
+form "mygroup5" WHERE $theta == $phi selection
+FoRm "mygroup5" WHERE $theta == $phi selection
+FoRm "mygroup5" selection WHERE $theta == $phi
+FoRm "mygroup5" selection WHERE $theta == $phi
+FoRm "mygroup5" selection WHERE $theta == $phi
+FoRm "mygroup5" selection WHERE $theta == $phi
+FoRm "mygroup" selected WHERE $theta == $phi
+spread all
+hide mygroup
+show mygroup
+FoRm "mygroup2" selected WHERE $theta == $phi
+FoRm "mygroup2" selected WHERE $theta == $phi
+SELECT WHERE true
+select none
+select WhErE 0 == 0
+select WhErE 0 == 0
+select WhErE sin($phi) == 1
+select WhErE sin( $phi ) == 1
+select WhErE sin( 10 ) == 1
+spread all
+select WhErE sin( $phi ) == 1
+select WhErE sin( $phi * pi / 180 ) == 1
+star #phi
+star all by #phi
+clear all
+star all by #phi + theta
+star all by #phi + #theta
+clear all
+clear
+star all by #phi, theta
+star all by #phi, #theta
