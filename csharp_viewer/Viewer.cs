@@ -179,6 +179,7 @@ namespace csharp_viewer
 			glImageCloud.Load += glImageCloud_Load;
 			//glImageCloud.Paint += glImageCloud_Paint;
 			glImageCloud.TabIndex = 0;
+			glImageCloud.AllowDrop = true;
 			this.Controls.Add(glImageCloud);
 			imageCloud = new ImageCloud();
 			imageCloud.Dock = DockStyle.Fill;
@@ -235,62 +236,62 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Exit program", "exit", this, "Exit");
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Select images", "select", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
-				imageCloud.Select(images);
+				imageCloud.Select(scope);
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Focus images", "focus", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
-				imageCloud.Focus(images, true);
+				imageCloud.Focus(scope, true);
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<Vector3, IEnumerable<TransformedImage>>("Move images", "move", delegate(object[] parameters) {
 				Vector3 deltapos = (Vector3)parameters[0];
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[1];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[1];
 				image_render_mutex.WaitOne();
-				imageCloud.Move(deltapos, images);
+				imageCloud.Move(deltapos, scope);
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Show images", "show", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
-				browser.Show(images);
+				browser.Show(scope);
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Hide images", "hide", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
-				browser.Hide(images);
+				browser.Hide(scope);
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Clear image transforms", "clear", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
-				imageCloud.Clear(images);
+				imageCloud.Clear(scope);
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Count images", "count", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
-				string result = imageCloud.Count(images).ToString();
+				string result = imageCloud.Count(scope).ToString();
 				image_render_mutex.ReleaseMutex();
 				return result;
 			});
 			ActionManager.CreateAction<string, IEnumerable<TransformedImage>>("Create image group", "form", delegate(object[] parameters) {
 				string groupname = (string)parameters[0];
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[1];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[1];
 				if(groups.ContainsKey(groupname))
 					return "Group " + groupname + " already exists";
 				image_render_mutex.WaitOne();
-				groups.Add(groupname, imageCloud.CreateGroup(images));
+				groups.Add(groupname, imageCloud.CreateGroup(scope));
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
@@ -385,7 +386,7 @@ namespace csharp_viewer
 			});*/
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread out all dimensions", "spread", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 
 				if(arguments != null)
 				{
@@ -393,7 +394,7 @@ namespace csharp_viewer
 					transform.SetArguments(arguments);
 					for(int i = 0; i < arguments.Length; ++i)
 						transform.SetIndex(i, i);
-					OnTransformationAdded(transform, images);*/
+					OnTransformationAdded(transform, scope);*/
 
 					string byExpr = "0";
 					for(int argidx = 0; argidx < arguments.Length; ++argidx)
@@ -401,7 +402,7 @@ namespace csharp_viewer
 							byExpr = "2.0f * Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
 						else
 							byExpr += ", 2.0f * Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
-					CreateTransformStar(byExpr, null, images);
+					CreateTransformStar(byExpr, null, scope);
 				}
 				return null;
 			});
@@ -422,16 +423,16 @@ namespace csharp_viewer
 			});
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly", "rspread", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 
 				if(arguments != null)
 				{
-					int numimages = imageCloud.Count(images);
+					int numimages = imageCloud.Count(scope);
 					float ext = (float)Math.Sqrt(numimages), halfext = ext / 2.0f;
 
 					Random rand = new Random();
 					image_render_mutex.WaitOne();
-					foreach(TransformedImage image in images)
+					foreach(TransformedImage image in scope)
 						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)0.0f);
 					image_render_mutex.ReleaseMutex();
 
@@ -443,16 +444,16 @@ namespace csharp_viewer
 				return null;
 			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly in 3 dimensions", "rspread3d", delegate(object[] parameters) {
-				IEnumerable<TransformedImage> images = (IEnumerable<TransformedImage>)parameters[0];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 
 				if(arguments != null)
 				{
-					int numimages = imageCloud.Count(images);
+					int numimages = imageCloud.Count(scope);
 					float ext = (float)Math.Pow(numimages, 1.0 / 3.0), halfext = ext / 2.0f;
 
 					Random rand = new Random();
 					image_render_mutex.WaitOne();
-					foreach(TransformedImage image in images)
+					foreach(TransformedImage image in scope)
 						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext);
 					image_render_mutex.ReleaseMutex();
 
@@ -1331,7 +1332,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			imageCloud.Init(glImageCloud);
 			imageCloud.OnSizeChanged(glImageCloud.Size);
 
-			glImageCloud.AllowDrop = true;
 			glImageCloud.DragEnter += glImageCloud_DragEnter;
 			glImageCloud.DragDrop += glImageCloud_DragDrop;
 
