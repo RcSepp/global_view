@@ -197,7 +197,7 @@ namespace csharp_viewer
 		{
 			// Compile source code for image enumerator class
 			CSharpCodeProvider csharp_compiler = new CSharpCodeProvider();
-			CompilerParameters csharp_compilerparams = new CompilerParameters(new[] { "system.dll", "OpenTK.dll", System.Reflection.Assembly.GetEntryAssembly().Location }) {
+			CompilerParameters csharp_compilerparams = new CompilerParameters(new[] { "system.dll", "System.Core.dll", "OpenTK.dll", System.Reflection.Assembly.GetEntryAssembly().Location }) {
 				GenerateInMemory = true,
 				GenerateExecutable = false
 			};

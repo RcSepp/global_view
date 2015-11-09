@@ -649,7 +649,7 @@ namespace csharp_viewer
 				throw new ArgumentException("no files specified");
 
 			if(filenames.Count == 1)
-				LoadAny(argv[0]);
+				LoadAny(argv[0], recursive, name_pattern);
 			else
 				throw new NotImplementedException("Multiple file load not yet implemented");
 		}

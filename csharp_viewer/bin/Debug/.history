@@ -2114,3 +2114,5 @@ load "mpas_single"
 load "mpas_single"
 exit
 rspread all
+select all
+spread all

@@ -168,6 +168,30 @@ namespace csharp_viewer
 					Bitmap newbmp = (Bitmap)Bitmap.FromFile(image.filename);
 					++GLTextureStream.foo;
 
+					/*// Read metadata
+					foreach(PropertyItem prop in newbmp.PropertyItems)
+					{
+						switch(prop.Id)
+						{
+						case 0x013E: // PropertyTagWhitePoint
+						case 0x013F: // PropertyTagPrimaryChromaticities
+						case 0x0301: // PropertyTagGamma
+							break;
+
+						case 0x9286: //PropertyTagExifUserComment
+							if(prop.Type == 2)
+							{
+								string value = System.Text.Encoding.UTF8.GetString(prop.Value);
+								System.Console.WriteLine(string.Format(value));
+							}
+							break;
+							
+						default:
+							System.Console.WriteLine(string.Format("{0}: ({1}){2}", prop.Id, prop.Type, prop.Len));
+							break;
+						}
+					}*/
+
 					// Compute original dimensions
 					image.originalWidth = newbmp.Width;
 					image.originalHeight = newbmp.Height;
