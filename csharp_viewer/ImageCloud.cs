@@ -239,6 +239,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		GLMesh mesh2D, mesh3D;
 
 		private GLWindow glcontrol;
+		private bool glcontrol_focused = false;
 		private Size backbuffersize;
 
 		public class FreeView
@@ -467,6 +468,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		public void Init(GLWindow glcontrol)
 		{
 			this.glcontrol = glcontrol;
+			glcontrol.GotFocus += (object sender, EventArgs e) => { glcontrol_focused = true; };
+			glcontrol.LostFocus += (object sender, EventArgs e) => { glcontrol_focused = false; };
 
 			// Define actions
 			SetViewControlAction = ActionManager.CreateAction("Set View Control", this, "SetViewControl");
@@ -808,7 +811,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			// >>> Update free-view matrix
 
-			if(glcontrol.Focused)
+			if(glcontrol_focused)
 			{
 				bool viewChanged = false;
 				if(viewControl == ViewControl.TwoDimensional)

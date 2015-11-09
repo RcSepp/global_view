@@ -112,7 +112,7 @@ namespace csharp_viewer
 			}
 		}
 
-		[STAThread]
+		//[STAThread]
 		static public void Main(string[] args)
 		{
 			/*string name_pattern, depth_name_pattern, image_pixel_format;
@@ -141,7 +141,7 @@ namespace csharp_viewer
 		}*/
 		public Viewer(string[] cmdline)
 		{
-			Control.CheckForIllegalCrossThreadCalls = false;
+			//Control.CheckForIllegalCrossThreadCalls = false;
 
 			this.cmdline = cmdline;
 
