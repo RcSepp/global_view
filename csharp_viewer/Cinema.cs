@@ -17,7 +17,24 @@ namespace csharp_viewer
 		{
 			public float[] values;
 			public string[] strValues;
-			public SortedDictionary<float, List<TransformedImage>> images = new SortedDictionary<float, List<TransformedImage>>();
+
+			public void AddValue(float value, string strValue)
+			{
+				Array.Resize(ref values, values.Length + 1);
+				Array.Resize(ref strValues, strValues.Length + 1);
+
+				int idx;
+				//for(idx = values.Length - 1; idx >= 0 && values[idx] >= value; --idx) {}
+				for(idx = 0; idx < values.Length - 1 && values[idx] <= value; ++idx) {}
+
+				for(int i = values.Length - 2; i >= idx; --i)
+				{
+					values[i + 1] = values[i];
+					strValues[i + 1] = strValues[i];
+				}
+				values[idx] = value;
+				strValues[idx] = strValue;
+			}
 
 			public float defaultValue;
 			public string name, label;
@@ -46,6 +63,7 @@ namespace csharp_viewer
 			public float[] values;
 			public string[] strValues;
 			public CinemaArgument[] args;
+			public int[] globalargindices;
 
 			public Dictionary<string, object> meta;
 

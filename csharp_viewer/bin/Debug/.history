@@ -2192,3 +2192,150 @@ clear all
 clear
 star all by #phi, theta
 star all by #phi, #theta
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "out2.png"
+load "mpas_single"
+load "mpas_single"
+load "mpas_single"
+spread all
+x all by #phi
+x all by #phi
+clear all
+x all by #phi
+load "mpas_single"
+x all by #phi
+x all by #theta
+x all by #time
+x all by #time foo
+x all by #time foo
+load "mpas_single"
+x all by #time foo
+x all by #time foo
+load "mpas_single"
+x all by #time foo
+x all by #time
+x all by #time
+load "mpas_single"
+x all by #time foo
+load "mpas_single"
+x all by #time foo
+x all by #time
+load "mpas_single"
+x all by #time
+x all by #theta
+clear all
+x all by #theta
+x all by #theta
+x all by #theta
+load "mpas_single"
+x all by #theta
+load "mpas_single"
+x all by #theta
+load "mpas_single"
+x all by $time
+clear all
+x all by #phi
+clear all
+x all by #theta
+clear all
+x all by $phi
+load "mpas_single"
+x all by #phi
+load "mpas_single"
+x all by #phi
+load "mpas_single"
+x all by #phi
+load "mpas_single"
+x all by #phi
+clear all
+rspread all
+exit
+exit
+exit
+x all by $Aperture
+spread all
+spread all
+spread all
+spread all
+spread all
+clear all
+hide where #Location != "Grand Canyon"
+hide where @Location != "Grand Canyon"
+spread all
+x all by #Aperture
+clear all
+spread all
+clear all
+star all by 2 * #Location, 2 * #Aperture, 2 * #Image
+focus all
+focus all
+star all by 2 * #ISO, 2 * #Aperture, 2 * #Image * #Location
+clear all
+star all by 2 * #ISO, 2 * #Aperture
+x all by 1 + 2 * #time
+x all by 1 + 2 * #Date
+focus all
+y all by #ISO
+y all by #ISO
+x all by 1 + 2 * #Date
+focus selected
+spread all
+spread all
+spread all
+spread all
+star all by $phi, $theta
+focus all
+star all by $phi, $theta
+focus all
+clear all
+star all by $phi, $theta
+clear all
+star all by $phi, $theta
+star all by $phi, $theta
+star all by $phi, $theta
+focus all
+star all by $phi, $theta
+clear all
+spread all
+focus all
+spread all
+spread all
+spread all
+spread all
+spread all
+spread all
+focus all
+focus all
+spread all
+focus all
+focus all
+focus all
+spread all
+focus all
+rspread all
+star all by #ISO, #Aperture
+star all by #ISO, #Aperture
+star all by #ISO, #Aperture

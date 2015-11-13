@@ -62,6 +62,7 @@ namespace ISQL
 			IEnumerable<csharp_viewer.TransformedImage> scope = null;
 			string byExpr = null;
 			HashSet<int> byExpr_usedArgumentIndices = null;
+			bool byExpr_isTemporal = false;
 			int lastfragment = fragments.Length - 1;
 			for(int i = fragments.Length - 1; i > 0; --i)
 			{
@@ -81,7 +82,7 @@ namespace ISQL
 					// Parse 'by' block into byExpr
 
 					byExpr_usedArgumentIndices = new HashSet<int>();
-					byExpr = ParseExpression(code, fragments, i + 1, lastfragment, byExpr_usedArgumentIndices);
+					byExpr = ParseExpression(code, fragments, i + 1, lastfragment, byExpr_usedArgumentIndices, out byExpr_isTemporal);
 				}
 
 				lastfragment = i - 1;
@@ -98,6 +99,7 @@ namespace ISQL
 			{
 				args.Add(byExpr);
 				args.Add(byExpr_usedArgumentIndices);
+				args.Add(byExpr_isTemporal);
 			}
 			if(scope != null)
 				args.Add(scope);
@@ -105,10 +107,12 @@ namespace ISQL
 			output += MethodCall(statement, args.ToArray());
 		}
 
-		private static string ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, HashSet<int> usedArgumentIndices = null)
+		private static string ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, HashSet<int> usedArgumentIndices, out bool isTemporal)
 		{
 			int exprOffset = fragments[firstfragment].startidx;
 			string expr = code.Substring(exprOffset, fragments[lastfragment].endidx - exprOffset);
+
+			isTemporal = false;
 
 			// Replace variables in expr with compileable expressions
 			for(int j = lastfragment; j >= firstfragment;--j)
@@ -117,7 +121,10 @@ namespace ISQL
 				{
 					string varExpr = fragments[j].GetString(code);
 					if(varExpr.Equals("time"))
+					{
 						varExpr = "Global.time";
+						isTemporal = true;
+					}
 					else if(varExpr.Equals("sin"))
 						varExpr = "(float)global::System.Math.Sin";
 					else if(varExpr.Equals("cos"))
@@ -135,7 +142,7 @@ namespace ISQL
 				{
 					// Find argidx for argument with label == fragments[j].value
 					string argname = (string)fragments[j].value;
-					int argidx = csharp_viewer.Cinema.CinemaArgument.FindIndex(csharp_viewer.Viewer.arguments, argname);
+					int argidx = csharp_viewer.Cinema.CinemaArgument.FindIndex(csharp_viewer.Global.arguments, argname);
 					if(argidx == -1)
 						throw new Exception("Unknown argument name " + argname);
 
@@ -144,15 +151,15 @@ namespace ISQL
 					{
 					case Tokenizer.Token.ArgVal:
 						// Replace $ARG with "image.values[" + argidx.ToString() + "]"
-						varExpr = "image.values[" + argidx.ToString() + "]";
+						varExpr = "image.values[image.globalargindices[" + argidx.ToString() + "]]";
 						break;
 					case Tokenizer.Token.ArgStr:
 						// Replace @ARG with "image.strValues[" + argidx.ToString() + "]"
-						varExpr = "image.strValues[" + argidx.ToString() + "]";
+						varExpr = "image.strValues[image.globalargindices[" + argidx.ToString() + "]]";
 						break;
 					case Tokenizer.Token.ArgIdx:
 						// Replace #ARG with "Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])"
-						varExpr = "Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
+						varExpr = "Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
 						break;
 					}
 					expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j].endidx - exprOffset);
@@ -165,7 +172,8 @@ namespace ISQL
 		}
 		private static IEnumerable<csharp_viewer.TransformedImage> CompileScopeCondition(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, ref string warnings)
 		{
-			string scopeExpr = ParseExpression(code, fragments, firstfragment, lastfragment);
+			bool isTemporal;
+			string scopeExpr = ParseExpression(code, fragments, firstfragment, lastfragment, null, out isTemporal);
 
 			// Define source code for image enumerator class
 			string source = string.Format(@"

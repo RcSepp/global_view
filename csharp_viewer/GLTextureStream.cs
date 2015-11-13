@@ -16,6 +16,19 @@ namespace csharp_viewer
 {
 	public class GLTextureStream
 	{
+		public struct ImageMetaData
+		{
+			public string name, strValue;
+			public float value;
+			public ImageMetaData(string name, float value, string strValue)
+			{
+				this.name = name;
+				this.value = value;
+				this.strValue = strValue;
+			}
+		}
+		public delegate bool ReadImageMetaDataDelegate(TransformedImage image, ImageMetaData[] meta);
+
 		private Bitmap bmpFileNotFound;
 		private GLTexture2D texFileNotFound;
 
@@ -29,12 +42,14 @@ namespace csharp_viewer
 				private int width, height;
 				public float sizePriority; //EDIT: Make private
 				public int memory; //EDIT: Make private
+				private bool metadataLoaded;
 
 				public Image(TransformedImage image)
 				{
 					this.image = image;
 					sizePriority = 1.0f;
 					memory = 0;
+					metadataLoaded = false;
 				}
 
 				public int RequiredMemory(float tradeoffRenderSizeFactor)
@@ -141,7 +156,29 @@ namespace csharp_viewer
 					return false;
 				}
 
-				public int Load(float tradeoffRenderSizeFactor, GLTexture2D texFileNotFound)
+				/*private object DeserializePropertyItem(PropertyItem prop)
+				{
+					int[] values;
+					switch(prop.Type)
+					{
+					case 2:
+						return System.Text.Encoding.UTF8.GetString(prop.Value);
+					case 3:
+						values = new int[prop.Value.Length / 2];
+						for(int i = 0; i < values.Length; ++i)
+							values[i] = (int)BitConverter.ToUInt16(prop.Value, 2 * i);
+						return values;
+					case 4:
+						values = new int[prop.Value.Length / 4];
+						for(int i = 0; i < values.Length; ++i)
+							values[i] = (int)BitConverter.ToUInt32(prop.Value, 4 * i);
+						return values;
+					default:
+						return "<" + prop.Type + ">";
+					}
+				}
+
+				public int Load(float tradeoffRenderSizeFactor, GLTexture2D texFileNotFound, ReadImageMetaDataDelegate ReadImageMetaData)
 				{
 					if(image.texIsStatic || !File.Exists(image.filename))
 					{
@@ -150,47 +187,242 @@ namespace csharp_viewer
 						return memory = 0;
 					}
 
-					/*try {
-						Bitmap.FromFile(image.filename);
-					}
-					catch(Exception ex)
-					{
-						int foo = image.filename.LastIndexOf('/');
-						string newfilename = image.filename.Substring(0, foo + 1) + "damaged_" + image.filename.Substring(foo + 1);
-						File.Move(image.filename, newfilename);
-
-						image.tex = texFileNotFound;
-						image.texIsStatic = true;
-						return memory = 0;
-					}*/
+					//try {
+					//	Bitmap.FromFile(image.filename);
+					//}
+					//catch(Exception ex)
+					//{
+					//	int foo = image.filename.LastIndexOf('/');
+					//	string newfilename = image.filename.Substring(0, foo + 1) + "damaged_" + image.filename.Substring(foo + 1);
+					//	File.Move(image.filename, newfilename);
+					//
+					//	image.tex = texFileNotFound;
+					//	image.texIsStatic = true;
+					//	return memory = 0;
+					//}
 
 					// Load image from disk
 					Bitmap newbmp = (Bitmap)Bitmap.FromFile(image.filename);
 					++GLTextureStream.foo;
 
-					/*// Read metadata
-					foreach(PropertyItem prop in newbmp.PropertyItems)
+					// Read metadata
+					if(!metadataLoaded && ReadImageMetaData != null)
 					{
-						switch(prop.Id)
-						{
-						case 0x013E: // PropertyTagWhitePoint
-						case 0x013F: // PropertyTagPrimaryChromaticities
-						case 0x0301: // PropertyTagGamma
-							break;
+						metadataLoaded = true;
+						List<ImageMetaData> meta = new List<ImageMetaData>();
 
-						case 0x9286: //PropertyTagExifUserComment
-							if(prop.Type == 2)
+						foreach(PropertyItem prop in newbmp.PropertyItems)
+						{
+							string name = null;
+							switch(prop.Id)
 							{
-								string value = System.Text.Encoding.UTF8.GetString(prop.Value);
-								System.Console.WriteLine(string.Format(value));
-							}
-							break;
+							case 0x010F: name = "EquipmentVendor"; break;
+							case 0x0110: name = "EquipmentModel"; break;
+							case 0x0112: name = "Orientation"; break;
+							case 0x011A:
+								{
+									uint numerator = BitConverter.ToUInt32(prop.Value, 0);
+									uint denominator = BitConverter.ToUInt32(prop.Value, 4);
+									float value = (float)numerator / (float)denominator;
+									meta.Add(new ImageMetaData("ResX", value, value.ToString() + " DPI"));
+								}
+								break;
+							case 0x011B:
+								{
+									uint numerator = BitConverter.ToUInt32(prop.Value, 0);
+									uint denominator = BitConverter.ToUInt32(prop.Value, 4);
+									float value = (float)numerator / (float)denominator;
+									meta.Add(new ImageMetaData("ResY", value, value.ToString() + " DPI"));
+								}
+								break;
+							case 0x0132:
+								string datestr = System.Text.Encoding.UTF8.GetString(prop.Value, 0, prop.Value.Length - 1);
+								DateTime date = DateTime.ParseExact(datestr, "yyyy:MM:dd HH:mm:ss", System.Globalization.CultureInfo.CurrentCulture);
+								meta.Add(new ImageMetaData("Date", (float)date.Ticks, date.ToString()));
+								break;
+							case 0x829A:
+								{
+									uint numerator = BitConverter.ToUInt32(prop.Value, 0);
+									uint denominator = BitConverter.ToUInt32(prop.Value, 4);
+									float value = (float)numerator / (float)denominator;
+									meta.Add(new ImageMetaData("ExposureTime", value, denominator == 1 ? numerator.ToString() : numerator.ToString() + " / " + denominator.ToString()));
+								}
+								break;
+							case 0x829D:
+								{
+									uint numerator = BitConverter.ToUInt32(prop.Value, 0);
+									uint denominator = BitConverter.ToUInt32(prop.Value, 4);
+									float value = (float)numerator / (float)denominator;
+									meta.Add(new ImageMetaData("FNumber", value, value.ToString()));
+								}
+								break;
+
+							case 0x0100: // PropertyTagImageWidth
+							case 0x0101: // PropertyTagImageHeight
+							case 0x013E: // PropertyTagWhitePoint
+							case 0x013F: // PropertyTagPrimaryChromaticities
+							case 0x0128: // PropertyTagResolutionUnit
+							case 0x0301: // PropertyTagGamma
+							case 0x5110: // PropertyTagPixelUnit
+							case 0x5111: // PropertyTagPixelPerUnitX
+							case 0x5112: // PropertyTagPixelPerUnitY
+								break;
+
+							case 0x9286: //PropertyTagExifUserComment
+								if(prop.Type == 2)
+								{
+									string value = System.Text.Encoding.UTF8.GetString(prop.Value);
+									System.Console.WriteLine(string.Format(value));
+								}
+								break;
 							
-						default:
-							System.Console.WriteLine(string.Format("{0}: ({1}){2}", prop.Id, prop.Type, prop.Len));
-							break;
+							default:
+								System.Console.WriteLine(string.Format("{0:X}: {1}", prop.Id, DeserializePropertyItem(prop)));
+								break;
+							}
+							if(name == null)
+								continue;
+
+							//int[] values;
+							switch(prop.Type)
+							{
+							case 2:
+								string strValue = System.Text.Encoding.UTF8.GetString(prop.Value);
+								meta.Add(new ImageMetaData(name, (float)strValue.GetHashCode(), strValue));
+								break;
+							case 3:
+								if(prop.Value.Length == 2)
+								{
+									ushort value = BitConverter.ToUInt16(prop.Value, 0);
+									meta.Add(new ImageMetaData(name, (float)value, value.ToString()));
+								}
+								break;
+							}
 						}
-					}*/
+
+						if(meta.Count != 0)
+							ReadImageMetaData(image, meta.ToArray());
+					}
+
+					// Compute original dimensions
+					image.originalWidth = newbmp.Width;
+					image.originalHeight = newbmp.Height;
+					image.originalAspectRatio = (float)image.originalWidth / (float)image.originalHeight;
+
+					int renderWidth, renderHeight;
+					if(memory > 0)
+					{
+						renderWidth = image.renderWidth;
+						renderHeight = image.renderHeight;
+					}
+					else
+					{
+						renderWidth = (int)((float)image.renderWidth * tradeoffRenderSizeFactor);
+						renderHeight = (int)((float)image.renderHeight * tradeoffRenderSizeFactor);
+					}
+
+					// Compute width & height
+					if(renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
+					{
+						width = image.originalWidth;
+						height = image.originalHeight;
+					}
+					else
+					{
+						float fw = (float)renderWidth / (float)image.originalWidth;
+						float fh = (float)renderHeight / (float)image.originalHeight;
+
+						if(fw > fh)
+						{
+							width = renderWidth;
+							height = (int)((float)image.originalHeight * fw);
+						}
+						else
+						{
+							height = renderHeight;
+							width = (int)((float)image.originalWidth * fh);
+						}
+					}
+
+					// Downscale image from originalWidth/originalHeight to width/height
+					if(width != image.originalWidth || height != image.originalHeight)
+					{
+						Bitmap originalBmp = newbmp;
+						newbmp = new Bitmap(width, height, originalBmp.PixelFormat);
+						Graphics gfx = Graphics.FromImage(newbmp);
+						gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+						gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+						gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+						gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
+						gfx.Flush();
+						originalBmp.Dispose();
+						originalBmp = null;
+					}
+
+					#if DEBUG_GLTEXTURESTREAM
+					Graphics gfxDebug = Graphics.FromImage(newbmp);
+					gfxDebug.Clear(Color.WhiteSmoke);
+					gfxDebug.DrawString(((float)image.originalWidth / (float)width).ToString(), new Font("Consolas", height / 3.0f), Brushes.Black, 0.0f, 0.0f);
+					gfxDebug.Flush();
+					#endif
+
+					image.renderMutex.WaitOne();
+
+					if(image.bmp != null) // If image already loaded (resize required)
+					{
+						// Unload old image
+						image.bmp.Dispose();
+						image.bmp = null;
+					}
+
+					image.bmp = newbmp;
+
+					image.renderMutex.ReleaseMutex();
+
+					sizePriority = (float)image.originalWidth / (float)width;
+
+					int memorydiff = width * height - memory;
+					memory = width * height;
+					return memorydiff;
+				}*/
+
+				public int Load(float tradeoffRenderSizeFactor, GLTexture2D texFileNotFound, ReadImageMetaDataDelegate ReadImageMetaData)
+				{
+					if(image.texIsStatic || !File.Exists(image.filename))
+					{
+						image.tex = texFileNotFound;
+						image.texIsStatic = true;
+						return memory = 0;
+					}
+
+					// Load image from disk
+					Bitmap newbmp;
+					if(!metadataLoaded && ReadImageMetaData != null)
+					{
+						List<ImageMetaData> meta = new List<ImageMetaData>();
+
+						newbmp = ImageLoader.Load(image.filename, meta);
+						if(newbmp == null)
+						{
+							image.tex = texFileNotFound;
+							image.texIsStatic = true;
+							return memory = 0;
+						}
+
+						if(meta.Count == 0 || ReadImageMetaData(image, meta.ToArray()))
+							metadataLoaded = true;
+					}
+					else
+					{
+						newbmp = ImageLoader.Load(image.filename, null);
+						if(newbmp == null)
+						{
+							image.tex = texFileNotFound;
+							image.texIsStatic = true;
+							return memory = 0;
+						}
+					}
+					++GLTextureStream.foo;
 
 					// Compute original dimensions
 					image.originalWidth = newbmp.Width;
@@ -317,11 +549,14 @@ namespace csharp_viewer
 
 			private float tradeoffRenderSizeFactor = 1.0f;
 
-			public AsyncImageLoader(/*TransformedImageCollection images,*/ int memorysize, GLTexture2D texFileNotFound)
+			private ReadImageMetaDataDelegate ReadImageMetaData;
+
+			public AsyncImageLoader(/*TransformedImageCollection images,*/ int memorysize, GLTexture2D texFileNotFound, ReadImageMetaDataDelegate ReadImageMetaData)
 			{
 				this.memorysize = memorysize;
 				this.availablememory = memorysize;
 				this.texFileNotFound = texFileNotFound;
+				this.ReadImageMetaData = ReadImageMetaData;
 
 				foo = 0;
 
@@ -389,6 +624,7 @@ namespace csharp_viewer
 			{
 				while(!closeLoaderThread)
 				{
+					//Thread.Sleep(10);
 					Thread.Sleep(1);
 
 					addImageMutex.WaitOne();
@@ -397,7 +633,7 @@ namespace csharp_viewer
 
 					// Load highest priority image
 					int unloadidx = 0, len = prioritySortedImages.Count, loadidx = len - 1;
-					bool outofmemory = false;
+					//bool outofmemory = false;
 					for(; loadidx >= 0; --loadidx)
 					{
 						Image img = prioritySortedImages[loadidx];
@@ -407,7 +643,7 @@ namespace csharp_viewer
 							continue; // continue checking next-highest priority image
 						if(requiredmemory <= availablememory) // If we have enough memory to load img
 						{
-							availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Load image and update available memory
+							availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Load image and update available memory
 							break; // Done
 						}
 						else // If we don't have enough memory to load img
@@ -422,17 +658,17 @@ namespace csharp_viewer
 									availablememory += u_img.Unload(); // Unload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
 									{
-										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Load image and update available memory
+										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Load image and update available memory
 										imageLoaded = true;
 										break; // Done
 									}
 								}
 								else if(u_img.MemoryShrinkable()) // If image is loaded, but can be shrinked
 								{
-									availablememory -= u_img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Reload image and update available memory
+									availablememory -= u_img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Reload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
 									{
-										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound); // Load image and update available memory
+										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Load image and update available memory
 										imageLoaded = true;
 										break; // Done
 									}
@@ -442,8 +678,9 @@ namespace csharp_viewer
 							if(imageLoaded)
 								break;
 
-							outofmemory = true;
+							//outofmemory = true;
 						}
+						//Thread.Sleep(1);
 					}
 
 					#if ENABLE_TRADEOFF
@@ -490,7 +727,7 @@ namespace csharp_viewer
 			return b;
 		}
 
-		public GLTextureStream(int memorysize)
+		public GLTextureStream(int memorysize, ReadImageMetaDataDelegate ReadImageMetaData)
 		{
 			#if DEBUG_GLTEXTURESTREAM
 			memorysize = 8 * 79 * 79;
@@ -529,7 +766,7 @@ namespace csharp_viewer
 			// Load texture
 			texFileNotFound = new GLTexture2D(bmpFileNotFound, true);
 
-			loader = new AsyncImageLoader(memorysize, texFileNotFound);
+			loader = new AsyncImageLoader(memorysize, texFileNotFound, ReadImageMetaData);
 		}
 		public void Free()
 		{

@@ -1,16 +1,24 @@
 ﻿<Properties StartupItem="csharp_viewer/csharp_viewer.csproj">
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/GLTextureStream.cs">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/GLFont.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="624" Column="1" />
-      <File FileName="csharp_viewer/ImageBrowser.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="1174" Column="22" />
+      <File FileName="csharp_viewer/ImageLoader.cs" Line="77" Column="9" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="395" Column="25" />
+      <File FileName="csharp_viewer/ArgumentIndex.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageBrowser.cs" Line="272" Column="31" />
       <File FileName="csharp_viewer/TransformedImage.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ImageCloud.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/Selection.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/CompiledTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTextureStream.cs" Line="177" Column="35" />
       <File FileName="csharp_viewer/ActionManager.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Console.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ISQL.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Cinema.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Common.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLControls.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Selection.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLFont.cs" Line="370" Column="12" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

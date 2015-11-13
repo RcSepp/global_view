@@ -217,7 +217,7 @@ namespace csharp_viewer
 	public class GLWindow : OpenTK.GLControl
 	{
 		public new List<GLControl> Controls;
-		public event EventHandler Load;
+		public new event EventHandler Load;
 
 		public GLWindow()
 			: base(new GraphicsMode(32, 24, 8, 1), 3, 0, GraphicsContextFlags.Default)
@@ -225,6 +225,7 @@ namespace csharp_viewer
 			Controls = new List<GLControl>();
 			base.Load += OnLoad;
 			SizeChanged += OnSizeChanged;
+			base.SizeChanged += OnSizeChanged;
 			MouseDown += OnMouseDown;
 			MouseUp += OnMouseUp;
 			MouseMove += OnMouseMove;
@@ -250,23 +251,18 @@ namespace csharp_viewer
 		}
 		private void OnMouseUp(object sender, MouseEventArgs e)
 		{
-			int abc = 0;
 		}
 		private void OnMouseMove(object sender, MouseEventArgs e)
 		{
-			int abc = 0;
 		}
 		private void OnMouseWheel(object sender, MouseEventArgs e)
 		{
-			int abc = 0;
 		}
 		private void OnDoubleClick(object sender, EventArgs e)
 		{
-			int abc = 0;
 		}
 		private void OnKeyDown(object sender, KeyEventArgs e)
 		{
-			int abc = 0;
 		}
 
 		public void Init()

@@ -177,9 +177,11 @@ namespace csharp_viewer
 			GL.AttachShader(shaderprogram, fragmentshader);
 			if(gs != null)
 			{
+				#pragma warning disable 618
 				GL.ProgramParameter(shaderprogram, (Version32)0x8DDA, 4);
 				GL.ProgramParameter(shaderprogram, (Version32)0x8DDB, 0);
 				GL.ProgramParameter(shaderprogram, (Version32)0x8DDC, 7);
+				#pragma warning restore 618
 				GL.AttachShader(shaderprogram, geometryshader);
 			}
 			GL.ProgramParameter(shaderprogram, ProgramParameterName.ProgramBinaryRetrievableHint, 1);

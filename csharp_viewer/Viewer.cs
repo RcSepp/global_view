@@ -19,6 +19,7 @@ namespace csharp_viewer
 	public static class Global
 	{
 		public static float time = 0.0f;
+		public static Cinema.CinemaArgument[] arguments = new Cinema.CinemaArgument[0]; // An array of descriptors for each dimension
 	}
 
 	public class Viewer : Form
@@ -36,7 +37,7 @@ namespace csharp_viewer
 		//public static string DATABASE_PATH = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "/work/db/mpas_view/";
 
 		GLWindow glImageCloud; //OpenTK.GLControl glImageCloud;
-		bool glImageCloud_loaded = false, form_closing = false, renderThread_finished = false;
+		bool form_closing = false, renderThread_finished = false;
 		//ImageCloud imageCloud = new SimpleImageCloud();
 		//ImageCloud imageCloud = new ThetaPhiImageCloud();
 		ImageCloud imageCloud;
@@ -67,7 +68,6 @@ namespace csharp_viewer
 		//Dictionary<int[], TransformedImage> images = new Dictionary<int[], TransformedImage>(new IntArrayEqualityComparer()); // A hashmap of images accessed by an index array (consisting of one index per dimension)
 		public static TransformedImageCollection images = new TransformedImageCollection();
 		public static Mutex image_render_mutex = new Mutex();
-		public static Cinema.CinemaArgument[] arguments; // An array of descriptors for each dimension
 		//HashSet<string> valueset = new HashSet<string>(); // A set of all value types appearing in the metadata of at least one image
 		Dictionary<string, HashSet<object>> valuerange = new Dictionary<string, HashSet<object>>(); // A set of all value types, containing a set of all possible values in the metadata all images
 
@@ -112,11 +112,11 @@ namespace csharp_viewer
 			}
 		}
 
-		//[STAThread]
+		[STAThread]
 		static public void Main(string[] args)
 		{
 			/*string name_pattern, depth_name_pattern, image_pixel_format;
-			Cinema.ParseCinemaDescriptor(args[0], out arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
+			Cinema.ParseCinemaDescriptor(args[0], out Global.arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
 
 			string code = "select where $theta > 100";
 			ISQL.Compiler compiler = new ISQL.Compiler();
@@ -126,7 +126,7 @@ namespace csharp_viewer
 
 			try {
 				Application.Run(new Viewer(args));
-			//Application.Run(new DimensionMapper(arguments));
+			//Application.Run(new DimensionMapper(Global.arguments));
 			} catch(Exception ex) {
 				MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 			}
@@ -194,12 +194,12 @@ namespace csharp_viewer
 
 			this.SizeChanged += this_SizeChanged;
 
-			//tbArguments = new TrackBar[arguments.Length];
-			//lblArgumentValues = new Label[arguments.Length];
+			//tbArguments = new TrackBar[Global.arguments.Length];
+			//lblArgumentValues = new Label[Global.arguments.Length];
 
 #if !DISABLE_DATAVIZ
 			// Create data visualization
-			dataviz = new DataVisualization(images, arguments, valueset, pnlPCView);
+			dataviz = new DataVisualization(images, Global.arguments, valueset, pnlPCView);
 #endif
 
 #if !USE_STD_IO
@@ -228,7 +228,7 @@ namespace csharp_viewer
 
 
 			ActionManager.CreateAction<string>("Load database", "load", delegate(object[] parameters) {
-				LoadAny((string)parameters[0]);
+				LoadAny((string)parameters[0], false, "{foo}.png"); //EDIT
 				return null;
 			});
 			ActionManager.CreateAction("Unload database", "unload", this, "UnloadDatabase");
@@ -313,10 +313,10 @@ namespace csharp_viewer
 
 			/*ActionManager.CreateAction<int>("Apply x transform to %a of selection", "x %a", delegate(object[] parameters) {
 				int argidx = (int)parameters[0];
-				if(argidx < arguments.Length)
+				if(argidx < Global.arguments.Length)
 				{
 					XTransform transform = new XTransform();
-					transform.SetArguments(arguments);
+					transform.SetArguments(Global.arguments);
 					transform.SetIndex(0, argidx);
 					OnTransformationAdded(transform, selection);
 				}
@@ -324,10 +324,10 @@ namespace csharp_viewer
 			});
 			ActionManager.CreateAction<int>("Apply y transform to %a of selection", "y %a", delegate(object[] parameters) {
 				int argidx = (int)parameters[0];
-				if(argidx < arguments.Length)
+				if(argidx < Global.arguments.Length)
 				{
 					YTransform transform = new YTransform();
-					transform.SetArguments(arguments);
+					transform.SetArguments(Global.arguments);
 					transform.SetIndex(0, argidx);
 					OnTransformationAdded(transform, selection);
 				}
@@ -335,10 +335,10 @@ namespace csharp_viewer
 			});
 			ActionManager.CreateAction<int>("Apply z transform to %a of selection", "z %a", delegate(object[] parameters) {
 				int argidx = (int)parameters[0];
-				if(argidx < arguments.Length)
+				if(argidx < Global.arguments.Length)
 				{
 					ZTransform transform = new ZTransform();
-					transform.SetArguments(arguments);
+					transform.SetArguments(Global.arguments);
 					transform.SetIndex(0, argidx);
 					OnTransformationAdded(transform, selection);
 				}
@@ -347,10 +347,10 @@ namespace csharp_viewer
 
 			ActionManager.CreateAction<int>("Animate %a of selection", "animate %a", delegate(object[] parameters) {
 				int argidx = (int)parameters[0];
-				if(argidx < arguments.Length)
+				if(argidx < Global.arguments.Length)
 				{
 					ImageTransform transform = new AnimationTransform();
-					transform.SetArguments(arguments);
+					transform.SetArguments(Global.arguments);
 					transform.SetIndex(0, argidx);
 					OnTransformationAdded(transform, selection);
 				}
@@ -360,10 +360,10 @@ namespace csharp_viewer
 			ActionManager.CreateAction<int, int>("Apply theta-phi-view transform", "theta-phi-view %a %a", delegate(object[] parameters) {
 				int thetaidx = (int)parameters[0];
 				int phiidx = (int)parameters[1];
-				if(thetaidx < arguments.Length && phiidx < arguments.Length)
+				if(thetaidx < Global.arguments.Length && phiidx < Global.arguments.Length)
 				{
 					ImageTransform transform = new ThetaPhiViewTransform();
-					transform.SetArguments(arguments);
+					transform.SetArguments(Global.arguments);
 					transform.SetIndex(0, thetaidx);
 					transform.SetIndex(1, phiidx);
 					OnTransformationAdded(transform, selection);
@@ -374,10 +374,10 @@ namespace csharp_viewer
 			ActionManager.CreateAction<int, int>("Apply theta-phi transform", "theta-phi %a %a", delegate(object[] parameters) {
 				int thetaidx = (int)parameters[0];
 				int phiidx = (int)parameters[1];
-				if(thetaidx < arguments.Length && phiidx < arguments.Length)
+				if(thetaidx < Global.arguments.Length && phiidx < Global.arguments.Length)
 				{
 					ImageTransform transform = new ThetaPhiTransform();
-					transform.SetArguments(arguments);
+					transform.SetArguments(Global.arguments);
 					transform.SetIndex(0, thetaidx);
 					transform.SetIndex(1, phiidx);
 					OnTransformationAdded(transform, selection);
@@ -388,21 +388,26 @@ namespace csharp_viewer
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread out all dimensions", "spread", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 
-				if(arguments != null)
+				if(Global.arguments != null)
 				{
 					/*WheelTransform transform = new WheelTransform();
-					transform.SetArguments(arguments);
-					for(int i = 0; i < arguments.Length; ++i)
+					transform.SetArguments(Global.arguments);
+					for(int i = 0; i < Global.arguments.Length; ++i)
 						transform.SetIndex(i, i);
 					OnTransformationAdded(transform, scope);*/
 
 					string byExpr = "0";
-					for(int argidx = 0; argidx < arguments.Length; ++argidx)
+					HashSet<int> byExpr_usedArgumentIndices = new HashSet<int>();
+					for(int argidx = 0; argidx < Global.arguments.Length; ++argidx)
+					{
 						if(byExpr == "0")
-							byExpr = "2.0f * Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
+							byExpr = "2.0f * Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
 						else
-							byExpr += ", 2.0f * Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])";
-					CreateTransformStar(byExpr, null, scope);
+							byExpr += ", 2.0f * Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
+						byExpr_usedArgumentIndices.Add(argidx);
+					}
+
+					CreateTransformStar(byExpr, byExpr_usedArgumentIndices, false, scope);
 				}
 				return null;
 			});
@@ -413,10 +418,10 @@ namespace csharp_viewer
 				indices_enum.MoveNext();
 				int index = indices_enum.Current;
 
-				if(arguments != null)
+				if(Global.arguments != null)
 				{
 					string output, warnings;
-					Console_Execute(string.Format("skip all BY " + byExpr + " != (int)(time * 10.0f) % " + arguments[index].values.Length.ToString()), out output, out warnings);
+					Console_Execute(string.Format("skip all BY " + byExpr + " != (int)(time * 10.0f) % " + Global.arguments[index].values.Length.ToString()), out output, out warnings);
 					return output + warnings;
 				}
 				return null;
@@ -425,7 +430,7 @@ namespace csharp_viewer
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly", "rspread", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 
-				if(arguments != null)
+				if(Global.arguments != null)
 				{
 					int numimages = imageCloud.Count(scope);
 					float ext = (float)Math.Sqrt(numimages), halfext = ext / 2.0f;
@@ -446,7 +451,7 @@ namespace csharp_viewer
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly in 3 dimensions", "rspread3d", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 
-				if(arguments != null)
+				if(Global.arguments != null)
 				{
 					int numimages = imageCloud.Count(scope);
 					float ext = (float)Math.Pow(numimages, 1.0 / 3.0), halfext = ext / 2.0f;
@@ -513,6 +518,41 @@ namespace csharp_viewer
 			return stdout;
 		}
 
+		private void AddArguments(Cinema.CinemaArgument[] newargs, out int[] globalargindices)
+		{
+			int oldnumargs = Global.arguments.Length, newnumargs = Global.arguments.Length;
+
+			globalargindices = new int[Global.arguments.Length + newargs.Length];
+			Array.Resize(ref Global.arguments, Global.arguments.Length + newargs.Length);
+
+			for(int i = 0; i < Global.arguments.Length; ++i)
+				globalargindices[i] = -1;
+			for(int i = 0; i < newargs.Length; ++i)
+			{
+				int newargindex = -1;
+				for(int j = 0; j < oldnumargs; ++j)
+					if(Global.arguments[j].label.Equals(newargs[i].label))
+					{
+						newargindex = j;
+						break;
+					}
+
+				if(newargindex == -1)
+				{
+					Global.arguments[newnumargs] = newargs[i];
+					globalargindices[newnumargs++] = i;
+				}
+				else
+					globalargindices[newargindex] = i;
+			}
+				
+			if(newnumargs != Global.arguments.Length)
+			{
+				Array.Resize(ref globalargindices, newnumargs);
+				Array.Resize(ref Global.arguments, newnumargs);
+			}
+		}
+
 		private void FindFileOrDirectory(ref string path)
 		{
 			bool isdir;
@@ -530,17 +570,17 @@ namespace csharp_viewer
 
 		private void PreLoad()
 		{
-			if(images.Count != 0)
-				UnloadDatabase(); // Only one database can be loaded at a time
+			//if(images.Count != 0)
+			//	UnloadDatabase(); // Only one database can be loaded at a time
 		}
-		private void PostLoad(Size imageSize)
+		private void PostLoad(IEnumerable<TransformedImage> newimages, Size imageSize)
 		{
 			/*// Create selection array and populate it with the default values
-			selection = new IndexProductSelection(arguments.Length, valuerange.Count, images);
-			for(int i = 0; i < arguments.Length; ++i)
+			selection = new IndexProductSelection(Global.arguments.Length, valuerange.Count, images);
+			for(int i = 0; i < Global.arguments.Length; ++i)
 			{
-				if(arguments[i].defaultValue != null)
-					selection[i].Add(Array.IndexOf(arguments[i].values, arguments[i].defaultValue));
+				if(Global.arguments[i].defaultValue != null)
+					selection[i].Add(Array.IndexOf(Global.arguments[i].values, Global.arguments[i].defaultValue));
 			}*/
 
 			image_render_mutex.WaitOne();
@@ -548,7 +588,7 @@ namespace csharp_viewer
 			if(imageCloud != null)
 			{
 				try {
-					imageCloud.Load(arguments, images, valuerange, imageSize, image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
+					imageCloud.Load(newimages, valuerange, imageSize, image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
 				} catch(Exception ex) {
 					MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 					throw ex;
@@ -558,23 +598,23 @@ namespace csharp_viewer
 
 				Dictionary<string, int> argnames = new Dictionary<string, int>();
 				int idx = 0;
-				foreach(Cinema.CinemaArgument argument in arguments)
+				foreach(Cinema.CinemaArgument argument in Global.arguments)
 					argnames.Add(argument.name, idx++);
 
 				if(argnames.ContainsKey("theta") && argnames.ContainsKey("phi"))
 				{
-					imageCloud.transforms.Add(new XYTransform(argnames["theta"], argnames["phi"], arguments));
+					imageCloud.transforms.Add(new XYTransform(argnames["theta"], argnames["phi"], Global.arguments));
 					//imageCloud.transforms.Add(new ThetaPhiTransform(argnames["theta"], argnames["phi"]));
 					imageCloud.transforms.Add(new HighlightSelectionTransform(Color4.Azure));
 					argnames.Remove("theta");
 					argnames.Remove("phi");
 				}
-				//imageCloud.transforms.Add(new XYTransform(2, 1, arguments));
+				//imageCloud.transforms.Add(new XYTransform(2, 1, Global.arguments));
 
 				if(argnames.ContainsKey("time"))
 				{
-					imageCloud.transforms.Add(new XTransform(argnames["time"], arguments));
-					//imageCloud.transforms.Add(new AnimationTransform(argnames["time"], arguments));
+					imageCloud.transforms.Add(new XTransform(argnames["time"], Global.arguments));
+					//imageCloud.transforms.Add(new AnimationTransform(argnames["time"], Global.arguments));
 					argnames.Remove("time");
 				}*/
 			}
@@ -583,7 +623,7 @@ namespace csharp_viewer
 			imageCloud.SelectionMoved += CallSelectionMovedHandlers;
 			imageCloud.TransformAdded += ImageCloud_TransformAdded;
 
-			actMgr.Load(arguments);
+			actMgr.Load(Global.arguments);
 			actMgr.FrameCaptureFinished += actMgr_FrameCaptureFinished;
 
 			browser.SelectionChanged += CallSelectionChangedHandlers;
@@ -595,19 +635,19 @@ namespace csharp_viewer
 			//ActionManager.Do(ClearTransformsAction);
 			//CallSelectionChangedHandlers();
 
-			/*IndexProductSelection foo = new IndexProductSelection(arguments.Length, valuerange.Count, images);
-			for(int i = 0; i < arguments.Length; ++i)
-				for(int j = 0; j < arguments[i].values.Length; ++j)
+			/*IndexProductSelection foo = new IndexProductSelection(Global.arguments.Length, valuerange.Count, images);
+			for(int i = 0; i < Global.arguments.Length; ++i)
+				for(int j = 0; j < Global.arguments[i].values.Length; ++j)
 					foo[i].Add(j);
 			ActionManager.Do(OnSelectionChangedAction, new object[] { foo });
 
 			ImageTransform bar = new ThetaPhiViewTransform();
-			bar.SetArguments(arguments); bar.SetIndex(0, 0); bar.SetIndex(1, 1);
+			bar.SetArguments(Global.arguments); bar.SetIndex(0, 0); bar.SetIndex(1, 1);
 			imageCloud.AddTransform(bar);
 			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });
 
 			bar = new AnimationTransform();
-			bar.SetArguments(arguments); bar.SetIndex(0, 2);
+			bar.SetArguments(Global.arguments); bar.SetIndex(0, 2);
 			imageCloud.AddTransform(bar);
 			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });*/
 
@@ -615,7 +655,7 @@ namespace csharp_viewer
 
 			/*imageCloud.SelectAll();
 			ImageTransform bar = new XYTransform();
-			bar.SetArguments(arguments); bar.SetIndex(0, 0); bar.SetIndex(1, 1);
+			bar.SetArguments(Global.arguments); bar.SetIndex(0, 0); bar.SetIndex(1, 1);
 			imageCloud.AddTransform(bar);
 			ActionManager.Do(OnTransformationAddedAction, new object[] { bar });*/
 		}
@@ -683,31 +723,43 @@ namespace csharp_viewer
 			PreLoad();
 
 			// Parse meta data from info.json
-			Cinema.ParseCinemaDescriptor(filename, out arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
+			Cinema.CinemaArgument[] newargs;
+			Cinema.ParseCinemaDescriptor(filename, out newargs, out name_pattern, out depth_name_pattern, out image_pixel_format);
+
+			image_render_mutex.WaitOne();
+			int[] newargindices;
+			AddArguments(newargs, out newargindices);
+			image_render_mutex.ReleaseMutex();
 
 			// >>> Load images and image meta
 
 			string imagepath;
+			List<TransformedImage> newimages = null;
+			#pragma warning disable 162
 			if(false)
 			{
 				Thread inSituThread = new Thread(new ParameterizedThreadStart(SimulateInSituThread));
 				inSituThread.Start((object)filename);
+				return;
 			}
 			else
 			{
+				image_render_mutex.WaitOne();
+
 				// Load images and image meta data by iterating over all argument combinations
-				int[] argidx = new int[arguments.Length];
+				int[] argidx = new int[newargs.Length];
+				newimages = new List<TransformedImage>();
 				bool done;
 				do {
 					// Construct CinemaImage key and image file path from argidx[]
-					float[] imagevalues = new float[arguments.Length];
-					string[] imagestrvalues = new string[arguments.Length];
+					float[] imagevalues = new float[newargs.Length];
+					string[] imagestrvalues = new string[newargs.Length];
 					imagepath = name_pattern;
-					for(int i = 0; i < arguments.Length; ++i)
+					for(int i = 0; i < newargs.Length; ++i)
 					{
-						imagevalues[i] = arguments[i].values[argidx[i]];
-						imagestrvalues[i] = arguments[i].strValues[argidx[i]];
-						imagepath = imagepath.Replace("{" + arguments[i].name + "}", arguments[i].strValues[argidx[i]].ToString());
+						imagevalues[i] = newargs[i].values[argidx[i]];
+						imagestrvalues[i] = newargs[i].strValues[argidx[i]];
+						imagepath = imagepath.Replace("{" + newargs[i].name + "}", newargs[i].strValues[argidx[i]].ToString());
 
 						/*if(imagevalues[i].GetType() == typeof(string) && float.TryParse((string)imagevalues[i], out floatvalue))
 							imagevalues[i] = floatvalue;
@@ -720,8 +772,8 @@ namespace csharp_viewer
 					if(depth_name_pattern != null)
 					{
 						// Construct depth image file path from argidx[]
-						for(int i = 0; i < arguments.Length; ++i)
-							depthpath = depthpath.Replace("{" + arguments[i].name + "}", arguments[i].strValues[argidx[i]].ToString());
+						for(int i = 0; i < newargs.Length; ++i)
+							depthpath = depthpath.Replace("{" + newargs[i].name + "}", newargs[i].strValues[argidx[i]].ToString());
 						depthpath = filename + "image/" + depthpath;
 					}
 
@@ -730,25 +782,23 @@ namespace csharp_viewer
 					cimg.LocationChanged += imageCloud.InvalidateOverallBounds;
 					cimg.values = imagevalues;
 					cimg.strValues = imagestrvalues;
-					cimg.args = arguments;
+					cimg.args = newargs;
+					cimg.globalargindices = newargindices;
 					cimg.filename = imagepath;
 					cimg.depth_filename = depthpath;
 					Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
-					cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
-					image_render_mutex.WaitOne();
-					//images.Add(cimg.key, cimg);
-					images.Add(cimg);
-					visible.Add(cimg);
-					image_render_mutex.ReleaseMutex();
 
-					for(int i = 0; i < arguments.Length; ++i)
+					cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
+					newimages.Add(cimg);
+
+					/*for(int i = 0; i < newargs.Length; ++i)
 					{
 						List<TransformedImage> valueimages;
-						arguments[i].images.TryGetValue(imagevalues[i], out valueimages);
+						newargs[i].images.TryGetValue(imagevalues[i], out valueimages);
 						if(valueimages == null)
 							valueimages = new List<TransformedImage>();
 						valueimages.Add(cimg);
-					}
+					}*/
 
 					if(cimg.meta != null)
 						foreach(KeyValuePair<string, object> meta in cimg.meta)
@@ -764,8 +814,8 @@ namespace csharp_viewer
 
 					// Get next argument combination -> argidx[]
 					done = true;
-					for(int i = 0; i < arguments.Length; ++i) {
-						if(++argidx[i] == arguments[i].values.Length)
+					for(int i = 0; i < newargs.Length; ++i) {
+						if(++argidx[i] == newargs[i].values.Length)
 							argidx[i] = 0;
 						else {
 							done = false;
@@ -779,17 +829,27 @@ namespace csharp_viewer
 				dataviz.ImagesAdded();
 				#endif
 			}
+			#pragma warning restore 162
+
+			//image_render_mutex.WaitOne();
+			images.AddRange(newimages);
+			foreach(TransformedImage newimage in newimages)
+				visible.Add(newimage);
+			image_render_mutex.ReleaseMutex();
+
+			if(newimages.Count == 0)
+				return;
 
 			// Get image size
 			imagepath = name_pattern;
-			for(int i = 0; i < arguments.Length; ++i)
-				imagepath = imagepath.Replace("{" + arguments[i].name + "}", arguments[i].strValues[0].ToString());
+			for(int i = 0; i < newargs.Length; ++i)
+				imagepath = imagepath.Replace("{" + Global.arguments[i].name + "}", Global.arguments[i].strValues[0].ToString());
 			imagepath = filename + "image/" + imagepath;
 			Image img = Image.FromFile(imagepath);
 			Size imageSize = new Size(img.Width, img.Height);
 			img.Dispose();
 
-			PostLoad(imageSize);
+			PostLoad(newimages, imageSize);
 		}
 
 
@@ -808,7 +868,7 @@ namespace csharp_viewer
 			List<string> filenames = new List<string>();
 			foreach(string filename in Directory.EnumerateFiles(dirname, "*.*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
 				if(filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
-					filenames.Add(filename);
+					filenames.Add(/*dirname +*/ filename);
 			LoadDatabaseFromImages(filenames.ToArray(), dirname + name_pattern);
 		}
 
@@ -822,10 +882,11 @@ namespace csharp_viewer
 			// Parse meta data from info.json
 			string[] name_pattern_splitters = null;
 			Dictionary<string, int>[] strValueIndices = null;
+			Cinema.CinemaArgument[] newargs;
 			if(name_pattern != null && name_pattern != "")
 			{
 				System.Text.RegularExpressions.MatchCollection matches = System.Text.RegularExpressions.Regex.Matches(name_pattern, "{\\w*}");
-				arguments = new Cinema.CinemaArgument[matches.Count];
+				newargs = new Cinema.CinemaArgument[matches.Count];
 				name_pattern_splitters = new string[matches.Count + 1];
 				strValueIndices = new Dictionary<string, int>[matches.Count];
 				int last_match_end = 0, i = 0;
@@ -835,7 +896,7 @@ namespace csharp_viewer
 					name_pattern_splitters[i] = name_pattern.Substring(last_match_end, match.Index - last_match_end);
 					last_match_end = match.Index + match.Length;
 
-					Cinema.CinemaArgument carg = arguments[i] = new Cinema.CinemaArgument();
+					Cinema.CinemaArgument carg = newargs[i] = new Cinema.CinemaArgument();
 					carg.name = argumentStr;
 					carg.label = argumentStr;
 					carg.strValues = new string[0];
@@ -849,24 +910,34 @@ namespace csharp_viewer
 			}
 			else
 			{
-				arguments = new Cinema.CinemaArgument[0];
+				newargs = new Cinema.CinemaArgument[0];
 				this.name_pattern = "";
 			}
 			depth_name_pattern = "";
 			image_pixel_format = "";//"I24";
 
+			image_render_mutex.WaitOne();
+			int[] newargindices;
+			AddArguments(newargs, out newargindices);
+			image_render_mutex.ReleaseMutex();
+
 			// >>> Load images and image meta
 
 			// Load images and image meta data by iterating over all argument combinations
+			List<TransformedImage> newimages = new List<TransformedImage>();
 			foreach(string imagepath in filenames)
 			{
+				string lpath = imagepath.ToLower();
+				if(!lpath.EndsWith(".png") && !lpath.EndsWith(".jpg"))
+					continue;
+
 				// >>> Load CinemaImage
 
 				// Get values through name_pattern
-				string[] strValues = new string[arguments.Length];
-				float[] values = new float[arguments.Length];
-				int[] key = new int[arguments.Length];
-				if(arguments.Length > 0)
+				string[] strValues = new string[newargs.Length];
+				float[] values = new float[newargs.Length];
+				int[] key = new int[newargs.Length];
+				if(newargs.Length > 0)
 				{
 					// Make sure name_pattern starts with name_pattern_splitters[0]
 					if(!imagepath.StartsWith(name_pattern_splitters[0]))
@@ -877,7 +948,7 @@ namespace csharp_viewer
 
 					bool err = false;
 					int valueend = 0;
-					for(int i = 0; i < arguments.Length; ++i)
+					for(int i = 0; i < newargs.Length; ++i)
 					{
 						// Find start of next name pattern splitter (== end of value)
 						int valuestart = valueend + name_pattern_splitters[i].Length;
@@ -895,17 +966,18 @@ namespace csharp_viewer
 					if(err)
 						continue; // Skip image
 
-					for(int i = 0; i < arguments.Length; ++i)
+					for(int i = 0; i < newargs.Length; ++i)
 					{
 						int strValueindex;
 						if(!strValueIndices[i].TryGetValue(strValues[i], out strValueindex))
 						{
 							strValueIndices[i].Add(strValues[i], strValueindex = strValueIndices[i].Count);
 
-							for(int j = i + 1; j < arguments.Length; ++j) //DELETE
+							for(int j = i + 1; j < newargs.Length; ++j) //DELETE
 								strValueIndices[j].Clear(); //DELETE
 						}
 						key[i] = strValueindex;
+						values[i] = (float)key[i];
 					}
 				}
 
@@ -914,16 +986,14 @@ namespace csharp_viewer
 
 				cimg.values = values;
 				cimg.strValues = strValues;
-				cimg.args = arguments;
+				cimg.args = newargs;
+				cimg.globalargindices = newargindices;
 				cimg.filename = imagepath;
 				cimg.depth_filename = null;
 				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 
 				cimg.key = key;
-				image_render_mutex.WaitOne();
-				images.Add(cimg);
-				visible.Add(cimg);
-				image_render_mutex.ReleaseMutex();
+				newimages.Add(cimg);
 
 				if(cimg.meta != null)
 					foreach(KeyValuePair<string, object> meta in cimg.meta)
@@ -938,17 +1008,30 @@ namespace csharp_viewer
 					}
 			}
 
+			if(newimages.Count == 0)
+				return;
+
+			image_render_mutex.WaitOne();
+
+			images.AddRange(newimages);
+			foreach(TransformedImage newimage in newimages)
+				visible.Add(newimage);
+
 			// >>> Update argument values
-			for(int i = 0; i < arguments.Length; ++i)
+			for(int i = 0; i < newargs.Length; ++i)
 			{
-				arguments[i].strValues = new string[strValueIndices[i].Count];
-				arguments[i].values = new float[strValueIndices[i].Count];
+				Cinema.CinemaArgument arg = newargs[i];
+				arg.strValues = new string[strValueIndices[i].Count];
+				arg.values = new float[strValueIndices[i].Count];
 				foreach(KeyValuePair<string, int> pair in strValueIndices[i])
 				{
-					arguments[i].strValues[pair.Value] = pair.Key;
-					float.TryParse(pair.Key, out arguments[i].values[pair.Value]);
+					arg.strValues[pair.Value] = pair.Key;
+					if(!float.TryParse(pair.Key, out arg.values[pair.Value]))
+						arg.values[pair.Value] = (float)pair.Value;
 				}
 			}
+
+			image_render_mutex.ReleaseMutex();
 
 			#if !DISABLE_DATAVIZ
 			if(dataviz != null)
@@ -956,11 +1039,11 @@ namespace csharp_viewer
 			#endif
 
 			// Get image size
-			Image img = Image.FromFile(filenames[0]);
+			Image img = Image.FromFile(newimages[0].filename);
 			Size imageSize = new Size(img.Width, img.Height);
 			img.Dispose();
 
-			PostLoad(imageSize);
+			PostLoad(newimages, imageSize);
 		}
 
 		private void SimulateInSituThread(object parameters)
@@ -969,18 +1052,18 @@ namespace csharp_viewer
 
 			// Create a list of all available indices
 			List<int[]> indexlist = new List<int[]>();
-			int[] argidx = new int[arguments.Length];
+			int[] argidx = new int[Global.arguments.Length];
 			bool done;
 			do {
 				// Add argidx to indexqueue
-				int[] argidx_copy = new int[arguments.Length];
+				int[] argidx_copy = new int[Global.arguments.Length];
 				Array.Copy(argidx, argidx_copy, argidx.Length);
 				indexlist.Add(argidx_copy);
 
 				// Get next argument combination -> argidx[]
 				done = true;
-				for(int i = 0; i < arguments.Length; ++i) {
-					if(++argidx[i] == arguments[i].values.Length)
+				for(int i = 0; i < Global.arguments.Length; ++i) {
+					if(++argidx[i] == Global.arguments[i].values.Length)
 						argidx[i] = 0;
 					else {
 						done = false;
@@ -1005,14 +1088,14 @@ namespace csharp_viewer
 				--indexlist_length;
 
 				// Construct CinemaImage key and image file path from argidx[]
-				float[] imagevalues = new float[arguments.Length];
-				string[] imagestrvalues = new string[arguments.Length];
+				float[] imagevalues = new float[Global.arguments.Length];
+				string[] imagestrvalues = new string[Global.arguments.Length];
 				String imagepath = name_pattern;
-				for(int i = 0; i < arguments.Length; ++i)
+				for(int i = 0; i < Global.arguments.Length; ++i)
 				{
-					imagevalues[i] = arguments[i].values[argidx[i]];
-					imagestrvalues[i] = arguments[i].strValues[argidx[i]];
-					imagepath = imagepath.Replace("{" + arguments[i].name + "}", arguments[i].strValues[argidx[i]].ToString());
+					imagevalues[i] = Global.arguments[i].values[argidx[i]];
+					imagestrvalues[i] = Global.arguments[i].strValues[argidx[i]];
+					imagepath = imagepath.Replace("{" + Global.arguments[i].name + "}", Global.arguments[i].strValues[argidx[i]].ToString());
 				}
 				imagepath = filename + "image/" + imagepath;
 
@@ -1021,17 +1104,17 @@ namespace csharp_viewer
 				cimg.LocationChanged += imageCloud.InvalidateOverallBounds;
 				cimg.values = imagevalues;
 				cimg.strValues = imagestrvalues;
-				cimg.args = arguments;
+				cimg.args = Global.arguments;
 				cimg.filename = imagepath;
 
-				for(int i = 0; i < arguments.Length; ++i)
+				/*for(int i = 0; i < Global.arguments.Length; ++i)
 				{
 					List<TransformedImage> valueimages;
-					arguments[i].images.TryGetValue(imagevalues[i], out valueimages);
+					Global.arguments[i].images.TryGetValue(imagevalues[i], out valueimages);
 					if(valueimages == null)
 						valueimages = new List<TransformedImage>();
 					valueimages.Add(cimg);
-				}
+				}*/
 
 				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 				cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
@@ -1080,7 +1163,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			imageCloud.Unload();
 			actMgr.Unload();
 
-			arguments = null;
+			Global.arguments = new Cinema.CinemaArgument[0];
 			selection.Clear();
 			visible.Clear();
 			images.Clear();
@@ -1089,6 +1172,67 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			OnSelectionChanged(selection);
 			ClearTransforms();
+		}
+
+		private bool texstream_ReadImageMetaData(TransformedImage image, GLTextureStream.ImageMetaData[] meta)
+		{
+			if(!image_render_mutex.WaitOne(500)) // Without this timeout image_render_mutex and addImageMutex can deadlock when this function is called during database unload
+				return false;
+
+			Cinema.CinemaArgument[] newargs = new Cinema.CinemaArgument[image.args.Length + meta.Length];
+			int i;
+			for(i = 0; i < image.args.Length; ++i)
+				newargs[i] = image.args[i];
+			foreach(GLTextureStream.ImageMetaData m in meta)
+			{
+				Cinema.CinemaArgument newarg = newargs[i++] = new Cinema.CinemaArgument();
+				newarg.name = newarg.label = m.name;
+				newarg.values = new float[0];
+				newarg.strValues = new string[0];
+				newarg.defaultValue = m.value;
+			}
+
+			int[] globalargindices;
+			AddArguments(newargs, out globalargindices);
+
+			int oldargslen = image.args.Length;
+			Array.Resize(ref image.args, image.args.Length + meta.Length);
+			Array.Resize(ref image.values, image.values.Length + meta.Length);
+			Array.Resize(ref image.strValues, image.strValues.Length + meta.Length);
+
+			i = 0;
+			foreach(Cinema.CinemaArgument arg in Global.arguments)
+			{
+				if(globalargindices[i] >= oldargslen)
+				{
+					image.args[globalargindices[i]] = newargs[globalargindices[i]];
+					float value = image.values[globalargindices[i]] = meta[globalargindices[i] - oldargslen].value;
+					string strValue = image.strValues[globalargindices[i]] = meta[globalargindices[i] - oldargslen].strValue;
+					if(Array.IndexOf<float>(arg.values, value) == -1)
+					{
+						/*Array.Resize(ref arg.values, arg.values.Length + 1);
+						Array.Resize(ref arg.strValues, arg.strValues.Length + 1);
+						arg.values[arg.values.Length - 1] = value;
+						arg.strValues[arg.strValues.Length - 1] = strValue;*/
+						arg.AddValue(value, strValue);
+					}
+				}
+				++i;
+			}
+
+			image.globalargindices = globalargindices;
+			image.InvalidateLocation();
+
+			//try {
+				imageCloud.Load(new TransformedImage[0], valuerange, new Size(100, 100), image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
+			//} catch(Exception ex) {
+			//	MessageBox.Show(ex.Message, ex.TargetSite.ToString());
+			//	throw ex;
+			//}
+
+			image_render_mutex.ReleaseMutex();
+
+			return true;
 		}
 
 		private void Exit()
@@ -1131,15 +1275,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			System.Threading.Thread.Sleep(100);
 			foreach(Control control in this.Controls)
 				control.Show();
-
-			if(glImageCloud_loaded)
-			{
-				//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
-				GL.Viewport(glImageCloud.Size);
-				imageCloud.OnSizeChanged(glImageCloud.Size);
-			}
-			/*Application.DoEvents();
-			tbArgument_ValueChanged(null, null); // OsX bugfix*/
 		}
 
 		private void CallSelectionChangedHandlers()
@@ -1159,8 +1294,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 					selection.Add(selectedimage);
 			}
 
-			/*int[] imagekey = new int[arguments.Length];
-			for(int i = 0; i < arguments.Length; ++i)
+			/*int[] imagekey = new int[Global.arguments.Length];
+			for(int i = 0; i < Global.arguments.Length; ++i)
 			{
 				var e = selection[i].GetEnumerator(); e.MoveNext();
 				imagekey[i] = e.Current;
@@ -1212,6 +1347,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			foreach(TransformedImage image in images)
 				image.AddTransform(newtransform);
+			imageCloud.InvalidateOverallBounds();
 			image_render_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to added transform)
@@ -1229,42 +1365,57 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			CallSelectionChangedHandlers();
 		}
 
-		private void CreateTransformX(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		private string GetSkipImageExpr(HashSet<int> byExpr_usedArgumentIndices)
+		{
+			string skipImageExpr = "";
+			int highestIdx = -1;
+			foreach(int argIdx in byExpr_usedArgumentIndices)
+			{
+				highestIdx = Math.Max(highestIdx, argIdx);
+				skipImageExpr += " || image.globalargindices[" + argIdx + "] == -1";
+			}
+			if(highestIdx == -1)
+				skipImageExpr = "false";
+			else
+				skipImageExpr = "image.globalargindices.Length <= " + highestIdx + skipImageExpr;
+			return skipImageExpr;
+		}
+		private void CreateTransformX(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileTranslationTransform(byExpr, "0.0f", "0.0f", true, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform(byExpr, "0.0f", "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformY(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		private void CreateTransformY(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", byExpr, "0.0f", true, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", byExpr, "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformZ(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		private void CreateTransformZ(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", "0.0f", byExpr, true, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", "0.0f", byExpr, GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformThetaPhi(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		private void CreateTransformThetaPhi(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr, true, ref warnings);
+			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr, byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformStar(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		private void CreateTransformStar(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileStarTransform(byExpr, true, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileStarTransform(byExpr, GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformLookAt(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		private void CreateTransformLookAt(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string indices = null;
 			foreach(int index in byExpr_usedArgumentIndices)
@@ -1276,13 +1427,13 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr, indices, ref warnings);
 
-			transform.SetArguments(arguments);
+			transform.SetArguments(Global.arguments);
 			OnTransformationAdded(transform, images);
 		}
-		private void CreateTransformSkip(string byExpr, HashSet<int> byExpr_usedArgumentIndices, IEnumerable<TransformedImage> images)
+		private void CreateTransformSkip(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr, true, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr, byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
 		}
@@ -1329,7 +1480,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				MessageBox.Show(ex.Message, "Error creating shaders");
 			}
 
-			imageCloud.Init(glImageCloud);
+			imageCloud.Init(glImageCloud, texstream_ReadImageMetaData);
 			imageCloud.OnSizeChanged(glImageCloud.Size);
 
 			glImageCloud.DragEnter += glImageCloud_DragEnter;
@@ -1341,8 +1492,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			glImageCloud.MouseWheel += glImageCloud_MouseWheel;
 			glImageCloud.DoubleClick += glImageCloud_DoubleClick;
 			glImageCloud.KeyDown += glImageCloud_KeyDown;
-
-			glImageCloud_loaded = true;
 
 			ActionManager.Do(AppStartAction);
 
@@ -1362,10 +1511,18 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			float averageDt = 0.0f;
 			int frameCounter = 0;
+			Size glImageCloud_Size = glImageCloud.Size;
 			while(!form_closing)
 			{
 				if (image_render_mutex.WaitOne(1) == false)
 					continue;
+
+				if(glImageCloud.Size != glImageCloud_Size)
+				{
+					//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
+					GL.Viewport(glImageCloud_Size = glImageCloud.Size);
+					imageCloud.OnSizeChanged(glImageCloud.Size);
+				}
 
 				InputDevices.Update();
 

@@ -176,10 +176,12 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		public const string VS = @"
 				attribute vec3 vpos;
 				uniform mat4 World;
+				uniform vec2 HalfBackbufferSize;
 
 				void main()
 				{
 					gl_Position = World * vec4(vpos, 1.0);
+					gl_Position.xy = floor(gl_Position.xy * HalfBackbufferSize) / HalfBackbufferSize;
 				}
 			";
 		public const string FS = @"
@@ -195,8 +197,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 	public class ImageCloud : GLControl
 	{
 		public static float FOV_Y = 75.0f * MathHelper.Pi / 180.0f; //90.0f
-		public static float Z_NEAR = 0.1f;
-		public static float Z_FAR = 1000.0f;
+		//public static float Z_NEAR = 0.1f;
+		//public static float Z_FAR = 1000.0f;
 
 		private TransformedImageCollection images;
 		private Cinema.CinemaArgument[] arguments;
@@ -262,8 +264,22 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 			private Action MoveAction, AnimatePositionAction;
 
+			private float _znear, _zfar, aspectRatio;
+			public float znear { get { return _znear;} }
+			public float zfar { get { return _zfar;} }
+			public void SetZRange(float znear, float zfar)
+			{
+				_znear = znear;
+				_zfar = zfar;
+				_projmatrix = Matrix4.CreatePerspectiveFieldOfView(FOV_Y, aspectRatio, _znear, _zfar);
+			}
+
 			public FreeView()
 			{
+				aspectRatio = 1.0f;
+				_znear = 0.1f;
+				_zfar = 1000.0f;
+
 				MoveAction = ActionManager.CreateAction("Move View", this, "Move");
 				AnimatePositionAction = ActionManager.CreateAction("Animate View Position", this, "AnimateCam");
 				//ActionManager.Do(MoveAction, new object[] {new Vector3(0.0f, 0.0f, 1.0f), rot});
@@ -330,7 +346,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			public void OnSizeChanged(float aspectRatio)
 			{
-				_projmatrix = Matrix4.CreatePerspectiveFieldOfView(FOV_Y, aspectRatio, Z_NEAR, Z_FAR);
+				_projmatrix = Matrix4.CreatePerspectiveFieldOfView(FOV_Y, this.aspectRatio = aspectRatio, _znear, _zfar);
 				OnViewMatrixChanged();
 			}
 
@@ -412,6 +428,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 		}
 		private MouseRect mouseRect = null;
+		private AABB overallAabb;
 		bool overallAabb_invalid = true;
 		float camera_speed = 1.0f;
 
@@ -465,7 +482,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		private Action EnableDepthRenderingAction, DisableDepthRenderingAction;
 		private Action MoveAction;
 
-		public void Init(GLWindow glcontrol)
+		public void Init(GLWindow glcontrol, GLTextureStream.ReadImageMetaDataDelegate ReadImageMetaData)
 		{
 			this.glcontrol = glcontrol;
 			glcontrol.GotFocus += (object sender, EventArgs e) => { glcontrol_focused = true; };
@@ -494,15 +511,17 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
-			//texstream = new GLTextureStream(256*1024*1024); // Optimize for 1GB of VRAM
-			texstream = new GLTextureStream(64*1024*1024); // Optimize for 256MB of VRAM
-			//texstream = new GLTextureStream(8*1024*1024); // Optimize for 32MB of VRAM
-			//texstream = new GLTextureStream(1024*1024); // Optimize for 4MB of VRAM
-			//texstream = new GLTextureStream(128*1024); // Optimize for 512KB of VRAM
+			//texstream = new GLTextureStream(256*1024*1024, ReadImageMetaData); // Optimize for 1GB of VRAM
+			texstream = new GLTextureStream(64*1024*1024, ReadImageMetaData); // Optimize for 256MB of VRAM
+			//texstream = new GLTextureStream(8*1024*1024, ReadImageMetaData); // Optimize for 32MB of VRAM
+			//texstream = new GLTextureStream(1024*1024, ReadImageMetaData); // Optimize for 4MB of VRAM
+			//texstream = new GLTextureStream(128*1024, ReadImageMetaData); // Optimize for 512KB of VRAM
 
 			#if USE_ARG_IDX
-			argIndex.Bounds = new Rectangle(30, 10, 600, 16);
-			argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+			//argIndex.Bounds = new Rectangle(30, 10, 600, 16);
+			//argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+			argIndex.Bounds = new Rectangle(200, 10, Width - 200, 16);
+			argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 			argIndex.Init();
 			this.Controls.Add(argIndex);
 			#endif
@@ -519,12 +538,13 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			fragmentcounter = GL.GenQuery();
 		}
 
-		public void Load(Cinema.CinemaArgument[] arguments, TransformedImageCollection images, Dictionary<string, HashSet<object>> valuerange, Size imageSize, bool floatimages = false, bool depthimages = false)
+		public void Load(IEnumerable<TransformedImage> newimages, Dictionary<string, HashSet<object>> valuerange, Size imageSize, bool floatimages = false, bool depthimages = false)
 		{
+depthimages = false;
 			int i;
 
-			this.images = images;
-			this.arguments = arguments;
+			this.images = Viewer.images;
+			this.arguments = Global.arguments;
 			this.floatimages = floatimages;
 
 			if(floatimages)
@@ -534,59 +554,77 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				colorTableMgr.Reset();
 			}
 			else
-				colorTableMgr.Visible = false;
-
-#if USE_GS_QUAD
-			sdr2D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
-#else
-			sdr2D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
-#endif
-			sdr3D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
-
-			foreach(GLShader sdr in new GLShader[] {sdr2D, sdr3D})
 			{
-				sdr.Bind();
-				GL.ActiveTexture(TextureUnit.Texture2);
-				colorTableMgr.Colormap.Bind();
-				GL.Uniform1(sdr.GetUniformLocation("Colormap"), 2);
+				colorTableMgr.Visible = false;
+				foreach(TransformedImage newimage in newimages)
+					newimage.texFilterLinear = true;
 			}
-			GL.ActiveTexture(TextureUnit.Texture0);
 
-			texstream.AddImages(images);
+			if(sdr2D == null)
+			{
+#if USE_GS_QUAD
+				sdr2D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
+#else
+				sdr2D = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {
+					IMAGE_CLOUD_SHADER.FS,
+					floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER
+				}, null);
+#endif
+				sdr3D = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {
+					IMAGE_CLOUD_SHADER.FS,
+					floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER
+				}, null);
 
-			// Create mesh for depth rendering
-			Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
-			Vector3[] positions = new Vector3[depthimagesize.Width * depthimagesize.Height];
-			Vector2[] texcoords = new Vector2[depthimagesize.Width * depthimagesize.Height];
-			i = 0;
-			for(int y = 0; y < depthimagesize.Height; ++y)
-				for(int x = 0; x < depthimagesize.Width; ++x)
+				foreach(GLShader sdr in new GLShader[] {sdr2D, sdr3D})
 				{
-					positions[i] = new Vector3(2.0f * (float)x / (float)(depthimagesize.Width - 1) - 1.0f, 2.0f * (float)y / (float)(depthimagesize.Height - 1) - 1.0f, 1.0f);
-					texcoords[i] = new Vector2((float)x / (float)(depthimagesize.Width - 1), 1.0f - (float)y / (float)(depthimagesize.Height - 1));
-					++i;
+					sdr.Bind();
+					GL.ActiveTexture(TextureUnit.Texture2);
+					colorTableMgr.Colormap.Bind();
+					GL.Uniform1(sdr.GetUniformLocation("Colormap"), 2);
 				}
-			/*int[] indices = new int[6 * (depthimagesize.Width - 1) * (depthimagesize.Height - 1)];
-			i = 0;
-			for(int y = 1; y < depthimagesize.Height; ++y)
-				for(int x = 1; x < depthimagesize.Width; ++x)
-				{
-					indices[i++] = (x - 1) + depthimagesize.Width * (y - 1);
-					indices[i++] = (x - 0) + depthimagesize.Width * (y - 1);
-					indices[i++] = (x - 1) + depthimagesize.Width * (y - 0);
+				GL.ActiveTexture(TextureUnit.Texture0);
+			}
 
-					indices[i++] = (x - 1) + depthimagesize.Width * (y - 0);
-					indices[i++] = (x - 0) + depthimagesize.Width * (y - 1);
-					indices[i++] = (x - 0) + depthimagesize.Width * (y - 0);
-				}
-			mesh3D = new GLMesh(positions, null, null, null, texcoords, indices);*/
-			mesh3D = new GLMesh(positions, null, null, null, texcoords, null, PrimitiveType.Points);
-			//GL.PointSize(2.0f);
+			texstream.AddImages(newimages);
+
+			if(depthimages)
+			{
+				// Create mesh for depth rendering
+				Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
+				Vector3[] positions = new Vector3[depthimagesize.Width * depthimagesize.Height];
+				Vector2[] texcoords = new Vector2[depthimagesize.Width * depthimagesize.Height];
+				i = 0;
+				for(int y = 0; y < depthimagesize.Height; ++y)
+					for(int x = 0; x < depthimagesize.Width; ++x)
+					{
+						positions[i] = new Vector3(2.0f * (float)x / (float)(depthimagesize.Width - 1) - 1.0f, 2.0f * (float)y / (float)(depthimagesize.Height - 1) - 1.0f, 1.0f);
+						texcoords[i] = new Vector2((float)x / (float)(depthimagesize.Width - 1), 1.0f - (float)y / (float)(depthimagesize.Height - 1));
+						++i;
+					}
+				/*int[] indices = new int[6 * (depthimagesize.Width - 1) * (depthimagesize.Height - 1)];
+				i = 0;
+				for(int y = 1; y < depthimagesize.Height; ++y)
+					for(int x = 1; x < depthimagesize.Width; ++x)
+					{
+						indices[i++] = (x - 1) + depthimagesize.Width * (y - 1);
+						indices[i++] = (x - 0) + depthimagesize.Width * (y - 1);
+						indices[i++] = (x - 1) + depthimagesize.Width * (y - 0);
+
+						indices[i++] = (x - 1) + depthimagesize.Width * (y - 0);
+						indices[i++] = (x - 0) + depthimagesize.Width * (y - 1);
+						indices[i++] = (x - 0) + depthimagesize.Width * (y - 0);
+					}
+				mesh3D = new GLMesh(positions, null, null, null, texcoords, indices);*/
+				mesh3D = new GLMesh(positions, null, null, null, texcoords, null, PrimitiveType.Points);
+				//GL.PointSize(2.0f);
+			}
+			else
+				mesh3D = null;
 
 			#if USE_ARG_IDX
 			argIndex.Load(images, arguments, valuerange);
-			/*argIndex.SelectionChanged += CallSelectionChangedHandlers;
-			argIndex.ArgumentLabelMouseDown += ArgumentIndex_ArgumentLabelMouseDown;*/
+			argIndex.SelectionChanged += () => { SelectionChanged(); };
+			//argIndex.ArgumentLabelMouseDown += ArgumentIndex_ArgumentLabelMouseDown;
 			#endif
 
 			cmImage = new ImageContextMenu.MenuGroup("");
@@ -775,6 +813,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			this.backbuffersize = backbuffersize;
 			freeview.OnSizeChanged(aspectRatio = (float)backbuffersize.Width / (float)backbuffersize.Height);
 
+			sdrAabb.Bind();
+			GL.Uniform2(sdrAabb.GetUniformLocation("HalfBackbufferSize"), new Vector2((float)backbuffersize.Width / 2.0f, (float)backbuffersize.Height / 2.0f));
+
 			if(floatimages)
 				colorTableMgr.OnSizeChanged(backbuffersize);
 		}
@@ -798,16 +839,27 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				if(images != null)
 				{
 					overallAabb_invalid = false;
-					AABB overallAabb = new AABB();
+					overallAabb = new AABB();
 					foreach(TransformedImage image in images.Values)
 						overallAabb.Include(image.GetBounds());
-					camera_speed = 1.0f * Math.Max(Math.Max(overallAabb.max.X - overallAabb.min.X, overallAabb.max.Y - overallAabb.min.Y), overallAabb.max.Z - overallAabb.min.Z);
-					camera_speed = Math.Max(0.1f, camera_speed);
-					camera_speed = Math.Min(10.0f, camera_speed);
 				}
 				else
-					camera_speed = 1.0f;
+					overallAabb = new AABB(Vector3.Zero, Vector3.Zero);
 			}
+
+			float maxdist = 0.0f;
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.min.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.min.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.max.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.max.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.min.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.min.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.max.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.max.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist *= 1.1f;
+			camera_speed = 0.1f * maxdist;
+			camera_speed = Math.Max(1.0f, camera_speed);
+			//camera_speed = Math.Min(10.0f, camera_speed);
 
 			// >>> Update free-view matrix
 
@@ -816,7 +868,10 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				bool viewChanged = false;
 				if(viewControl == ViewControl.TwoDimensional)
 				{
-					Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, camera_speed * 1.0f * InputDevices.mdz / dt);
+					/*Vector3 freeViewTranslation = Vector3.Zero;//new Vector3(0.0f, 0.0f, camera_speed * 10.0f * InputDevices.mdz); //mdz / dt);
+					if(InputDevices.mdz != 0)
+						freeViewTranslation.Z = freeview.viewpos.Z * 5.0f * InputDevices.mdz;*/
+					Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, 10.0f * camera_speed * InputDevices.mdz); //mdz / dt);
 
 					if(dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right)))
 					{
@@ -864,36 +919,29 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 						viewChanged = true;
 					}
 				}
-				freeview.Update(0.1f * camera_speed * dt);
+				freeview.Update(0.5f * camera_speed * dt);
 				if(viewChanged)
 					foreach(ImageTransform transform in transforms)
 						transform.OnCameraMoved(freeview);
 			}
 			else
-				freeview.Update(0.1f * camera_speed * dt);
+				freeview.Update(0.5f * camera_speed * dt);
+
+			maxdist = 1.0f;
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.min.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.min.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.max.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.max.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.min.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.min.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.max.Y, overallAabb.min.Z) - freeview.viewpos).Length);
+			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.max.Y, overallAabb.max.Z) - freeview.viewpos).Length);
+			maxdist *= 1.1f;
+			freeview.SetZRange(maxdist / 10000.0f, maxdist);
 
 			// >>> Render
 
 			GL.Enable(EnableCap.DepthTest);
-
-			/*if(tex2 != null)
-			{
-				GL.ActiveTexture(TextureUnit.Texture2);
-				tex2.Bind();
-			}
-			if(tex3 != null)
-			{
-				GL.ActiveTexture(TextureUnit.Texture3);
-				tex3.Bind();
-			}
-			GL.ActiveTexture(TextureUnit.Texture0);*/
-
-			/*if(floatimages)
-			{
-				GL.ActiveTexture(TextureUnit.Texture2);
-				colorTableMgr.Colormap.Bind();
-				GL.ActiveTexture(TextureUnit.Texture0);
-			}*/
 
 			foreach(ImageTransform transform in transforms)
 				transform.OnRender(dt, freeview);
@@ -909,9 +957,9 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			if(selectionAabb != null)
 			{
-				sdrAabb.Bind(selectionAabb.GetTransform() * freeview.viewprojmatrix);
-				Common.meshLineCube.Bind(sdrAabb, null);
-				Common.meshLineCube.Draw();
+				//sdrAabb.Bind(selectionAabb.GetTransform() * freeview.viewprojmatrix);
+				//Common.meshLineCube.Bind(sdrAabb, null);
+				//Common.meshLineCube.Draw();
 			}
 			else if(showCoordinateSystem)
 				coordsys.Draw(Vector3.Zero, freeview.viewprojmatrix, vieworient, freeview.viewpos, FOV_Y * backbuffersize.Width / backbuffersize.Height, backbuffersize);
@@ -937,8 +985,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 				float _time = Global.time;
 				//Global.time += 0.5f; // Prefetch 0.5 second into the future
-				//Global.time += 1.1f;
-				Global.time += 7.1f;
+				Global.time += 1.1f;
+				//Global.time += 7.1f;
 				// If the prefetching intervall is too short, images aren't loaded on time.
 				// If the prefetching intervall is too long, too much memory is consumed.
 				// Optimally the prefetching intervall should depend on the load time.
@@ -981,7 +1029,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					{
 #if USE_DEPTH_SORTING
 						float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;
-						if(dist >= Z_NEAR && dist <= Z_FAR)
+						if(dist >= freeview.znear && dist <= freeview.zfar)
 						{
 							//dist = -dist;
 							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transform));
@@ -1013,14 +1061,25 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					else
 					{
 						sdr2D.Bind();
-						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.matrix, fragmentcounter);
+						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.1f) : iter.matrix, fragmentcounter);
 					}
 				}
+
+				GL.LineWidth(2.5f);
+				Common.meshLineQuad.Bind(sdrAabb);
+				foreach(TransformedImageAndMatrix iter in renderlist)
+					if(iter.image.selected)
+					{
+						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.2f);
+						sdrAabb.Bind(transform);
+						Common.meshLineQuad.Draw();
+					}
+				GL.LineWidth(1.0f);
 #endif
 			}
 
 			if(showLineGrid)
-				grid.Draw(freeview, selectionAabb, new Color4(0.5f, 1.0f, 0.5f, 1.0f), backbuffersize);
+				grid.Draw(freeview, selectionAabb, new Color4(0.5f, 1.0f, 0.5f, 1.0f), backbuffersize, viewControl == ViewControl.TwoDimensional ? 2 : 3);
 
 			if( showCoordinateSystem && selectionAabb != null)
 			{
@@ -1076,8 +1135,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			GL.Disable(EnableCap.DepthTest);
 
-			//Common.fontText.DrawString(0.0f, 0.0f, freeview.viewpos.ToString(), backbuffersize);
-			//Common.fontText.DrawString(0.0f, 20.0f, freeview.GetViewDirection().ToString(), backbuffersize);
+			Common.fontText.DrawString(0.0f, 0.0f, camera_speed.ToString(), backbuffersize);
+			Common.fontText.DrawString(200.0f, 0.0f, freeview.zfar.ToString(), backbuffersize);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
 			Common.fontText.DrawString(60.0f, 40.0f, GLTextureStream.foo2, backbuffersize);
@@ -1101,10 +1160,10 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				{
 					string desc = "";
 					if(selectedimage.args.Length > 0)
-						desc = selectedimage.args[0].label + ": " + selectedimage.values[0].ToString();
+						desc = selectedimage.args[0].label + ": " + selectedimage.strValues[0];
 					for(int i = 1; i < selectedimage.args.Length; ++i)
-						desc += "  " + selectedimage.args[0].label + ": " + selectedimage.values[i].ToString();
-					Common.fontText.DrawString(0.0f, backbuffersize.Height - 20.0f * j++, desc, backbuffersize);
+						desc += "  " + selectedimage.args[i].label + ": " + selectedimage.strValues[i];
+					Common.fontTextSmall.DrawString(0.0f, backbuffersize.Height - 20.0f * j++, desc, backbuffersize);
 					if(j >= 10)
 						break;
 				}
@@ -1161,7 +1220,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		private Plane dragImagePlane;
 		private Vector2 mouseDownPos;
 		private Point mouseDownLocation;
-		private bool mouseDownInsideImageCloud = false;
+		private bool mouseDownInsideImageCloud = false, mouseDownInsideArgIndex = false;
 		public void MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
 			if(!glcontrol.Focused)
@@ -1174,6 +1233,14 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			
 			if(floatimages && colorTableMgr.MouseDown(e))
 				return;
+
+			#if USE_ARG_IDX
+			if(argIndex.MouseDown(Size, e))
+			{
+				mouseDownInsideArgIndex = true;
+				return;
+			}
+			#endif
 
 			if(images == null)
 				return;
@@ -1270,6 +1337,12 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			if(!glcontrol.Focused)
 				return;
 
+			#if USE_ARG_IDX
+			mouseDownInsideArgIndex = false;
+			if(argIndex.MouseUp(Size, e))
+				return;
+			#endif
+
 			if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 2)
 			{
 				if(e.Button == MouseButtons.Left)
@@ -1298,6 +1371,11 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		{
 			if(!glcontrol.Focused)
 				return;
+
+			#if USE_ARG_IDX
+			if(argIndex.MouseMove(Size, e) || mouseDownInsideArgIndex)
+				return;
+			#endif
 
 			if(!mouseDownInsideImageCloud)
 			{
@@ -1377,11 +1455,11 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					//Vector3 pmax = new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f); // A point on the top right edge of the mouse rect frustum
 					Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
 					Vector3 ptl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
-					Vector3 ptl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, Z_NEAR), invviewprojmatrix);
+					Vector3 ptl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, freeview.znear), invviewprojmatrix);
 					Vector3 ptr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
-					Vector3 ptr_far = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, Z_NEAR), invviewprojmatrix);
+					Vector3 ptr_far = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, freeview.znear), invviewprojmatrix);
 					Vector3 pbl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
-					Vector3 pbl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, Z_NEAR), invviewprojmatrix);
+					Vector3 pbl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, freeview.znear), invviewprojmatrix);
 					Vector3 pbr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
 
 					// Left plane

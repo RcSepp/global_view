@@ -694,7 +694,7 @@ namespace csharp_viewer
 						Matrix4 transform_noscale = transform;
 						transform_noscale.M11 = 1.0f;
 
-						Vector3 t0, tm, tm0 ;
+						Vector3 t0, tm0 ;
 						tm0 = Vector3.Transform(new Vector3(xr, 0.0f, 0.0f), transform_noscale);
 						t0 = Vector3.Transform(new Vector3(0.0f, 0.0f, 0.0f), transform_noscale);
 
@@ -715,10 +715,7 @@ namespace csharp_viewer
 						Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
 						xr = vpos.X / 2.0f + 0.5f;
 
-						Section oldDragPointSection = dragPointSection;
 						dragPointSection = null;
-
-						DragPoint oldDragPoint = dragPoint;
 						dragPoint = DragPoint.None;
 
 						// Set move mouse cursor if a splitter is close to xr

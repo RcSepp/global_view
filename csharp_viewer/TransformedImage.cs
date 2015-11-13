@@ -18,6 +18,8 @@ namespace csharp_viewer
 		public Quaternion rot; //TODO: Make publicly readonly
 		private Vector3 animatedPos = new Vector3(float.NaN);
 		public void skipPosAnimation() { animatedPos = pos; }
+		private bool locationInvalid = false;
+		public void InvalidateLocation() { locationInvalid = true; }
 
 		public delegate void LocationChangedDelegate();
 		public event LocationChangedDelegate LocationChanged;
@@ -32,6 +34,7 @@ namespace csharp_viewer
 		private System.Drawing.Bitmap oldbmp = null;
 		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
 		public bool texIsStatic = false;
+		public bool texFilterLinear = false;
 
 		private float prefetchHoldTime = 0.0f; // To avoid images to be unloaded between prefetching and rendering, prefetchHoldTime gets set to the expected render time inside PrefetchRenderPriority()
 
@@ -53,55 +56,6 @@ namespace csharp_viewer
 			foreach(ImageTransform t in transforms)
 				t.PrepareImage(key, this);
 		}
-		/*public void Render(GLMesh mesh, GLShader sdr, int sdr_colorParam, ImageCloud.FreeView freeview, Matrix4 invvieworient)
-		{
-			// Compute dynamic visibility and check if dynamic location updates are required
-			bool _visible = visible;
-			bool hasDynamicLocationTransform = false;
-			foreach(ImageTransform t in transforms)
-			{
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
-					_visible &= !t.SkipImage(key, this);
-				if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic)
-					hasDynamicLocationTransform = true;
-			}
-
-			if(_visible)
-			{
-				if(hasDynamicLocationTransform)
-					ComputeLocation();
-
-				Matrix4 worldmatrix = Matrix4.Identity;
-				worldmatrix *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-				worldmatrix *= Matrix4.CreateScale((float)img.Width / (float)img.Height, 1.0f, 1.0f);
-				//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-				if(depth_filename == null) // Do not always face screen when rendering volume images
-					worldmatrix *= invvieworient;
-				worldmatrix *= Matrix4.CreateTranslation(animatedPos);
-
-				if(freeview.DoFrustumCulling(worldmatrix, Matrix4.Identity, Matrix4.Identity, new Vector3(0.5f, 0.5f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
-				{
-					tex.Load();
-
-					Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-					if(selected)
-					{
-						clr.R += Color4.Azure.R / 2.0f;
-						clr.G += Color4.Azure.G / 2.0f;
-						clr.B += Color4.Azure.B / 2.0f;
-					}
-
-					sdr.Bind(worldmatrix * freeview.viewprojmatrix);
-					GL.Uniform4(sdr_colorParam, clr);
-					mesh.Bind(sdr, tex);
-					mesh.Draw();
-				}
-				else
-					tex.Unload();
-			}
-			else
-				tex.Unload();
-		}*/
 
 		public bool IsVisible()
 		{
@@ -121,7 +75,7 @@ namespace csharp_viewer
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
 			bool _visible = visible;
-			bool hasDynamicLocationTransform = false;
+			bool hasDynamicLocationTransform = locationInvalid;
 			foreach(ImageTransform t in transforms)
 			{
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
@@ -247,7 +201,7 @@ namespace csharp_viewer
 				if(bmp != null)
 				{
 					if(tex == null)
-						tex = new GLTexture2D(bmp, false); // Load texture
+						tex = new GLTexture2D(bmp, false, texFilterLinear);
 					renderMutex.ReleaseMutex();
 					texloaded = true;
 				}
@@ -261,14 +215,14 @@ namespace csharp_viewer
 				texloaded = false;
 
 			Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-			if(selected)
+			/*if(selected)
 			{
 				clr.R = 1.0f;//Color4.Azure.R / 2.0f;
 				clr.G = 0.5f;//Color4.Azure.G / 2.0f;
 				clr.B = 0.5f;//Color4.Azure.B / 2.0f;
 			}
 			//clr.A = selected ? 1.0f : 0.3f;
-			clr.A = 1.0f;
+			clr.A = 1.0f;*/
 
 			sdr.Bind(transform, clr, texloaded, depthscale);
 			/*GL.Uniform4(sdr_colorParam, clr);
@@ -383,6 +337,7 @@ namespace csharp_viewer
 
 		public void ComputeLocation()
 		{
+			locationInvalid = false;
 			pos = Vector3.Zero;
 			rot = Quaternion.Identity;
 			scl = Vector3.One;

@@ -184,10 +184,14 @@ namespace csharp_viewer
 			txt.GoEnd();
 		}
 
+		private delegate void DrawToGraphicsDelegate(Graphics gfx);
 		public void DrawToGraphics(Graphics gfx)
 		{
 			gfx.Clear(Color.White);
-			txt.DrawToGraphics(gfx);
+			if(txt.InvokeRequired)
+				txt.Invoke(new DrawToGraphicsDelegate(DrawToGraphics), new object[]{ gfx });  // invoking itself
+			else
+				txt.DrawToGraphics(gfx);
 		}
 
 		public int Width { get { return txt.Width; } }

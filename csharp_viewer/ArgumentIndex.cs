@@ -9,28 +9,6 @@ using OpenTK.Graphics.OpenGL;
 
 namespace csharp_viewer
 {
-	public static class ARGUMENT_INDEX_SHADER
-	{
-		public const string VS = @"
-			attribute vec3 vpos;
-
-			uniform mat4 World;
-
-			void main()
-			{
-				gl_Position = World * vec4(vpos, 1.0);
-			}
-		";
-		public const string FS = @"
-			uniform vec4 Color;
-
-			void main()
-			{
-				gl_FragColor = Color;
-			}
-		";
-	}
-
 	public class ArgumentIndex : GLControl
 	{
 		private const int MAX_NUM_ARGS_SHOWING_VALUES = 20;
@@ -46,53 +24,23 @@ namespace csharp_viewer
 
 		private TransformedImageCollection images;
 		private Cinema.CinemaArgument[] arguments;
-		private GLMesh meshSelection;
+		private GLMesh meshBorders, meshTick, meshSelection;
 
-		private Selection selection;
+		private Selection selection = Viewer.selection;
 
 		private class TrackBar
 		{
 			public string label = "";
 			private Rectangle bounds, labelBounds;
-			string[] strValues;
-			private GLMesh meshSelection, meshBorders, meshTicks;
+			Cinema.CinemaArgument argument;
+			private GLMesh meshBorders, meshSelection, meshTick;
 
-			public TrackBar(string[] strValues, GLMesh meshSelection)
+			public TrackBar(Cinema.CinemaArgument argument, GLMesh meshBorders, GLMesh meshTick, GLMesh meshSelection)
 			{
-				this.strValues = strValues;
+				this.argument = argument;
+				this.meshBorders = meshBorders;
+				this.meshTick = meshTick;
 				this.meshSelection = meshSelection;
-
-				// Create border mesh
-				List<Vector3> border_positions = new List<Vector3>();
-				Vector3[] tick_positions = new Vector3[2 * strValues.Length];
-
-				/*border_positions.Add(new Vector3(1.0f, 0.0f, 0.0f));
-				border_positions.Add(new Vector3(1.0f, 1.0f, 0.0f));
-				border_positions.Add(new Vector3(0.0f, 1.0f, 0.0f));
-				border_positions.Add(new Vector3(0.0f, 0.0f, 0.0f));
-				border_positions.Add(new Vector3(1.06f, 0.0f, 0.0f));
-				border_positions.Add(new Vector3(1.06f, 1.0f, 0.0f));
-				border_positions.Add(new Vector3(1.0f, 1.0f, 0.0f));*/
-
-				border_positions.Add(new Vector3(0.0f, 0.0f, 0.0f)); border_positions.Add(new Vector3(0.0f, 1.0f, 0.0f));
-				border_positions.Add(new Vector3(0.0f, 1.0f, 0.0f)); border_positions.Add(new Vector3(1.0f, 1.0f, 0.0f));
-				border_positions.Add(new Vector3(1.0f, 1.0f, 0.0f)); border_positions.Add(new Vector3(1.0f, 0.0f, 0.0f));
-				border_positions.Add(new Vector3(1.0f, 0.0f, 0.0f)); border_positions.Add(new Vector3(0.0f, 0.0f, 0.0f));
-
-				border_positions.Add(new Vector3(1.01f, 0.0f, 0.0f)); border_positions.Add(new Vector3(1.01f, 1.0f, 0.0f));
-				border_positions.Add(new Vector3(1.01f, 1.0f, 0.0f)); border_positions.Add(new Vector3(1.06f, 1.0f, 0.0f));
-				border_positions.Add(new Vector3(1.06f, 1.0f, 0.0f)); border_positions.Add(new Vector3(1.06f, 0.0f, 0.0f));
-				border_positions.Add(new Vector3(1.06f, 0.0f, 0.0f)); border_positions.Add(new Vector3(1.01f, 0.0f, 0.0f));
-
-				for(int i = 0; i < strValues.Length; ++i)
-				{
-					float x = (float)(i + 1) / (float)(strValues.Length + 1);
-					tick_positions[2 * i + 0] = new Vector3(x, 0.2f, 0.0f);
-					tick_positions[2 * i + 1] = new Vector3(x, 0.8f, 0.0f);
-				}
-
-				meshBorders = new GLMesh(border_positions.ToArray(), null, null, null, null, null, PrimitiveType.Lines);
-				meshTicks = new GLMesh(tick_positions, null, null, null, null, null, PrimitiveType.Lines);
 			}
 
 			public void Draw(Rectangle bounds, Selection selection, int argidx, Size backbufferSize, GLShader sdr, int colorUniform)
@@ -117,13 +65,31 @@ namespace csharp_viewer
 					y = 0.0f;//(2.0f * bounds.Height - 4.0f) / backbufferSize.Height;
 					foreach(TransformedImage selectedimage in selection)
 					{
-						int xi = Array.IndexOf(selectedimage.args[argidx].values, selectedimage.values[argidx]);
+						/*int xi = -1;
+						for(int i = 0; i < selectedimage.args.Length; ++i)
+							if(selectedimage.args[i] == Global.arguments[argidx])
+							{
+								xi = Array.IndexOf(selectedimage.args[i].values, selectedimage.values[i]);
+								break;
+							}
+						if(xi == -1)
+							continue;*/
+						
+						if(selectedimage.globalargindices.Length <= argidx || selectedimage.globalargindices[argidx] == -1)
+							continue;
+						int xi = Array.IndexOf(Global.arguments[argidx].values, selectedimage.values[selectedimage.globalargindices[argidx]]);
+						if(xi == -1)
+							continue;
 
-						float width = strValues.Length <= MAX_NUM_ARGS_SHOWING_VALUES ? Common.fontText2.MeasureString(strValues[xi]).X + 2.0f : 6.0f;
+						/*if(selectedimage.args.Length <= argidx)
+							continue;
+						int xi = Array.IndexOf(selectedimage.args[argidx].values, selectedimage.values[argidx]);*/
 
-						x = (float)(xi + 1) / (float)(strValues.Length + 1);
+						float halfwidth = argument.strValues.Length <= MAX_NUM_ARGS_SHOWING_VALUES ? Common.fontTextSmall.MeasureString(argument.strValues[xi]).X / 2.0f + 2.0f : 3.0f;
+
+						x = (float)(xi + 1) / (float)(argument.strValues.Length + 1);
 						x *= 2.0f * bounds.Width / backbufferSize.Width;
-						sdr.Bind(Matrix4.CreateScale(2.0f * width / backbufferSize.Width, 1.0f, 1.0f) * trans * Matrix4.CreateTranslation(x, y, 0.0f));
+						sdr.Bind(Matrix4.CreateScale(halfwidth / bounds.Width, 1.0f, 1.0f) * trans * Matrix4.CreateTranslation(x, y, 0.0f));
 						meshSelection.Draw();
 					}
 				}
@@ -147,28 +113,35 @@ namespace csharp_viewer
 					}
 				}*/
 
-				if(strValues.Length > MAX_NUM_ARGS_SHOWING_VALUES)
+				if(argument.strValues.Length > MAX_NUM_ARGS_SHOWING_VALUES)
 				{
 					GL.LineWidth(2.0f);
 					sdr.Bind(trans);
 					GL.Uniform4(colorUniform, TICK_COLOR);
-					meshTicks.Bind(sdr, null);
-					meshTicks.Draw();
+					meshTick.Bind(sdr, null);
+
+					for(int i = 0; i < argument.strValues.Length; ++i)
+					{
+						//x = (float)(i + 1) / (float)(argument.strValues.Length + 1);
+						x = argument.values[i] / 10.0f;
+						sdr.Bind(trans * Matrix4.CreateTranslation(x * 2.0f * bounds.Width / backbufferSize.Width, 0.0f, 0.0f));
+						meshTick.Draw();
+					}
 				}
 				else
 				{
-					y = bounds.Bottom - Common.fontText2.MeasureString(" ").Y + 2.0f;
-					for(int i = 0; i < strValues.Length; ++i)
+					y = bounds.Bottom - Common.fontTextSmall.MeasureString(" ").Y + 2.0f;
+					for(int i = 0; i < argument.values.Length; ++i)
 					{
-						x = (float)(i + 1) / (float)(strValues.Length + 1);
-						Common.fontText2.DrawString(bounds.Left + x * bounds.Width - Common.fontText2.MeasureString(strValues[i]).X / 2.0f, y, strValues[i], backbufferSize);
+						x = (float)(i + 1) / (float)(argument.strValues.Length + 1);
+						Common.fontTextSmall.DrawString(bounds.Left + x * bounds.Width - Common.fontTextSmall.MeasureString(argument.strValues[i]).X / 2.0f, y, argument.strValues[i], backbufferSize);
 					}
 				}
 
 				GL.LineWidth(1.0f);
 
-				Vector2 strsize = Common.fontText.MeasureString(label);
-				Common.fontText.DrawString(bounds.X - strsize.X - 2, bounds.Y - 1, label, backbufferSize);
+				Vector2 strsize = Common.fontText2.MeasureString(label);
+				Common.fontText2.DrawString(bounds.X - strsize.X - 2, bounds.Y - 1, label, backbufferSize);
 				this.labelBounds = new Rectangle((int)(bounds.X - strsize.X - 2), bounds.Y - 1, (int)strsize.X, (int)strsize.Y);
 			}
 
@@ -178,8 +151,8 @@ namespace csharp_viewer
 
 				if(bounds.Contains(mousepos))
 				{
-					int x = (int)Math.Round((float)(mousepos.X - bounds.X) * (float)(strValues.Length + 1) / (float)bounds.Width) - 1;
-					if(x < 0 || x >= strValues.Length)
+					int x = (int)Math.Round((float)(mousepos.X - bounds.X) * (float)(argument.strValues.Length + 1) / (float)bounds.Width) - 1;
+					if(x < 0 || x >= argument.strValues.Length)
 						return false;
 					tick = x;
 					return true;
@@ -199,9 +172,24 @@ namespace csharp_viewer
 
 		public void Init()
 		{
-			// Load shader
-			Common.sdrSolidColor = new GLShader(new string[] {ARGUMENT_INDEX_SHADER.VS}, new string[] {ARGUMENT_INDEX_SHADER.FS});
-			Common.sdrSolidColor.Bind();
+			Vector3[] border_positions = {
+				new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.0f, 1.0f, 0.0f),
+				new Vector3(0.0f, 1.0f, 0.0f), new Vector3(1.0f, 1.0f, 0.0f),
+				new Vector3(1.0f, 1.0f, 0.0f), new Vector3(1.0f, 0.0f, 0.0f),
+				new Vector3(1.0f, 0.0f, 0.0f), new Vector3(0.0f, 0.0f, 0.0f),
+
+				new Vector3(1.01f, 0.0f, 0.0f), new Vector3(1.01f, 1.0f, 0.0f),
+				new Vector3(1.01f, 1.0f, 0.0f), new Vector3(1.06f, 1.0f, 0.0f),
+				new Vector3(1.06f, 1.0f, 0.0f), new Vector3(1.06f, 0.0f, 0.0f),
+				new Vector3(1.06f, 0.0f, 0.0f), new Vector3(1.01f, 0.0f, 0.0f)
+			};
+			meshBorders = new GLMesh(border_positions, null, null, null, null, null, PrimitiveType.Lines);
+
+			Vector3[] tick_positions = {
+				new Vector3(0.0f, 0.2f, 0.0f),
+				new Vector3(0.0f, 0.8f, 0.0f)
+			};
+			meshTick = new GLMesh(tick_positions, null, null, null, null, null, PrimitiveType.Lines);
 
 			meshSelection = new GLMesh(new Vector3[] {new Vector3(-1.0f, -0.1f, 0.0f), new Vector3(-1.0f, 1.15f, 0.0f), new Vector3(1.0f, 1.15f, 0.0f), new Vector3(1.0f, -0.1f, 0.0f)}, null, null, null, null, null, PrimitiveType.TriangleFan);
 		}
@@ -211,12 +199,11 @@ namespace csharp_viewer
 			this.images = images;
 			this.arguments = arguments;
 
-			selection = new Selection(images);
-
 			// Create track bars for each argument
+			trackbars.Clear();
 			foreach(Cinema.CinemaArgument argument in arguments)
 			{
-				TrackBar newtrackbar = new TrackBar(argument.strValues, meshSelection);
+				TrackBar newtrackbar = new TrackBar(argument, meshBorders, meshTick, meshSelection);
 				newtrackbar.label = argument.label;
 				trackbars.Add(newtrackbar);
 			}
@@ -234,7 +221,6 @@ namespace csharp_viewer
 		{
 			images = null;
 			arguments = null;
-			selection = null;
 			trackbars.Clear();
 		}
 			
@@ -306,6 +292,11 @@ if(tick.X == -1)
 }
 else
 {
+				if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
+					selection.Clear();
+				foreach(TransformedImage image in images)
+					if(image.globalargindices.Length > tick.Y && image.globalargindices[tick.Y] != -1 && image.values[image.globalargindices[tick.Y]] == Global.arguments[tick.Y].values[tick.X])
+						selection.Add(image);
 				/*if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
 					selection[tick.Y].Clear();
 				selection[tick.Y].Add(tick.X);

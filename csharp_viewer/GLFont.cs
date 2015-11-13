@@ -357,18 +357,28 @@ namespace csharp_viewer
 
 			blankWidth = (int)Math.Ceiling(gfx.MeasureString(" ", font).Width);
 
-			bmp = new Bitmap(1024, y + lineMaxHeight);
-			gfx = Graphics.FromImage(bmp);
-			#if DEBUG_GLFONT
-			gfx.Clear(Color.Black);
-			#endif
-			gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; // Do not use ClearType
-			for(int i = 0; i < 255; ++i)
-				if(!char.IsControl((char)i))
-					gfx.DrawString(new string((char)i, 1), font, Brushes.White, new RectangleF((float)charBounds[i].X - 1, (float)charBounds[i].Y - 2, (float)charBounds[i].Width, (float)charBounds[i].Height));
-			gfx.Flush();
-			#if DEBUG_GLFONT
-			bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png"); // For debugging
+			#if !DEBUG_GLFONT
+			string bmp_filename = "charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png";
+			if(System.IO.File.Exists(bmp_filename))
+				bmp = (Bitmap)Bitmap.FromFile(bmp_filename);
+			else
+			{
+				#endif
+				bmp = new Bitmap(1024, y + lineMaxHeight);
+				gfx = Graphics.FromImage(bmp);
+				#if DEBUG_GLFONT
+				gfx.Clear(Color.Black);
+				#endif
+				gfx.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; // Do not use ClearType
+				for(int i = 0; i < 255; ++i)
+					if(!char.IsControl((char)i))
+						gfx.DrawString(new string((char)i, 1), font, Brushes.White, new RectangleF((float)charBounds[i].X - 1, (float)charBounds[i].Y - 2, (float)charBounds[i].Width, (float)charBounds[i].Height));
+				gfx.Flush();
+				#if DEBUG_GLFONT
+				bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + "_debug.png");
+				#else
+				bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png");
+			}
 			#endif
 
 			texture = new GLTexture2D(bmp);

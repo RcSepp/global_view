@@ -118,7 +118,11 @@ namespace csharp_viewer
 		}
 		protected void ClearSelection()
 		{
-			Viewer.selection.Clear();
+			if(Viewer.selection.Count > 0)
+			{
+				Viewer.selection.Clear();
+				SelectionChanged();
+			}
 		}
 
 		protected void Focus(TransformedImage image, bool animate = true)
@@ -279,15 +283,20 @@ namespace csharp_viewer
 
 		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
 		{
-			enableDrag = true;
-
-			if(!Viewer.selection.Contains(image))
+			if(Control.MouseButtons == MouseButtons.Left)
 			{
-				if(InputDevices.kbstate.IsKeyDown(OpenTK.Input.Key.LWin))
-					AddToSelection(image);
-				else
-					Select(image);
+				enableDrag = true;
+
+				if(!Viewer.selection.Contains(image))
+				{
+					if(InputDevices.kbstate.IsKeyDown(OpenTK.Input.Key.LWin))
+						AddToSelection(image);
+					else
+						Select(image);
+				}
 			}
+			else
+				enableDrag = false;
 		}
 		public override void OnNonImageMouseDown()
 		{

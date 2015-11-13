@@ -7,3 +7,4 @@
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/OpenTK.dll
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/OpenTK.GLControl.dll
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/FastColoredTextBox.dll
+/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/ExifLib.dll
