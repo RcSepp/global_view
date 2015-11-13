@@ -120,10 +120,6 @@ namespace csharp_viewer
 
 			void main()
 			{
-				/*gl_FragColor = Color * vec4(1.0, 1.0, 1.0, alpha);
-				if(HasTexture != 0)
-					gl_FragColor *= shade(Texture, uv);*/
-				
 				if(HasTexture != 0)
 					gl_FragColor = Color * shade(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);
 				else
@@ -230,8 +226,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 				Bind(transform);
 				GL.Uniform4(colorParam, clr);
 				GL.Uniform1(hastex, texloaded ? (int)1 : (int)0);
-				//if(sdr_imageViewInv != -1)
-				//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
+				if(imageViewInv != -1)
+					GL.UniformMatrix4(imageViewInv, false, ref invview);
 				if(depthScale != -1)
 					GL.Uniform1(depthScale, depthscale);
 			}
@@ -540,7 +536,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 		public void Load(IEnumerable<TransformedImage> newimages, Dictionary<string, HashSet<object>> valuerange, Size imageSize, bool floatimages = false, bool depthimages = false)
 		{
-depthimages = false;
+//depthimages = false;
 			int i;
 
 			this.images = Viewer.images;
@@ -587,6 +583,7 @@ depthimages = false;
 
 			texstream.AddImages(newimages);
 
+if(mesh3D != null) depthimages = false; //DELETE
 			if(depthimages)
 			{
 				// Create mesh for depth rendering
@@ -1560,14 +1557,14 @@ depthimages = false;
 					ActionManager.Do(SetViewControlAction, viewControl == ViewControl.ViewCentric ? ViewControl.CoordinateSystemCentric : ViewControl.ViewCentric);
 				break;
 
-			/*case Keys.O:
+			case Keys.O:
 				if(depthRenderingEnabled)
 					ActionManager.Do(DisableDepthRenderingAction);
 				else
 					ActionManager.Do(EnableDepthRenderingAction);
 				break;
 
-			case Keys.F:
+			/*case Keys.F:
 				//ActionManager.Do(FocusAction, selection);
 				Focus(selection);
 				break;

@@ -10,7 +10,7 @@ namespace csharp_viewer
 	public class TransformedImage : Cinema.CinemaImage
 	{
 		//private GLTextureStream.Texture tex;
-		public GLTexture2D tex;
+		public GLTexture2D tex = null, tex_depth = null;
 		public int[] key;
 
 		public bool visible = true, selected = false;
@@ -30,7 +30,7 @@ namespace csharp_viewer
 		public float originalAspectRatio = 1.0f;
 		public int renderWidth, renderHeight;
 		public float renderPriority = 0;
-		public System.Drawing.Bitmap bmp = null;
+		public System.Drawing.Bitmap bmp = null, bmp_depth = null;
 		private System.Drawing.Bitmap oldbmp = null;
 		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
 		public bool texIsStatic = false;
@@ -89,6 +89,12 @@ namespace csharp_viewer
 				// Unload texture
 				GL.DeleteTexture(tex.tex);
 				tex = null;
+
+				if(tex_depth != null)
+				{
+					GL.DeleteTexture(tex_depth.tex);
+					tex_depth = null;
+				}
 			}
 			oldbmp = bmp;
 
@@ -118,26 +124,12 @@ namespace csharp_viewer
 
 					return true;
 				}
-				else if(tex != null)
-				{
-					if(Global.time > prefetchHoldTime)
-						renderPriority = 0;
-					//tex.Unload();
-					return false;
-				}
 				else
 				{
 					if(Global.time > prefetchHoldTime)
 						renderPriority = 0;
 					return false;
 				}
-			}
-			else if(tex != null)
-			{
-				if(Global.time > prefetchHoldTime)
-					renderPriority = 0;
-				//tex.Unload();
-				return false;
 			}
 			else
 			{
@@ -202,6 +194,8 @@ namespace csharp_viewer
 				{
 					if(tex == null)
 						tex = new GLTexture2D(bmp, false, texFilterLinear);
+					if(bmp_depth != null && tex_depth == null)
+						tex_depth = new GLTexture2D(bmp_depth, false, false);
 					renderMutex.ReleaseMutex();
 					texloaded = true;
 				}
@@ -224,14 +218,15 @@ namespace csharp_viewer
 			//clr.A = selected ? 1.0f : 0.3f;
 			clr.A = 1.0f;*/
 
-			sdr.Bind(transform, clr, texloaded, depthscale);
+			//texloaded = true;
+			sdr.Bind(transform, clr, texloaded, depthscale/*, invview*/);
 			/*GL.Uniform4(sdr_colorParam, clr);
 			//if(sdr_imageViewInv != -1)
 			//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
 			if(sdr_DepthScale != -1)
 				GL.Uniform1(sdr_DepthScale, depthscale);*/
 
-			mesh.Bind(sdr, tex);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
+			mesh.Bind(sdr, tex, tex_depth);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
 			//GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
 			mesh.Draw();
 			//GL.EndQuery(QueryTarget.SamplesPassed);

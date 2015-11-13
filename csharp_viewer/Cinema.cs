@@ -177,7 +177,8 @@ namespace csharp_viewer
 				meta = ((JObject)json.variables).ToObject<Dictionary<string, object>>();
 			}
 			catch {}
-			/*if(json["lookat"] != null)
+
+			if(json["lookat"] != null)
 			{
 				float[] lookat = json["lookat"].ToObject<float[]>();
 				if(lookat.Length == 9)
@@ -192,7 +193,7 @@ namespace csharp_viewer
 					invview *= OpenTK.Matrix4.CreateRotationX(-theta_phi_xyz[1]);
 					invview.Invert();
 				}
-			}*/
+			}
 
 		}
 	}

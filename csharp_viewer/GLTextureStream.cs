@@ -61,6 +61,8 @@ namespace csharp_viewer
 						return -memory; // Return memory gain achieved by unloading this image
 					}
 
+					int factor = image.depth_filename != null ? 2 : 1;
+
 					if(memory > 0) // If image already loaded
 					{
 						// Recompute image size
@@ -90,7 +92,7 @@ namespace csharp_viewer
 						// Compare magnitude of change
 						float size_diff_factor = (float)newwidth / (float)this.width;
 						if(size_diff_factor > 2.0f || size_diff_factor < 0.5f)
-							return newwidth * newheight - memory; // Return memory gained or lost by resolution change
+							return newwidth * newheight * factor - memory; // Return memory gained or lost by resolution change
 
 						return 0; // Image considered unchanged. Return no extra memory required
 					}
@@ -99,7 +101,7 @@ namespace csharp_viewer
 					int renderHeight = (int)((float)image.renderHeight * tradeoffRenderSizeFactor);
 
 					if(image.originalWidth == 0) // If original size is unknown (because image hasn't been loaded so far)
-						return renderWidth * renderHeight;
+						return renderWidth * renderHeight * factor;
 
 					// Compute image size
 					int width, height; // width and height are only computed locally
@@ -125,7 +127,7 @@ namespace csharp_viewer
 						}
 					}
 
-					return width * height;
+					return width * height * factor;
 				}
 				public bool MemoryDisposable()
 				{
@@ -414,7 +416,7 @@ namespace csharp_viewer
 					}
 					else
 					{
-						newbmp = ImageLoader.Load(image.filename, null);
+						newbmp = ImageLoader.Load(image.filename);
 						if(newbmp == null)
 						{
 							image.tex = texFileNotFound;
@@ -423,6 +425,26 @@ namespace csharp_viewer
 						}
 					}
 					++GLTextureStream.foo;
+
+					// Load depth image from disk
+					Bitmap newbmp_depth = null;
+					if(image.depth_filename != null)
+					{
+						newbmp_depth = ImageLoader.Load(image.depth_filename);
+						if(newbmp_depth == null)
+						{
+							if(newbmp != null)
+							{
+								newbmp.Dispose();
+								newbmp = null;
+							}
+
+							image.tex = texFileNotFound;
+							image.texIsStatic = true;
+							return memory = 0;
+						}
+						++GLTextureStream.foo;
+					}
 
 					// Compute original dimensions
 					image.originalWidth = newbmp.Width;
@@ -477,6 +499,20 @@ namespace csharp_viewer
 						gfx.Flush();
 						originalBmp.Dispose();
 						originalBmp = null;
+
+						if(image.depth_filename != null)
+						{
+							originalBmp = newbmp_depth;
+							newbmp_depth = new Bitmap(width, height, originalBmp.PixelFormat);
+							gfx = Graphics.FromImage(newbmp_depth);
+							gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+							gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+							gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+							gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
+							gfx.Flush();
+							originalBmp.Dispose();
+							originalBmp = null;
+						}
 					}
 
 					#if DEBUG_GLTEXTURESTREAM
@@ -494,15 +530,27 @@ namespace csharp_viewer
 						image.bmp.Dispose();
 						image.bmp = null;
 					}
-
 					image.bmp = newbmp;
+
+					if(image.depth_filename != null)
+					{
+						if(image.bmp_depth != null)
+						{
+							// Unload old image
+							image.bmp_depth.Dispose();
+							image.bmp_depth = null;
+						}
+						image.bmp_depth = newbmp_depth;
+					}
 
 					image.renderMutex.ReleaseMutex();
 
 					sizePriority = (float)image.originalWidth / (float)width;
 
-					int memorydiff = width * height - memory;
-					memory = width * height;
+					int factor = image.depth_filename != null ? 2 : 1;
+
+					int memorydiff = width * height * factor - memory;
+					memory = width * height * factor;
 					return memorydiff;
 				}
 
