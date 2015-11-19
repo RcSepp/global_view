@@ -5,15 +5,12 @@ using OpenTK.Graphics;
 
 namespace csharp_viewer
 {
-	[Serializable]
+	//[Serializable]
 	public abstract class ImageTransform
 	{
-		//public abstract void SetIndices(int[] indices);
-		public abstract int GetIndex(int i);
-		public abstract int SetIndex(int i, int index);
-		public virtual void SetArguments(Cinema.CinemaArgument[] arguments) {}
+		public virtual void OnArgumentsChanged() {}
 
-		[NonSerializedAttribute]
+		//[NonSerializedAttribute]
 		private AABB transformAabb = new AABB();
 
 		private System.Collections.Generic.HashSet<TransformedImage> updateImageSet = new System.Collections.Generic.HashSet<TransformedImage>();

@@ -4,32 +4,9 @@ using OpenTK;
 
 namespace csharp_viewer
 {
-	[Serializable]
+	//[Serializable]
 	public class _ThetaPhiViewTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx.theta; case 1: return idx.phi; default: return -1;}}
-		public override int SetIndex(int i, int index)
-		{
-			switch(i)
-			{
-			case 0:
-				idx.theta = index;
-				OnChangeIndex();
-				return index;
-			case 1:
-				idx.phi = index;
-				OnChangeIndex();
-				return index;
-			default:
-				return -1;
-			}
-		}
-		public override void SetArguments(Cinema.CinemaArgument[] arguments)
-		{
-			this.arguments = arguments;
-			OnChangeIndex();
-		}
-
 		private struct Selection<T>
 		{
 			public T theta, phi;
@@ -131,32 +108,9 @@ public static string foo = "";
 		}
 	}
 
-	[Serializable]
+	//[Serializable]
 	public class ThetaPhiViewTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx.theta; case 1: return idx.phi; default: return -1;}}
-		public override int SetIndex(int i, int index)
-		{
-			switch(i)
-			{
-			case 0:
-				idx.theta = index;
-				OnChangeIndex();
-				return index;
-			case 1:
-				idx.phi = index;
-				OnChangeIndex();
-				return index;
-			default:
-				return -1;
-			}
-		}
-		public override void SetArguments(Cinema.CinemaArgument[] arguments)
-		{
-			this.arguments = arguments;
-			OnChangeIndex();
-		}
-
 		private struct Selection<T>
 		{
 			public T theta, phi;

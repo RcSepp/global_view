@@ -195,7 +195,7 @@ namespace csharp_viewer
 		{
 			foreach(TransformedImage image in images)
 			{
-				image.visible = true;
+				image.Visible = true;
 				Viewer.visible.Add(image);
 			}
 		}
@@ -205,7 +205,7 @@ namespace csharp_viewer
 		}
 		private void DoShowImage(TransformedImage image)
 		{
-			image.visible = true;
+			image.Visible = true;
 			Viewer.visible.Add(image);
 		}
 		public void ShowSelection()
@@ -216,7 +216,7 @@ namespace csharp_viewer
 		{
 			foreach(TransformedImage selectedimage in Viewer.selection)
 			{
-				selectedimage.visible = true;
+				selectedimage.Visible = true;
 				Viewer.visible.Add(selectedimage);
 			}
 		}
@@ -230,7 +230,7 @@ namespace csharp_viewer
 			//bool selectionhidden = false;
 			foreach(TransformedImage image in images)
 			{
-				image.visible = false;
+				image.Visible = false;
 				Viewer.visible.Remove(image);
 
 				//if(image.selected)
@@ -245,7 +245,7 @@ namespace csharp_viewer
 		}
 		private void DoHideImage(TransformedImage image)
 		{
-			image.visible = false;
+			image.Visible = false;
 			Viewer.visible.Remove(image);
 		}
 		public void HideSelection()
@@ -256,7 +256,7 @@ namespace csharp_viewer
 		{
 			foreach(TransformedImage selectedimage in Viewer.selection)
 			{
-				selectedimage.visible = false;
+				selectedimage.Visible = false;
 				Viewer.visible.Remove(selectedimage);
 			}
 			//SelectionMoved();

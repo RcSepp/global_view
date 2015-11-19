@@ -120,23 +120,45 @@ namespace ISQL
 				if(fragments[j].token == Tokenizer.Token.Var)
 				{
 					string varExpr = fragments[j].GetString(code);
-					if(varExpr.Equals("time"))
-					{
-						varExpr = "Global.time";
-						isTemporal = true;
-					}
-					else if(varExpr.Equals("sin"))
-						varExpr = "(float)global::System.Math.Sin";
-					else if(varExpr.Equals("cos"))
-						varExpr = "(float)global::System.Math.Cos";
-					else if(varExpr.Equals("tan"))
-						varExpr = "(float)global::System.Math.Tan";
-					else if(varExpr.Equals("pi"))
-						varExpr = "(float)global::System.Math.PI";
-					else
-						continue;
 
-					expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j].endidx - exprOffset);
+					if(j + 3 <= lastfragment && fragments[j + 1].token == Tokenizer.Token.OBr && fragments[j + 2].token == Tokenizer.Token.Var && fragments[j + 3].token == Tokenizer.Token.CBr)
+					{
+						// Fragments of format Var '(' Var ')' found
+
+						// Find argidx for argument with label == fragments[j + 2].value
+						string argname = (string)fragments[j + 2].value;
+						int argidx = csharp_viewer.Cinema.CinemaArgument.FindIndex(csharp_viewer.Global.arguments, argname);
+						if(argidx == -1)
+							continue; // Function argument isn't argument label
+
+						if(varExpr.Equals("len"))
+							varExpr = "Global.arguments[" + argidx.ToString() + "].values.Length";
+						else
+							continue;
+
+						expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j + 3].endidx - exprOffset);
+					}
+					else
+					{
+						// Fragment of format Var found
+
+						if(varExpr.Equals("time"))
+						{
+							varExpr = "Global.time";
+							isTemporal = true;
+						} else if(varExpr.Equals("sin"))
+							varExpr = "(float)global::System.Math.Sin";
+						else if(varExpr.Equals("cos"))
+							varExpr = "(float)global::System.Math.Cos";
+						else if(varExpr.Equals("tan"))
+							varExpr = "(float)global::System.Math.Tan";
+						else if(varExpr.Equals("pi"))
+							varExpr = "(float)global::System.Math.PI";
+						else
+							continue;
+
+						expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j].endidx - exprOffset);
+					}
 				}
 				else if(fragments[j].token >= Tokenizer.Token.ArgVal && fragments[j].token <= Tokenizer.Token.ArgIdx)
 				{

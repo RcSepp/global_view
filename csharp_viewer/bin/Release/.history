@@ -1461,3 +1461,8 @@ load "cosmo"
 spread all
 load "bunny"
 look all by $theta * pi / 180, $phi * pi / 180
+load "np"
+load "mpas2"
+look all by $theta * pi / 180, $phi * pi / 180
+skip all by #time != ( (int) (time * 10.0f) % 40)
+focus all

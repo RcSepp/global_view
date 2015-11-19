@@ -13,7 +13,7 @@ namespace csharp_viewer
 		public GLTexture2D tex = null, tex_depth = null;
 		public int[] key;
 
-		public bool visible = true, selected = false;
+		public bool selected = false;
 		public Vector3 pos, scl; //TODO: Make publicly readonly
 		public Quaternion rot; //TODO: Make publicly readonly
 		private Vector3 animatedPos = new Vector3(float.NaN);
@@ -38,6 +38,32 @@ namespace csharp_viewer
 
 		private float prefetchHoldTime = 0.0f; // To avoid images to be unloaded between prefetching and rendering, prefetchHoldTime gets set to the expected render time inside PrefetchRenderPriority()
 
+		private bool visible_manual = true; // Publicly controllable visibility
+		private bool visible_static = true; // == visible_manual + visibility for static image skip-transforms
+		public bool Visible
+		{
+			get { return visible_manual; }
+			set {
+				if((visible_static = visible_manual = value) == true)
+					foreach(ImageTransform t in transforms)
+						if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
+							visible_static &= !t.SkipImage(key, this);
+			}
+		}
+
+		/*private bool color_manual = true; // Publicly controllable color
+		private bool color_static = true; // == color_manual + color for static image color-transforms
+		public bool Color
+		{
+			get { return color_manual; }
+			set {
+				if((color_static = color_manual = value) == true)
+					foreach(ImageTransform t in transforms)
+						if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
+							color_static &= !t.SkipImage(key, this);
+			}
+		}*/
+
 		public bool HasDepthInfo { get {return depth_filename != null;} }
 
 		public void LoadTexture(GLTextureStream texstream)
@@ -60,26 +86,21 @@ namespace csharp_viewer
 		public bool IsVisible()
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
-			bool _visible = visible;
-			bool hasDynamicLocationTransform = false;
+			bool visible_dynamic = visible_static;
 			foreach(ImageTransform t in transforms)
-			{
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
-					_visible &= !t.SkipImage(key, this);
-				if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic)
-					hasDynamicLocationTransform = true;
-			}
-			return _visible;
+					visible_dynamic &= !t.SkipImage(key, this);
+			return visible_dynamic;
 		}
 		public bool IsVisible(ImageCloud.FreeView freeview, Matrix4 invvieworient, System.Drawing.Size backbuffersize, out Matrix4 transform)
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
-			bool _visible = visible;
+			bool visible_dynamic = visible_static;
 			bool hasDynamicLocationTransform = locationInvalid;
 			foreach(ImageTransform t in transforms)
 			{
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
-					_visible &= !t.SkipImage(key, this);
+					visible_dynamic &= !t.SkipImage(key, this);
 				if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic)
 					hasDynamicLocationTransform = true;
 			}
@@ -99,7 +120,7 @@ namespace csharp_viewer
 			oldbmp = bmp;
 
 			transform = invview; //Matrix4.Identity
-			if(_visible)
+			if(visible_dynamic)
 			{
 				if(hasDynamicLocationTransform)
 					ComputeLocation();
@@ -141,14 +162,14 @@ namespace csharp_viewer
 		public void PrefetchRenderPriority(ImageCloud.FreeView freeview, Matrix4 invvieworient, System.Drawing.Size backbuffersize)
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
-			bool _visible = visible;
+			bool visible_dynamic = visible_static;
 			bool hasDynamicSkipTransform = false, hasDynamicLocationTransform = false;
 			foreach(ImageTransform t in transforms)
 			{
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
 				{
 					hasDynamicSkipTransform = true;
-					_visible &= !t.SkipImage(key, this);
+					visible_dynamic &= !t.SkipImage(key, this);
 				}
 				//if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic) //EDIT: Compute location locally
 				//	hasDynamicLocationTransform = true; //EDIT: Compute location locally
@@ -158,7 +179,7 @@ namespace csharp_viewer
 				return; // Don't prefetch
 
 			Matrix4 transform = invview; //Matrix4.Identity
-			if(_visible)
+			if(visible_dynamic)
 			{
 				//if(hasDynamicLocationTransform) //EDIT: Compute location locally
 				//	ComputeLocation(); //EDIT: Compute location locally
@@ -271,11 +292,11 @@ namespace csharp_viewer
 			//	return float.MaxValue;
 
 			// Compute dynamic visibility
-			bool _visible = visible;
+			bool visible_dynamic = visible_static;
 			foreach(ImageTransform t in transforms)
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
-					_visible &= !t.SkipImage(key, this);
-			if(!_visible)
+					visible_dynamic &= !t.SkipImage(key, this);
+			if(!visible_dynamic)
 				return float.MaxValue;
 
 			Matrix4 invworldmatrix = GetWorldMatrix(invvieworient);
@@ -297,11 +318,11 @@ namespace csharp_viewer
 		{
 			transforms.Add(transform);
 
-			// Evaluate transform visibility
-			visible = true;
+			// Evaluate static transform visibility
+			visible_static = visible_manual;
 			foreach(ImageTransform t in transforms)
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
-					visible &= !t.SkipImage(key, this);
+					visible_static &= !t.SkipImage(key, this);
 
 			ComputeLocation();
 
@@ -313,11 +334,11 @@ namespace csharp_viewer
 			if(!transforms.Remove(transform))
 				return;
 
-			// Evaluate transform visibility
-			visible = true;
+			// Evaluate static transform visibility
+			visible_static = visible_manual;
 			foreach(ImageTransform t in transforms)
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
-					visible &= !t.SkipImage(key, this);
+					visible_static &= !t.SkipImage(key, this);
 
 			ComputeLocation();
 		}
@@ -325,7 +346,8 @@ namespace csharp_viewer
 		{
 			transforms.Clear();
 
-			visible = true;
+			// Reset static visibility to manual visibility
+			visible_static = visible_manual;
 
 			ComputeLocation();
 		}

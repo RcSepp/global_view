@@ -60,20 +60,11 @@ namespace csharp_viewer
 			new Vector3(-(float)Math.Sqrt(0.75), -0.5f, 0.0f)
 		}*/
 
-		public override int GetIndex(int i) { return i < arguments.Length ? idx[i] : -1; }
-		public override int SetIndex(int i, int index) { return i < arguments.Length ? idx[i] = index : -1; }
-
 		private int[] idx;
 		private Cinema.CinemaArgument[] arguments;
 
 		public WheelTransform()
 		{
-		}
-
-		public override void SetArguments(Cinema.CinemaArgument[] arguments)
-		{
-			this.arguments = arguments;
-			idx = new int[arguments.Length];
 		}
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)

@@ -23,11 +23,6 @@ namespace csharp_viewer
 {{
 	public class TranslationTransform : ImageTransform
 	{{
-		public override int GetIndex(int i) {{switch(i) {{case 0: return idx; default: return -1;}}}}
-		public override int SetIndex(int i, int index) {{switch(i) {{case 0: return idx = index; default: return -1;}}}}
-
-		private int idx;
-
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
 			if({3})
@@ -38,7 +33,7 @@ namespace csharp_viewer
 			float x = (float)({0}), y = (float)({1}), z = (float)({2});
 			pos = new Vector3(x, y, z);
 		}}
-
+		
 		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
 		{{
 			if({3})
@@ -46,6 +41,12 @@ namespace csharp_viewer
 			float x = (float)({0}), y = (float)({1}), z = (float)({2});
 			return new AABB(new Vector3(x - 0.5f, y - 0.5f, z - 0.5f), new Vector3(x + 0.5f, y + 0.5f, z + 0.5f));
 		}}
+		
+		/*Random rand = new Random((int)((Global.time * 1000.0f) % (float)int.MaxValue));
+		public override void OnRender(float dt, ImageCloud.FreeView freeview)
+		{{
+			rand = new Random((int)((Global.time * 1000.0f) % (float)int.MaxValue));
+		}}*/
 		
 		{4}
 	}}
@@ -73,11 +74,6 @@ namespace csharp_viewer
 {{
 	public class PolarTransform : ImageTransform
 	{{
-		public override int GetIndex(int i) {{switch(i) {{case 0: return idx; default: return -1;}}}}
-		public override int SetIndex(int i, int index) {{switch(i) {{case 0: return idx = index; default: return -1;}}}}
-
-		private int idx;
-
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
 			Vector3 tpr = new Vector3({0});
@@ -103,12 +99,6 @@ namespace csharp_viewer
 
 		public static ImageTransform CompileSkipTransform(string skip, bool useTime, ref string warnings)
 		{
-			string timeCode = useTime ? @"
-		public SkipTransform()
-		{
-			SkipImageInterval = UpdateInterval.Dynamic;
-		}" : "";
-
 			string source = string.Format(@"
 using System;
 using System.Collections;
@@ -120,19 +110,18 @@ namespace csharp_viewer
 {{
 	public class SkipTransform : ImageTransform
 	{{
-		public override int GetIndex(int i) {{switch(i) {{case 0: return idx; default: return -1;}}}}
-		public override int SetIndex(int i, int index) {{switch(i) {{case 0: return idx = index; default: return -1;}}}}
-		
-		private int idx;
-		
 		public override bool SkipImage(int[] imagekey, TransformedImage image)
 		{{
 			return {0};
 		}}
 		
-		{1}
+		public SkipTransform()
+		{{
+			locationTransformInterval = UpdateInterval.Never;
+			SkipImageInterval = UpdateInterval.{1};
+		}}
 	}}
-}}", skip, timeCode);
+}}", skip, useTime ? "Dynamic" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "SkipTransform", ref warnings);
 		}
@@ -150,11 +139,8 @@ namespace csharp_viewer
 {{
 	public class LookAtTransform : ImageTransform
 	{{
-		public override int GetIndex(int i) {{ return-1; }}
-		public override int SetIndex(int i, int index) {{ return-1; }}
-		public override void SetArguments(Cinema.CinemaArgument[] arguments)
+		public override void OnArgumentsChanged()
 		{{
-			this.arguments = arguments;
 			OnChangeIndex();
 		}}
 
@@ -162,7 +148,6 @@ namespace csharp_viewer
 		{{
 			public T theta, phi;
 		}}
-		Cinema.CinemaArgument[] arguments;
 		private class ImageAndAngle
 		{{
 			public float angle;
@@ -216,12 +201,12 @@ namespace csharp_viewer
 
 		private void OnChangeIndex()
 		{{
-			bestImages.Alloc(arguments, new System.Collections.Generic.HashSet<int>() {{ {0} }});
+			bestImages.Alloc(Global.arguments, new System.Collections.Generic.HashSet<int>() {{ {0} }});
 		}}
 
 		public override bool SkipImage(int[] imagekey, TransformedImage image)
 		{{
-			ImageAndAngle bestImage = bestImages.Get(arguments, imagekey);
+			ImageAndAngle bestImage = bestImages.Get(Global.arguments, imagekey);
 			return image != bestImage.image;
 		}}
 
@@ -245,7 +230,7 @@ namespace csharp_viewer
 			tp[1] += 10.0f * (float)Math.PI;
 			tp[1] %= (float)Math.PI;
 			float totalangle = AngularDistance(viewangle.theta, tp[0])/*Math.Abs(viewangle.theta - tp[0])*/ + Math.Abs(viewangle.phi - tp[1]);
-			ImageAndAngle bestImage = bestImages.Get(arguments, imagekey);
+			ImageAndAngle bestImage = bestImages.Get(Global.arguments, imagekey);
 			if(totalangle < bestImage.angle)
 			{{
 				bestImage.angle = totalangle;
@@ -327,16 +312,13 @@ namespace csharp_viewer
 				new Vector3(0.0f, 0.0f, -1.0f)
 			}}
 		}};
-
+		
 		/* 3 dimensions 2D: new Vector3[] {{
 			new Vector3( (float)Math.Sqrt(0.75), -0.5f, 0.0f),
 			new Vector3( 0.0f,         1.0f,        0.0f),
 			new Vector3(-(float)Math.Sqrt(0.75), -0.5f, 0.0f)
 		}}*/
-
-		public override int GetIndex(int i) {{ return -1; }}
-		public override int SetIndex(int i, int index) {{ return -1; }}
-
+		
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
 			if({1})

@@ -4,12 +4,9 @@ using OpenTK;
 
 namespace csharp_viewer
 {
-	[Serializable]
+	//[Serializable]
 	public class ThetaPhiTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx.theta; case 1: return idx.phi; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx.theta = index; case 1: return idx.phi = index; default: return -1;}}
-
 		private struct Selection<T>
 		{
 			public T theta, phi;
@@ -45,12 +42,9 @@ namespace csharp_viewer
 		}
 	}
 
-	[Serializable]
+	//[Serializable]
 	public class ThetaTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
-
 		private int idx;
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
@@ -60,12 +54,9 @@ namespace csharp_viewer
 		}
 	}
 
-	[Serializable]
+	//[Serializable]
 	public class PhiTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
-
 		private int idx;
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)

@@ -4,12 +4,9 @@ using OpenTK;
 
 namespace csharp_viewer
 {
-	[Serializable]
+	//[Serializable]
 	public class GraphTransform : ImageTransform
 	{
-		public override int GetIndex(int i) { return i < 2 ? idx[i] : -1;}
-		public override int SetIndex(int i, int index) { return i < 2 ? idx[i] = index : -1;}
-
 		private int[] idx = new int[2];
 		private Cinema.CinemaArgument[] arguments;
 		private float[] y;
@@ -22,11 +19,6 @@ namespace csharp_viewer
 			Random rand = new Random();
 			for(int i = 0; i < y.Length; ++i)
 				y[i] = (float)rand.NextDouble() * 10.0f;
-		}
-
-		public override void SetArguments(Cinema.CinemaArgument[] arguments)
-		{
-			this.arguments = arguments;
 		}
 
 		ImageCloud.FreeView freeview;

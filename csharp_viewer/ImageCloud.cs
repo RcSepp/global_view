@@ -483,6 +483,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			this.glcontrol = glcontrol;
 			glcontrol.GotFocus += (object sender, EventArgs e) => { glcontrol_focused = true; };
 			glcontrol.LostFocus += (object sender, EventArgs e) => { glcontrol_focused = false; };
+			glcontrol_focused = true;
 
 			// Define actions
 			SetViewControlAction = ActionManager.CreateAction("Set View Control", this, "SetViewControl");
@@ -1058,7 +1059,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 					else
 					{
 						sdr2D.Bind();
-						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.1f) : iter.matrix, fragmentcounter);
+						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : iter.matrix, fragmentcounter);
 					}
 				}
 
@@ -1067,7 +1068,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 				foreach(TransformedImageAndMatrix iter in renderlist)
 					if(iter.image.selected)
 					{
-						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.2f);
+						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.002f);
 						sdrAabb.Bind(transform);
 						Common.meshLineQuad.Draw();
 					}
@@ -1276,7 +1277,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 					{
 						TranslationTransform newtransform = new TranslationTransform(defineAlignmentOffset - defineAlignmentOrigin, defineAlignmentDelta);
 						//newtransform.SetArguments(arguments);
-						newtransform.SetIndex(0, defineAlignmentIndex);
+						//newtransform.SetIndex(0, defineAlignmentIndex);
 						TransformAdded(newtransform);
 					}
 					break;

@@ -4,12 +4,9 @@ using OpenTK;
 
 namespace csharp_viewer
 {
-	[Serializable]
+	//[Serializable]
 	public class XYTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx.x; case 1: return idx.y; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx.x = index; case 1: return idx.y = index; default: return -1;}}
-
 		private struct Point<T>
 		{
 			public T x, y;

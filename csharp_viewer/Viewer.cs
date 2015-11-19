@@ -228,7 +228,7 @@ namespace csharp_viewer
 
 
 			ActionManager.CreateAction<string>("Load database", "load", delegate(object[] parameters) {
-				LoadAny((string)parameters[0], false, "{foo}.png"); //EDIT
+				LoadAny((string)parameters[0], true);
 				return null;
 			});
 			ActionManager.CreateAction("Unload database", "unload", this, "UnloadDatabase");
@@ -438,7 +438,7 @@ namespace csharp_viewer
 					Random rand = new Random();
 					image_render_mutex.WaitOne();
 					foreach(TransformedImage image in scope)
-						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)0.0f);
+						image.pos += new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)0.0f);
 					image_render_mutex.ReleaseMutex();
 
 					imageCloud.InvalidateOverallBounds();
@@ -456,10 +456,13 @@ namespace csharp_viewer
 					int numimages = imageCloud.Count(scope);
 					float ext = (float)Math.Pow(numimages, 1.0 / 3.0), halfext = ext / 2.0f;
 
+					ext *= 10.0f;
+					halfext *= 10.0f;
+
 					Random rand = new Random();
 					image_render_mutex.WaitOne();
 					foreach(TransformedImage image in scope)
-						image.pos = new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext);
+						image.pos += new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext);
 					image_render_mutex.ReleaseMutex();
 
 					imageCloud.InvalidateOverallBounds();
@@ -467,6 +470,85 @@ namespace csharp_viewer
 					// Update selection (bounds may have changed due to added transform)
 					CallSelectionChangedHandlers();
 				}
+				return null;
+			});
+
+			ActionManager.CreateAction("Feature detection", "detect", delegate(object[] parameters) {
+				string args = "";
+				if(selection.Count != 0)
+				{
+					IEnumerator<TransformedImage> se = selection.GetEnumerator();
+					se.MoveNext();
+					args += string.Format("\"{0}\" ", se.Current.filename);
+				}
+				else
+					args += string.Format("\"{0}\" ", images[0].filename);
+				args += cmdline[0];
+
+				var process = new System.Diagnostics.Process
+				{
+					StartInfo = new System.Diagnostics.ProcessStartInfo
+					{
+						FileName = "./ImageSearchIntegrate",
+						Arguments = args,
+						UseShellExecute = false,
+						RedirectStandardOutput = true,
+						RedirectStandardError = true,
+					}
+				};
+				process.OutputDataReceived += (sender, e) => scrCle.PrintOutput(e.Data);
+				process.ErrorDataReceived += (sender, e) => scrCle.PrintOutput(e.Data);
+
+				process.Start();
+				process.BeginOutputReadLine();
+				process.BeginErrorReadLine();
+
+				process.WaitForExit();
+
+
+				System.IO.StreamReader sr = new StreamReader(new System.IO.FileStream("parsedFile.txt", FileMode.Open, FileAccess.Read));
+				while(sr.Peek() != -1)
+				{
+					// Get value and filename
+					string readline = sr.ReadLine();
+					float value;
+					string strValue, filename;
+					if(readline.StartsWith("found: "))
+					{
+						value = 0.0f;
+						strValue = "found";
+						filename = readline.Substring("found: ".Length);
+					}
+					else if(readline.StartsWith("possible: "))
+					{
+						value = 1.0f;
+						strValue = "possible";
+						filename = readline.Substring("possible: ".Length);
+					}
+					else if(readline.StartsWith("notFound: "))
+					{
+						value = 2.0f;
+						strValue = "notFound";
+						filename = readline.Substring("notFound: ".Length);
+					}
+					else
+						continue;
+
+					// Find image by filename
+					foreach(TransformedImage image in images)
+						if(image.filename.Equals(filename))
+						{
+							GLTextureStream.ImageMetaData[] meta = new GLTextureStream.ImageMetaData[1];
+							meta[0].name = "feature";
+							meta[0].value = value;
+							meta[0].strValue = strValue;
+							texstream_ReadImageMetaData(image, meta);
+
+							break;
+						}
+				}
+				sr.Close();
+
 				return null;
 			});
 
@@ -913,7 +995,7 @@ namespace csharp_viewer
 				newargs = new Cinema.CinemaArgument[0];
 				this.name_pattern = "";
 			}
-			depth_name_pattern = "";
+			depth_name_pattern = null;
 			image_pixel_format = "";//"I24";
 
 			image_render_mutex.WaitOne();
@@ -1427,7 +1509,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr, indices, ref warnings);
 
-			transform.SetArguments(Global.arguments);
+			transform.OnArgumentsChanged();
 			OnTransformationAdded(transform, images);
 		}
 		private void CreateTransformSkip(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)

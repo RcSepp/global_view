@@ -5,12 +5,9 @@ using OpenTK;
 
 namespace csharp_viewer
 {
-	[Serializable]
+	//[Serializable]
 	public class XTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
-
 		private int idx;
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
@@ -26,12 +23,9 @@ namespace csharp_viewer
 		}
 	}
 
-	[Serializable]
+	//[Serializable]
 	public class YTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
-
 		private int idx;
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
@@ -47,12 +41,9 @@ namespace csharp_viewer
 		}
 	}
 
-	[Serializable]
+	//[Serializable]
 	public class ZTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
-
 		private int idx;
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
@@ -68,12 +59,9 @@ namespace csharp_viewer
 		}
 	}
 
-	[Serializable]
+	//[Serializable]
 	public class TranslationTransform : ImageTransform
 	{
-		public override int GetIndex(int i) {switch(i) {case 0: return idx; default: return -1;}}
-		public override int SetIndex(int i, int index) {switch(i) {case 0: return idx = index; default: return -1;}}
-
 		private int idx;
 		private Vector3 origin, delta;
 

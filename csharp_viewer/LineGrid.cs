@@ -47,7 +47,7 @@ namespace csharp_viewer
 
 		public void Draw(ImageCloud.FreeView freeview, AABB selectionAabb, Color4 selectionAabbColor, Size backbuffersize, int numdims = 3)
 		{
-			// Use custom projection matrix with z-far tailored to include all axes
+			/*// Use custom projection matrix with z-far tailored to include all axes
 			float maxdist = 0.0f;
 			maxdist = Math.Max(maxdist, (new Vector3(1000.0f, 0.0f, 0.0f) - freeview.viewpos).Length);
 			maxdist = Math.Max(maxdist, (new Vector3(-1000.0f, 0.0f, 0.0f) - freeview.viewpos).Length);
@@ -55,7 +55,8 @@ namespace csharp_viewer
 			maxdist = Math.Max(maxdist, (new Vector3(0.0f, -1000.0f, 0.0f) - freeview.viewpos).Length);
 			maxdist = Math.Max(maxdist, (new Vector3(0.0f, 0.0f, 1000.0f) - freeview.viewpos).Length);
 			maxdist = Math.Max(maxdist, (new Vector3(0.0f, 0.0f, -1000.0f) - freeview.viewpos).Length);
-			Matrix4 viewprojmatrix = freeview.viewmatrix * Matrix4.CreatePerspectiveFieldOfView(ImageCloud.FOV_Y, (float)backbuffersize.Width / (float)backbuffersize.Height, maxdist / 10000.0f, maxdist);
+			Matrix4 viewprojmatrix = freeview.viewmatrix * Matrix4.CreatePerspectiveFieldOfView(ImageCloud.FOV_Y, (float)backbuffersize.Width / (float)backbuffersize.Height, maxdist / 10000.0f, maxdist);*/
+			Matrix4 viewprojmatrix = freeview.viewprojmatrix;
 
 			Vector3 __axis_dist = new Vector3((new Vector2(freeview.viewpos.Y, freeview.viewpos.Z)).Length,
 											(new Vector2(freeview.viewpos.X, freeview.viewpos.Z)).Length,

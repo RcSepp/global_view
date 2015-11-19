@@ -2346,3 +2346,159 @@ spread all
 spread all
 unload
 load "mpas_single"
+x all by #Date
+x all by #Date
+rspread3d all
+rspread3d all
+rspread3d all
+spread all
+rspread3d all
+rspread3d all
+rspread3d all
+rspread3d all
+rspread3d all
+rspread3d all
+rspread3d all
+spread all
+spread all
+clear all
+x all by 10
+x all by 100
+y all by #Date
+clear all
+x all by time
+x all by 100
+detect
+exit
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+detect
+spread all
+spread all
+detect
+detect
+detect
+detect
+detect
+exit
+exit
+detect
+detect
+detect
+x all by $feature
+clear all
+spread all
+spread all
+detect
+detect
+spread all
+spread all
+detect
+spread all
+spread all
+detect
+clear all
+spread all
+spread all
+x all by 1
+x all by 1
+thetaPhi all by $theta * pi / 180, phi * pi / 180, 3
+thetaPhi all by $theta * pi / 180, phi * pi / 180, 3
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 3
+skip all by #theta + #phi == 3
+spread all
+skip all by #theta + #phi == 3
+spread all
+skip all by #theta + #phi == 3
+spread all
+skip all by true
+spread all
+skip all by false
+spread all
+skip all by time > 0
+skip all by time < 0
+clear all
+skip all by #theta + #phi == 3 || time == 0
+spread all
+spread all
+skip all by #theta + #phi == 3
+exit
+spread all
+skip all by #theta + #phi == 3
+spread all
+skip all by #theta + #phi == 3
+hide all
+show all
+exit
+show all
+skip all by #theta + #phi == 3
+skip all by #theta + #phi == 3
+spread all
+clear all
+spread all
+exit
+look all by $theta * pi / 180, phi * pi / 180
+look all by $theta * pi / 180, phi * pi / 180
+look all by $theta * pi / 180, $phi * pi / 180
+star all by 1, 2, 3
+clear all
+x all by len(phi)
+x all by len(phi)
+x all by len(phi)
+x all by len(phi)
+clear all
+skip all by time % len(theta) != #theta
+spread all
+clear all
+skip all by (int)time % len(theta) != #theta
+spread all
+detect
+x all by 3 * #feature
+rspread3d all
+clear all
+rspread all
+x all by 3 * #feature
+rspread all
+clear all
+x all by 10 * #feature
+rspread all
+exit

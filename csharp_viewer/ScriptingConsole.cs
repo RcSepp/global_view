@@ -184,6 +184,52 @@ namespace csharp_viewer
 			txt.GoEnd();
 		}
 
+		public void PrintOutput(string output)
+		{
+			if(output != null && output != "")
+			{
+				/*// Trim "\n> "
+				if(txt.Text.Substring(txt.Text.Length - 3).Equals("\n> "))
+					txt.Text = txt.Text.Substring(0, txt.Text.Length - 3);
+
+				txt.AppendText("");
+
+				string[] lines = output.Split('\n');
+				foreach(string line in lines)
+					txt.AppendText('\n' + line);
+
+				txt.AppendText("\n");
+				txt.AppendText("> ");
+				txt.GoEnd();*/
+
+				if(txt.Text.Substring(txt.Text.Length - 3).Equals("\n> "))
+				{
+					int l = txt.LinesCount - 2;
+					txt.Selection = new Range(txt, txt.Lines[l].Length, l, txt.Lines[l].Length, l);
+
+					//txt.GoEnd();
+					//txt.Selection.GoLeft();
+					//txt.Selection.GoLeft();
+
+					string[] lines = output.Split('\n');
+					foreach(string line in lines)
+						txt.InsertText('\n' + line);
+
+					txt.GoEnd();
+				}
+				else
+				{
+					string[] lines = output.Split('\n');
+					foreach(string line in lines)
+						txt.AppendText('\n' + line);
+
+					txt.AppendText("\n");
+					txt.AppendText("> ");
+					txt.GoEnd();
+				}
+			}
+		}
+
 		private delegate void DrawToGraphicsDelegate(Graphics gfx);
 		public void DrawToGraphics(Graphics gfx)
 		{
