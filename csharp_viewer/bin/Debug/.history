@@ -2502,3 +2502,20 @@ clear all
 x all by 10 * #feature
 rspread all
 exit
+detect
+detect where $theta == 90
+detect where $theta == 90
+detect where $theta == 90
+detect where all
+detect all
+x all by #feature * 3
+spread all
+select where @feature == "found"
+exit
+spread all
+detect
+detect all
+detect all
+select where #found != 0
+select where #feature != 0
+exit

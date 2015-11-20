@@ -1466,3 +1466,71 @@ load "mpas2"
 look all by $theta * pi / 180, $phi * pi / 180
 skip all by #time != ( (int) (time * 10.0f) % 40)
 focus all
+load "hobo-mpas"
+ls
+load "hobo_mpas"
+theta_phi $theta * pi / 180, $phi * pi / 180, 5
+thetaphi $theta * pi / 180, $phi * pi / 180, 5
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 5
+x all by $time * 20
+cd ".."
+load "cinema_v2"
+hide where #time > 0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 5
+count visible
+x all by #time * 20
+clear all
+count visible
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 5
+detect visible
+cd ".."
+load "cinema_v2"
+hide where #time > 0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 5
+detect visible
+x all by #feature * 20
+exit
+load "hobo_mpas"
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 5
+x all by #time * 20
+exit
+load "hobo_mpas"
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 5
+x all by #time * 20
+hide where $phi < 90 || $phi > 90
+show all
+hide where $phi < -90 || $phi > 90
+show all
+select where $phi == 90
+select where $phi == 0
+select where $phi == 18
+select where $phi == -18
+select where $phi == 180
+select where $phi == 162
+hide where $phi < 0
+select none
+hide wheee #time != 0
+hide where #time != 0
+show all
+hide where $phi < 0
+skip all by (int)time % len(time) == #time
+skip all by (int)time % 21 == #time
+clear all
+skip all by (int)time % 21 != #time
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 5
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+skip all by (int)time % 21 != #time
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+hide where $phi < 0
+hide where #time != 0
+show all
+hide where #time != 0
+hide where $theta < -90 || $theta > 90
+clear all
+hide where #time != 0
+thetaphi all by $phi * pi / 180, $theta * pi / 180, 5
+show all
+hide where #time != 0
+exit

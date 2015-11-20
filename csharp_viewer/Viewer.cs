@@ -473,17 +473,16 @@ namespace csharp_viewer
 				return null;
 			});
 
-			ActionManager.CreateAction("Feature detection", "detect", delegate(object[] parameters) {
-				string args = "";
-				if(selection.Count != 0)
-				{
-					IEnumerator<TransformedImage> se = selection.GetEnumerator();
-					se.MoveNext();
-					args += string.Format("\"{0}\" ", se.Current.filename);
-				}
-				else
-					args += string.Format("\"{0}\" ", images[0].filename);
-				args += cmdline[0];
+			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Feature detection", "detect", delegate(object[] parameters) {
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
+
+				IEnumerator<TransformedImage> se = scope.GetEnumerator();
+				if(!se.MoveNext())
+					return null;
+
+				string args = string.Format("\"{0}\" ", se.Current.filename);
+				foreach(TransformedImage image in scope)
+					args += string.Format("\"{0}\" ", image.filename);
 
 				var process = new System.Diagnostics.Process
 				{
@@ -507,6 +506,7 @@ namespace csharp_viewer
 
 
 				System.IO.StreamReader sr = new StreamReader(new System.IO.FileStream("parsedFile.txt", FileMode.Open, FileAccess.Read));
+				se = scope.GetEnumerator();
 				while(sr.Peek() != -1)
 				{
 					// Get value and filename
@@ -534,7 +534,7 @@ namespace csharp_viewer
 					else
 						continue;
 
-					// Find image by filename
+					/*// Find image by filename //EDIT: Images are in order of scope! Don't find images manually!
 					foreach(TransformedImage image in images)
 						if(image.filename.Equals(filename))
 						{
@@ -545,7 +545,15 @@ namespace csharp_viewer
 							texstream_ReadImageMetaData(image, meta);
 
 							break;
-						}
+						}*/
+					if(!se.MoveNext() || !se.Current.filename.Equals(filename))
+						scrCle.PrintOutput(string.Format("Error: Unexpected filename ({0})", filename));
+
+					GLTextureStream.ImageMetaData[] meta = new GLTextureStream.ImageMetaData[1];
+					meta[0].name = "feature";
+					meta[0].value = value;
+					meta[0].strValue = strValue;
+					texstream_ReadImageMetaData(se.Current, meta);
 				}
 				sr.Close();
 

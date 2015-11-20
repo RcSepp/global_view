@@ -1,14 +1,14 @@
 ﻿<Properties StartupItem="csharp_viewer/csharp_viewer.csproj">
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/ImageCloud.cs">
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/Viewer.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="564" Column="39" />
       <File FileName="csharp_viewer/ImageLoader.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/GLTextureStream.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ArgumentIndex.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ImageBrowser.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/TransformedImage.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="1056" Column="20" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/CompiledTransform.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ActionManager.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Console.cs" Line="1" Column="1" />
@@ -24,6 +24,14 @@
       <File FileName="csharp_viewer/LineGrid.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ScriptingConsole.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ThetaPhiTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/XYTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/AnimationTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/TranslationTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GraphTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/WheelTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/DisableTransform.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
