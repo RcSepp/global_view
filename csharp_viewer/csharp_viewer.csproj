@@ -19,7 +19,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
     <ConsolePause>False</ConsolePause>
-    <Commandlineparameters>../../../example/example_db</Commandlineparameters>
+    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/spec_b/mpas_specB</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <Optimize>True</Optimize>

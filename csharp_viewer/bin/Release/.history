@@ -1633,3 +1633,75 @@ ls
 load "debug"
 spread all
 rspread all
+ls
+exit
+ls
+load "hobo_mpas"
+clear all
+spread all
+focus all
+count all
+exit
+load "mpas2"
+load "mpas2"
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+hide where #time != 0
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+animate by #time
+show all
+load "hobo_mpas"
+clear all
+hide where #time != 0
+look all by $theta * pi / 180, $phi * pi / 180
+load "hobo_mpas"
+load "hobo_mpas"
+cd "spec_b"
+ls
+ls
+load "mpas_specB"
+unload
+cd "../spec_b"
+ls
+cd "../spec_a"
+ls
+cd "volume-render"
+cd ".."
+load "volume-render"
+rspread all
+focus all
+clear all
+hide visible
+hide selected
+cd "spec_a"
+load "volume-render"
+hide selected
+hide selected
+hide selected
+hide where #phi != 0
+star visible by #xValue * 3, #yValue * 3, #zValue * 3
+look all by $phi * pi / 180, $theta * pi / 180
+show all
+clear all
+show all
+look all by $phi * pi / 180, $theta * pi / 180
+exit
+cd "spec_a"
+load "volume-render"
+polar
+thetaphi all by $phi * pi / 180, $theta * pi / 180
+thetaphi all by $phi * pi / 180, $theta * pi / 180, 3
+star visible by #xValue * 3, #yValue * 3, #zValue * 3
+unload
+load "volume-render"
+unload
+load "volume-render"
+select where #xValue == 0 && #yValue == 0 && #zValue == 0
+select where #xValue == 0 && #yValue == 0 && #zValue == 1
+select where #xValue == 0 && #yValue == 0 && #zValue == 2
+unload
+load "volume-render"
+cd "spec_a"
+load "volume-render"
+exit

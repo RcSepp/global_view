@@ -28,6 +28,7 @@ namespace csharp_viewer
 
 				void main()
 				{
+//gl_FragDepth = gl_FragCoord.z;
 					gl_FragColor = texture2D(Texture, uv) * Color;
 				}
 			";
@@ -48,6 +49,7 @@ namespace csharp_viewer
 
 				void main()
 				{
+//gl_FragDepth = gl_FragCoord.z;
 					gl_FragColor = Color;
 				}
 			";
@@ -73,6 +75,7 @@ namespace csharp_viewer
 
 				void main()
 				{
+//gl_FragDepth = gl_FragCoord.z;
 					gl_FragColor = mod(value, 0.1) > 0.05 ? Color : vec4(0.0, 0.0, 0.0, 0.0);
 				}
 			";

@@ -2578,3 +2578,49 @@ select none
 select visible where @feature == "found"
 select from visible where @feature == "found"
 SetViewControl ImageCloud.ViewControl.ViewCentric
+spread all
+star #contour * 2, #color * 2
+star all by #contour * 2, #color * 2
+focus all
+hide where @color != "cZ"
+hide where $contour != 55
+clear all
+focus all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+clear all
+thetaPhi all by $phi * pi / 180, (180 + $theta) * pi / 180, 5
+focus all
+unload
+clear all
+thetaPhi all by (270 + $phi) * pi / 180, (180 + $theta) * pi / 180, 5
+clear all
+thetaPhi all by (90 + $phi) * pi / 180, (180 + $theta) * pi / 180, 5
+clear all
+thetaPhi all by $phi * pi / 180, (270 + $theta) * pi / 180, 5
+thetaPhi all by (360 - $phi) * pi / 180, (270 + $theta) * pi / 180, 5
+clear all
+thetaPhi all by (360 - $phi) * pi / 180, (270 + $theta) * pi / 180, 5
+hide where $phi == 180
+hide where @color != "depth"
+show all
+hide where @color != "depth.png"
+show all
+hide where @color != "depth.im"
+clear all
+thetaPhi all by $phi * pi / 180, (180 + $theta) * pi / 180, 5
+x all by contour * 10
+x all by #contour * 10
+x all by -2 * #contour
+select where @color == "depth.im"
+rspread3d where @color == "depth.im"
+show all
+clear all
+hide where @color != "depth.im"
+rspread3d where @color == "depth.im"
+x all by -2 * #contour
+unload
+ls
+cd spec_b
+cd "spec_b"
+ls
+load "mpas_specB"

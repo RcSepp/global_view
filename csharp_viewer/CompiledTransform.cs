@@ -228,7 +228,7 @@ namespace csharp_viewer
 			tp[0] += 10.0f * (float)Math.PI;
 			tp[0] %= 2.0f * (float)Math.PI;
 			tp[1] += 10.0f * (float)Math.PI;
-			tp[1] %= (float)Math.PI;
+			tp[1] %= 2.0f * (float)Math.PI;
 			float totalangle = AngularDistance(viewangle.theta, tp[0])/*Math.Abs(viewangle.theta - tp[0])*/ + Math.Abs(viewangle.phi - tp[1]);
 			ImageAndAngle bestImage = bestImages.Get(Global.arguments, imagekey);
 			if(totalangle < bestImage.angle)

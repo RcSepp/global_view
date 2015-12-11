@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Collections.Generic;
+using System.IO;
 
 using ExifLib;
 
@@ -10,6 +11,9 @@ namespace csharp_viewer
 	{
 		public static Bitmap Load(string filename)
 		{
+			if(filename.EndsWith(".im", StringComparison.OrdinalIgnoreCase))
+				return ImImageLoader.Load(filename);
+
 			try {
 				return (Bitmap)Bitmap.FromFile(filename);
 			}
@@ -25,6 +29,9 @@ namespace csharp_viewer
 
 		public static Bitmap Load(string filename, List<GLTextureStream.ImageMetaData> meta)
 		{
+			if(filename.EndsWith(".im", StringComparison.OrdinalIgnoreCase))
+				return ImImageLoader.Load(filename);
+
 			if(filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
 				try
 				{
@@ -82,6 +89,68 @@ namespace csharp_viewer
 				return null;
 			}
 			//return (Bitmap)Bitmap.FromFile(filename);
+		}
+	}
+
+	public static class ImImageLoader
+	{
+		public static Bitmap Load(string filename)
+		{
+			FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
+
+			StreamReader sr = new StreamReader(fs);
+
+			string readline = sr.ReadLine();
+			if(!readline.StartsWith("Image type: "))
+			{
+				fs.Close();
+				return null;
+			}
+			string imageType = readline.Substring("Image type: ".Length);
+
+			readline = sr.ReadLine();
+			if(!readline.StartsWith("Name: "))
+			{
+				fs.Close();
+				return null;
+			}
+			string name = readline.Substring("Name: ".Length);
+
+			readline = sr.ReadLine();
+			if(!readline.StartsWith("Image size (x*y): "))
+			{
+				fs.Close();
+				return null;
+			}
+			string imageSize = readline.Substring("Image size (x*y): ".Length);
+
+			readline = sr.ReadLine();
+			if(!readline.StartsWith("File size (no of images): "))
+			{
+				fs.Close();
+				return null;
+			}
+			string numImages = readline.Substring("File size (no of images): ".Length);
+
+			fs.Position = 0x200;
+
+			BinaryReader br = new BinaryReader(fs);
+			byte[] data = new byte[4 * 300 * 300];
+			for(int i = 0; i < 300 * 300; ++i)
+			{
+				data[4 * i + 0] = data[4 * i + 1] = data[4 * i + 2] = (byte)(br.ReadSingle() * 255.0f);
+				data[4 * i + 3] = 255;
+			}
+
+			fs.Close();
+
+			Bitmap bmp = new Bitmap(300, 300, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+
+			System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
+			System.Runtime.InteropServices.Marshal.Copy(data, 0, bmpdata.Scan0, data.Length);
+			bmp.UnlockBits(bmpdata);
+
+			return bmp;
 		}
 	}
 }

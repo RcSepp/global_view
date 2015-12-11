@@ -141,19 +141,37 @@ namespace csharp_viewer
 				object[] values = argumentMeta["values"].ToObject<object[]>();
 				object defaultValue = argumentMeta["default"].ToObject<object>();
 
+				Dictionary<string, int> strValueIndices = null;
+				if(defaultValue.GetType() == typeof(string))
+				{
+					if(!float.TryParse((string)defaultValue, out carg.defaultValue))
+					{
+						strValueIndices = new Dictionary<string, int>();
+						strValueIndices[(string)defaultValue] = 0;
+						carg.defaultValue = 0.0f;
+					}
+				}
+				else if(defaultValue.GetType() == typeof(long))
+					carg.defaultValue = (float)(long)defaultValue;
+
 				carg.values = new float[values.Length];
 				for(int i = 0; i < values.Length; ++i)
 				{
+					if(strValueIndices != null)
+					{
+						// Values are indices of unique strings (mapping through strValueIndices)
+						int index;
+						if(!strValueIndices.TryGetValue((string)values[i], out index))
+							strValueIndices[(string)values[i]] = index = strValueIndices.Count;
+						carg.values[i] = (float)index;
+						continue;
+					}
+
 					if(values[i].GetType() == typeof(string))
 						float.TryParse((string)values[i], out carg.values[i]);
 					else if(values[i].GetType() == typeof(long))
 						carg.values[i] = (float)(long)values[i];
 				}
-
-				if(defaultValue.GetType() == typeof(string))
-					float.TryParse((string)defaultValue, out carg.defaultValue);
-				else if(defaultValue.GetType() == typeof(long))
-					carg.defaultValue = (float)(long)defaultValue;
 
 //if(matchidx == 1)
 //	Array.Resize<object>(ref carg.values, 1);

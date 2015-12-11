@@ -120,10 +120,12 @@ namespace csharp_viewer
 
 			void main()
 			{
+gl_FragDepth = gl_FragCoord.z;
 				if(HasTexture != 0)
 					gl_FragColor = Color * shade(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);
 				else
 					gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+gl_FragDepth -= gl_FragColor.r * 0.001;
 			}
 		";
 		public const string FS_DEFAULT_DECODER = @"
@@ -183,6 +185,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		public const string FS = @"
 				void main()
 				{
+//gl_FragDepth = gl_FragCoord.z;
 					gl_FragColor = vec4(0.5, 1.0, 0.5, 1.0);
 				}
 			";

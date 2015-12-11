@@ -2,36 +2,22 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
   <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/ImageCloud.cs">
     <Files>
-      <File FileName="csharp_viewer/Common.cs" Line="452" Column="19" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="1371" Column="5" />
-      <File FileName="csharp_viewer/Viewer.cs" Line="523" Column="41" />
-      <File FileName="csharp_viewer/ImageLoader.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTextureStream.cs" Line="2" Column="3" />
+      <File FileName="csharp_viewer/Common.cs" Line="31" Column="3" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="149" Column="34" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="984" Column="4" />
+      <File FileName="csharp_viewer/ImageLoader.cs" Line="131" Column="17" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="406" Column="1" />
       <File FileName="csharp_viewer/ArgumentIndex.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ImageBrowser.cs" Line="356" Column="71" />
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="83" Column="1" />
-      <File FileName="csharp_viewer/CompiledTransform.cs" Line="225" Column="4" />
-      <File FileName="csharp_viewer/ActionManager.cs" Line="449" Column="10" />
-      <File FileName="csharp_viewer/Console.cs" Line="254" Column="50" />
-      <File FileName="csharp_viewer/ISQL.cs" Line="114" Column="42" />
+      <File FileName="csharp_viewer/ImageBrowser.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/CompiledTransform.cs" Line="237" Column="29" />
+      <File FileName="csharp_viewer/ActionManager.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Console.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ISQL.cs" Line="90" Column="5" />
       <File FileName="csharp_viewer/ImageTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/Cinema.cs" Line="12" Column="24" />
+      <File FileName="csharp_viewer/Cinema.cs" Line="168" Column="7" />
       <File FileName="csharp_viewer/GLControls.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Selection.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLFont.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTexture2D.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLMesh.cs" Line="209" Column="4" />
-      <File FileName="csharp_viewer/LineGrid.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ScriptingConsole.cs" Line="213" Column="6" />
-      <File FileName="csharp_viewer/ThetaPhiTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/XYTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/AnimationTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/TranslationTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ThetaPhiViewTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GraphTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/WheelTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/DisableTransform.cs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
