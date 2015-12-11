@@ -202,7 +202,7 @@ namespace csharp_viewer
 				txt.AppendText("> ");
 				txt.GoEnd();*/
 
-				if(txt.Text.Substring(txt.Text.Length - 3).Equals("\n> "))
+				if(txt.Text.Length >= 3 && txt.Text.Substring(txt.Text.Length - 3).Equals("\n> "))
 				{
 					int l = txt.LinesCount - 2;
 					txt.Selection = new Range(txt, txt.Lines[l].Length, l, txt.Lines[l].Length, l);

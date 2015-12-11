@@ -1534,3 +1534,102 @@ thetaphi all by $phi * pi / 180, $theta * pi / 180, 5
 show all
 hide where #time != 0
 exit
+load "hobo_mpas"
+rspread all
+count all
+unload
+ls
+cd "np"
+ls
+cd ".."
+ls
+load h3d_multiple
+load "h3d_multiple"
+rspread3d all
+spread all
+clear all
+animate by #time
+animate
+animate all
+animate all by #time
+animate #time
+load "h3d_multiple"
+animate by #time
+thetaPhiView
+thetaPhi all by $theta * pi / 180, $phi * pi / 180
+look all by $theta * pi / 180, $phi * pi / 180
+exit
+load "h3d_multiple"
+look all by $theta * pi / 180, $phi * pi / 180
+animate by #time
+clear all
+look all by $phi * pi / 180, $theta * pi / 180
+animate by #time
+clear all
+hide where #time != 0
+look all by -$phi * pi / 180, -$theta * pi / 180
+look all by - $phi * pi / 180, - $theta * pi / 180
+load "h3d_multiple"
+hide where #time != 0
+look all by $phi * pi / 180 + 360, $theta * pi / 180 + 360
+clear all
+look all by 360 - $phi * pi / 180, 360 - $theta * pi / 180
+animate by #time
+show all
+clear all
+look all by 360 - $phi * pi / 180 - 15, 360 - $theta * pi / 180 - 15
+animate by #time
+clear all
+look all by 2 * pi - $phi * pi / 180, 2 * pi - $theta * pi / 180
+animate by #time
+clear all
+hide where #time != 0
+look all by 2 * pi - $phi * pi / 180, 2 * pi - $theta * pi / 180
+load "h3d_multiple"
+hide where #time != 0
+look all by 2 * pi - $phi * pi / 180, 2 * pi - $theta * pi / 180
+clear all
+look all by 200 * pi - $phi * pi / 180, 200 * pi - $theta * pi / 180
+clear all
+look all by (360 - $phi) * pi / 180, (360 - $theta) * pi / 180
+look all by (360 - $phi) * pi / 180, (360 - $theta) * pi / 180
+clear all
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+animate by #time
+show all
+hide all
+show all
+load "h3d_multiple"
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+animate by #time
+load "h3d_multiple"
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+animate by #time
+commands
+exit
+load "h3d_multiple"
+load "h3d_multiple/startup.isql"
+clear all
+animate by #time
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+clear all
+load "h3d_multiple/startup.isql"
+load "h3d_multiple"
+load "h3d_multiple/startup.isql"
+load "h3d_multiple"
+load "h3d_multiple/startup.isql"
+exit
+load "h3d_multiple"
+load "h3d_multiple/startup.isql"
+load "h3d_multiple/startup.isql"
+load "h3d_multiple"
+load "h3d_multiple"
+ls
+SetViewControl(ViewControl.ViewCentric)
+SetViewControl ViewControl.ViewCentric
+SetViewControl 0
+exit
+ls
+load "debug"
+spread all
+rspread all

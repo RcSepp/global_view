@@ -82,6 +82,7 @@ namespace csharp_viewer
 		public static GLMesh meshLine;
 		public static GLMesh meshLineQuad, meshLineQuad2;
 		public static GLMesh meshLineCube;
+		public static GLDynamicMesh meshD4;
 
 		public static GLFont fontText, fontText2, fontTextSmall;
 
@@ -168,6 +169,9 @@ namespace csharp_viewer
 				new Vector3( 1.0f,  1.0f,  1.0f)
 			};
 			meshLineCube = new GLMesh(positions, null, null, null, null, null, PrimitiveType.Lines);
+
+			// Create dynamic meshes
+			meshD4 = new GLDynamicMesh(4);
 		}
 
 		public static void CreateCommonFonts()
@@ -351,6 +355,31 @@ namespace csharp_viewer
 			return true;
 		}
 
+		public static Vector3 Vector3_TransformMat3(Vector3 v, Matrix3 m)
+		{
+			return new Vector3(v.X * m.M11 + v.Y * m.M12 + v.Z * m.M13,
+							   v.X * m.M21 + v.Y * m.M22 + v.Z * m.M23,
+							   v.X * m.M31 + v.Y * m.M32 + v.Z * m.M33);
+		}
+
+		public static bool IntersectPlane3(Plane p1, Plane p2, Plane p3, out Vector3 intersection)
+		{
+			// A * x = b
+			// x = A^-1 * b
+			Matrix3 A = new Matrix3(p1.a, p1.b, p1.c, p2.a, p2.b, p2.c, p3.a, p3.b, p3.c);
+			Vector3 b = new Vector3(-p1.d, -p2.d, -p3.d);
+
+			float detA = A.Determinant;
+			if(detA > -1e-5f && detA < 1e-5f)
+			{
+				intersection = Vector3.Zero;
+				return false;
+			}
+
+			intersection = Vector3_TransformMat3(b, A.Inverted());
+			return true;
+		}
+
 		public void Draw(GLShader sdr, Matrix4 viewprojmatrix)
 		{
 			//GL.Enable(EnableCap.CullFace);
@@ -413,6 +442,46 @@ namespace csharp_viewer
 			}
 
 			return true;
+		}
+
+		public override string ToString()
+		{
+			return string.Format("[Frustum: pleft={0}, pright={1}, ptop={2}, pbottom={3}, pnear={4}, pfar={5}]", pleft, pright, ptop, pbottom, pnear, pfar);
+		}
+
+		public void Draw(Matrix4 viewprojmatrix)
+		{
+			Vector3 a, b, c, d;
+			Common.sdrSolidColor.Bind(viewprojmatrix);
+			GL.Uniform4(Common.sdrSolidColor_colorUniform, OpenTK.Graphics.Color4.DarkRed);
+
+			Plane.IntersectPlane3(pleft, ptop, pnear, out a);
+			Plane.IntersectPlane3(pleft, ptop, pfar, out b);
+			Plane.IntersectPlane3(pleft, pbottom, pnear, out c);
+			Plane.IntersectPlane3(pleft, pbottom, pfar, out d);
+			Common.meshD4.Bind(new Vector3[] { a, b, d, c }, PrimitiveType.TriangleFan);
+			Common.meshD4.Draw();
+
+			Plane.IntersectPlane3(pright, ptop, pnear, out a);
+			Plane.IntersectPlane3(pright, ptop, pfar, out b);
+			Plane.IntersectPlane3(pright, pbottom, pnear, out c);
+			Plane.IntersectPlane3(pright, pbottom, pfar, out d);
+			Common.meshD4.Bind(new Vector3[] { a, b, d, c }, PrimitiveType.TriangleFan);
+			Common.meshD4.Draw();
+
+			Plane.IntersectPlane3(ptop, pleft, pnear, out a);
+			Plane.IntersectPlane3(ptop, pleft, pfar, out b);
+			Plane.IntersectPlane3(ptop, pright, pnear, out c);
+			Plane.IntersectPlane3(ptop, pright, pfar, out d);
+			Common.meshD4.Bind(new Vector3[] { a, b, d, c }, PrimitiveType.TriangleFan);
+			Common.meshD4.Draw();
+
+			Plane.IntersectPlane3(pbottom, pleft, pnear, out a);
+			Plane.IntersectPlane3(pbottom, pleft, pfar, out b);
+			Plane.IntersectPlane3(pbottom, pright, pnear, out c);
+			Plane.IntersectPlane3(pbottom, pright, pfar, out d);
+			Common.meshD4.Bind(new Vector3[] { a, b, d, c }, PrimitiveType.TriangleFan);
+			Common.meshD4.Draw();
 		}
 	}
 

@@ -2519,3 +2519,62 @@ detect all
 select where #found != 0
 select where #feature != 0
 exit
+load "h3d_multiple"
+exit
+load "h3d_multiple/startup.isql"
+load "h3d_multiple"
+load "h3d_multiple/startup.isql"
+unload
+load "h3d_multiple"
+load "h3d_multiple/startup.isql"
+clear all
+SetViewControl
+SetViewControl
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ViewControl.ViewCentric
+SetViewControl ImageCloud.ViewControl.ViewCentric
+exit
+SetViewControl ImageCloud.ViewControl.ViewCentric
+exit
+SetViewControl ImageCloud.ViewControl.ViewCentric
+exit
+SetViewControl ImageCloud.ViewControl.ViewCentric
+exit
+SetViewControl ImageCloud.ViewControl.ViewCentric
+SetViewControl ImageCloud.ViewControl.ViewCentric
+unload
+load "h3d_multiple"
+unload
+load "h3d_multiple"
+load "h3d_multiple"
+unload
+load "h3d_multiple"
+detect
+detect from all
+detect all
+select where #feature == "found"
+select where @feature == "found"
+unload
+load "bunny"
+spread all
+hide all
+show selected
+detect selected
+detect all
+select where @feature == "found"
+select visible where @feature == "found"
+select none
+select visible where @feature == "found"
+select from visible where @feature == "found"
+SetViewControl ImageCloud.ViewControl.ViewCentric

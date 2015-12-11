@@ -1,5 +1,5 @@
 ﻿//#define DEBUG_GLTEXTURESTREAM
-#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory // Warning: Tradeoff doesn't work with prefetching!
+//#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory // Warning: Tradeoff doesn't work with prefetching!
 
 using System;
 using System.IO;

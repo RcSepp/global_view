@@ -508,8 +508,8 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			texdot = GLTexture2D.FromFile("dot.png", true);
 
-			//texstream = new GLTextureStream(256*1024*1024, ReadImageMetaData); // Optimize for 1GB of VRAM
-			texstream = new GLTextureStream(64*1024*1024, ReadImageMetaData); // Optimize for 256MB of VRAM
+			texstream = new GLTextureStream(256*1024*1024, ReadImageMetaData); // Optimize for 1GB of VRAM
+			//texstream = new GLTextureStream(64*1024*1024, ReadImageMetaData); // Optimize for 256MB of VRAM
 			//texstream = new GLTextureStream(8*1024*1024, ReadImageMetaData); // Optimize for 32MB of VRAM
 			//texstream = new GLTextureStream(1024*1024, ReadImageMetaData); // Optimize for 4MB of VRAM
 			//texstream = new GLTextureStream(128*1024, ReadImageMetaData); // Optimize for 512KB of VRAM
@@ -1364,7 +1364,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 			}
 			SelectionMoved();
 		}
-			
+
 		public void MouseMove(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
 			if(!glcontrol.Focused)
@@ -1453,11 +1453,11 @@ if(mesh3D != null) depthimages = false; //DELETE
 					//Vector3 pmax = new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f); // A point on the top right edge of the mouse rect frustum
 					Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
 					Vector3 ptl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
-					Vector3 ptl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, freeview.znear), invviewprojmatrix);
+					Vector3 ptl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.max.Y, 1.0f), invviewprojmatrix);
 					Vector3 ptr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, 0.0f), invviewprojmatrix);
-					Vector3 ptr_far = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, freeview.znear), invviewprojmatrix);
+					Vector3 ptr_far = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.max.Y, 1.0f), invviewprojmatrix);
 					Vector3 pbl = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
-					Vector3 pbl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, freeview.znear), invviewprojmatrix);
+					Vector3 pbl_far = Vector3.TransformPerspective(new Vector3(mouseRect.min.X, mouseRect.min.Y, 1.0f), invviewprojmatrix);
 					Vector3 pbr = Vector3.TransformPerspective(new Vector3(mouseRect.max.X, mouseRect.min.Y, 0.0f), invviewprojmatrix);
 
 					// Left plane

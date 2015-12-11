@@ -212,7 +212,7 @@ namespace csharp_viewer
 			return false;
 		}
 
-		private static bool Eval(string code, out object[] result, out CompilerErrorCollection errors, string[] usingStatements = null, string[] assemblies = null)  
+		public static bool Eval(string code, out object[] result, out CompilerErrorCollection errors, string[] usingStatements = null, string[] assemblies = null)  
 		{
 			var includeUsings = new HashSet<string>(new[] { "System" });
 			if (usingStatements != null)
@@ -233,7 +233,7 @@ namespace csharp_viewer
 
 				string source = string.Format(@"
 {0}
-namespace NS
+namespace csharp_viewer
 {{
     public static class EvalClass
     {{
@@ -252,7 +252,7 @@ namespace NS
 					return false;
 				}
 				var compiledAssembly = compilerResult.CompiledAssembly;
-				var type = compiledAssembly.GetType("NS.EvalClass");
+				var type = compiledAssembly.GetType("csharp_viewer.EvalClass");
 				var method = type.GetMethod("Eval");
 				result = (object[])method.Invoke(null, new object[] { });
 				errors = null;

@@ -194,5 +194,32 @@ namespace csharp_viewer
 				GL.DrawArrays(primitivetype, start, count);
 		}
 	}
+
+	public class GLDynamicMesh
+	{
+		private int numvertices, posbuffer;
+		private PrimitiveType primitivetype;
+
+		public GLDynamicMesh(int numvertices)
+		{
+			this.numvertices = numvertices;
+			posbuffer = GL.GenBuffer();
+		}
+		public void Bind(Vector3[] vertices, PrimitiveType primitivetype)
+		{
+			if(vertices.Length != numvertices)
+				throw new InvalidOperationException("vertices.Length != numvertices");
+
+			GL.BindBuffer(BufferTarget.ArrayBuffer, posbuffer);
+			GL.EnableClientState(ArrayCap.VertexArray);
+			GL.VertexPointer(3, VertexPointerType.Float, 0, IntPtr.Zero);
+			GL.BufferData<Vector3>(BufferTarget.ArrayBuffer, (IntPtr)(vertices.Length * 3 * sizeof(float)), vertices, BufferUsageHint.DynamicDraw);
+			this.primitivetype = primitivetype;
+		}
+		public void Draw()
+		{
+			GL.DrawArrays(primitivetype, 0, numvertices);
+		}
+	}
 }
 

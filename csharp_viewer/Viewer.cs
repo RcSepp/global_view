@@ -141,7 +141,7 @@ namespace csharp_viewer
 		}*/
 		public Viewer(string[] cmdline)
 		{
-			//Control.CheckForIllegalCrossThreadCalls = false;
+			Control.CheckForIllegalCrossThreadCalls = false;
 
 			this.cmdline = cmdline;
 
@@ -411,10 +411,11 @@ namespace csharp_viewer
 				}
 				return null;
 			});
-			ActionManager.CreateAction<string, HashSet<int>>("Animate the given argument", "animate", delegate(object[] parameters) {
+			ActionManager.CreateAction<string, HashSet<int>, bool>("Animate the given argument", "animate", delegate(object[] parameters) {
 				string byExpr = (string)parameters[0];
 				HashSet<int> indices = (HashSet<int>)parameters[1];
 				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
+				//bool isTemporal = (bool)parameters[2];
 				indices_enum.MoveNext();
 				int index = indices_enum.Current;
 
@@ -799,8 +800,10 @@ namespace csharp_viewer
 			{
 				if(filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
 					LoadDatabaseFromImages(new string[] { filename }, name_pattern);
+				else if(filename.EndsWith(".isql", StringComparison.OrdinalIgnoreCase))
+					ActionManager.mgr.RunScript(filename);
 				else
-					throw new FileLoadException(filename + " is not a PNG image");
+					throw new FileLoadException(filename + " is not a recognized image or ISQL sript");
 			}
 			else
 				throw new FileNotFoundException(filename + " not found");
@@ -940,6 +943,13 @@ namespace csharp_viewer
 			img.Dispose();
 
 			PostLoad(newimages, imageSize);
+
+			string startupscriptfilename = filename + Path.DirectorySeparatorChar + "startup.isql";
+			if(File.Exists(startupscriptfilename))
+			{
+				scrCle.PrintOutput("Executing startup script (startup.isql)");
+				actMgr.RunScript(startupscriptfilename);
+			}
 		}
 
 

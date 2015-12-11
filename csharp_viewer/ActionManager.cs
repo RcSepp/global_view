@@ -32,10 +32,11 @@ namespace csharp_viewer
 		private LinkedList<PerformedAction> actions = new LinkedList<PerformedAction>();
 		private Dictionary<string, Action> registered_actions = new Dictionary<string, Action>();
 
-		private bool playing = false, playing_captureframes;
+		private bool playing = false, playing_captureframes, executing = false;
 		private double playback_speed, playback_invfps;
 		private int playback_framecounter;
 		private LinkedList<PerformedAction>.Enumerator playback_next_action;
+		private List<string>.Enumerator script_next_command;
 
 		private string screenshot_filename = null;
 
@@ -61,8 +62,7 @@ namespace csharp_viewer
 				{
 					time += playback_invfps;
 					dt = (float)playback_invfps;
-				}
-				else
+				} else
 				{
 					time += playback_speed * (double)dt;
 					dt *= (float)playback_speed;
@@ -96,7 +96,31 @@ namespace csharp_viewer
 				}
 			}
 			else
+			{
+				if(executing)
+				{
+					if(script_next_command.MoveNext())
+					{
+						try {
+							string output, warnings;
+							ISQL.Compiler.Execute(script_next_command.Current, ActionManager.mgr.Invoke, null, out output, out warnings);
+							Invoke("PrintCommand", new object[] { script_next_command.Current, output + warnings });
+							//return output + warnings;
+						} catch(Exception ex) {
+							executing = false;
+							if(ex.InnerException != null)
+								System.Windows.Forms.MessageBox.Show(ex.InnerException.ToString(), ex.InnerException.TargetSite.ToString());
+							else
+								System.Windows.Forms.MessageBox.Show(ex.ToString(), ex.TargetSite.ToString());
+							return;
+						}
+					}
+					else
+						executing = false;
+				}
+
 				time += (double)dt;
+			}
 		}
 
 		public void PostRender(GLWindow gl, ScriptingConsole cle = null)
@@ -266,6 +290,18 @@ namespace csharp_viewer
 			}
 			return action;
 		}
+		public static Action CreateAction<T1, T2, T3>(string desc, string method, Action.CallbackActionDelegate func)
+		{
+			Action action = new CallbackAction(method, desc, new Type[] {typeof(T1), typeof(T2), typeof(T3)}, func);
+			if(mgr != null)
+			{
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name.ToLower()))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
+			}
+			return action;
+		}
 
 		public static string Do(Action action, params object[] parameters)
 		{
@@ -279,6 +315,21 @@ namespace csharp_viewer
 			
 		}*/
 
+		public void RunScript(string filename)
+		{
+			if(playing)
+				return;
+
+			System.IO.StreamReader sr = new System.IO.StreamReader(new System.IO.FileStream(filename, System.IO.FileMode.Open, System.IO.FileAccess.Read));
+			List<string> commandlist = new List<string>();
+			while(sr.Peek() != -1)
+				commandlist.Add(sr.ReadLine());
+			sr.Close();
+
+			script_next_command = commandlist.GetEnumerator();
+			executing = true;
+		}
+
 		public void Clear()
 		{
 			actions.Clear();
@@ -288,6 +339,9 @@ namespace csharp_viewer
 
 		public void Play(double playback_speed = 1.0)
 		{
+			if(executing)
+				return;
+
 			playback_next_action = actions.GetEnumerator();
 			if(!playback_next_action.MoveNext())
 				return;
@@ -301,6 +355,9 @@ namespace csharp_viewer
 
 		public void CaptureFrames(double fps = 20.0)
 		{
+			if(executing)
+				return;
+
 			playback_next_action = actions.GetEnumerator();
 			if(!playback_next_action.MoveNext())
 				return;

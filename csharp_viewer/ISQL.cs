@@ -95,6 +95,19 @@ namespace ISQL
 			for(int i = 1; i <= lastfragment; ++i)
 				if(fragments[i].token == Tokenizer.Token.Str)
 					args.Add(((string)fragments[i].value).Replace("\\\"", "\""));
+			if(args.Count == 0 && lastfragment >= 1)
+			{
+				CompilerErrorCollection errors;
+				object[] newargs;
+				if(csharp_viewer.Console.Eval(code.Substring(fragments[1].startidx, fragments[lastfragment].endidx - fragments[1].startidx), out newargs, out errors, null, new string[] { System.Reflection.Assembly.GetEntryAssembly().Location }))
+					args.AddRange(newargs);
+				else
+				{
+					foreach(CompilerError error in errors)
+						output += error.ErrorText + '\n';
+					output.TrimEnd(new char[] { '\n' });
+				}
+			}
 			if(byExpr != null)
 			{
 				args.Add(byExpr);
