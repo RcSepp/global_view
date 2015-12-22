@@ -323,7 +323,11 @@ namespace csharp_viewer
 			System.IO.StreamReader sr = new System.IO.StreamReader(new System.IO.FileStream(filename, System.IO.FileMode.Open, System.IO.FileAccess.Read));
 			List<string> commandlist = new List<string>();
 			while(sr.Peek() != -1)
-				commandlist.Add(sr.ReadLine());
+			{
+				string readline = sr.ReadLine();
+				if(!readline.StartsWith("//"))
+					commandlist.Add(readline);
+			}
 			sr.Close();
 
 			script_next_command = commandlist.GetEnumerator();

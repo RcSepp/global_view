@@ -10,7 +10,7 @@ namespace csharp_viewer
 	public class TransformedImage : Cinema.CinemaImage
 	{
 		//private GLTextureStream.Texture tex;
-		public GLTexture2D tex = null, tex_depth = null;
+		public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
 		public int[] key;
 
 		public bool selected = false;
@@ -30,11 +30,11 @@ namespace csharp_viewer
 		public float originalAspectRatio = 1.0f;
 		public int renderWidth, renderHeight;
 		public float renderPriority = 0;
-		public System.Drawing.Bitmap bmp = null, bmp_depth = null;
+		public System.Drawing.Bitmap bmp = null, bmp_depth = null, bmp_lum = null;
 		private System.Drawing.Bitmap oldbmp = null;
 		public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
 		public bool texIsStatic = false;
-		public bool texFilterLinear = false;
+		public bool isFloatImage = false;
 
 		private float prefetchHoldTime = 0.0f; // To avoid images to be unloaded between prefetching and rendering, prefetchHoldTime gets set to the expected render time inside PrefetchRenderPriority()
 
@@ -116,6 +116,12 @@ namespace csharp_viewer
 					GL.DeleteTexture(tex_depth.tex);
 					tex_depth = null;
 				}
+
+				if(tex_lum != null)
+				{
+					GL.DeleteTexture(tex_lum.tex);
+					tex_lum = null;
+				}
 			}
 			oldbmp = bmp;
 
@@ -128,7 +134,7 @@ namespace csharp_viewer
 				//transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 				transform *= Matrix4.CreateScale(originalAspectRatio, 1.0f, 1.0f);
 				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-				if(depth_filename == null) // Do not always face screen when rendering volume images
+				//if(depth_filename == null) // Do not always face screen when rendering volume images
 					transform *= invvieworient;
 				transform *= Matrix4.CreateTranslation(animatedPos);
 
@@ -187,7 +193,7 @@ namespace csharp_viewer
 				//transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 				transform *= Matrix4.CreateScale(originalAspectRatio, 1.0f, 1.0f);
 				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-				if(depth_filename == null) // Do not always face screen when rendering volume images
+				//if(depth_filename == null) // Do not always face screen when rendering volume images
 					transform *= invvieworient;
 				transform *= Matrix4.CreateTranslation(animatedPos);
 
@@ -214,9 +220,11 @@ namespace csharp_viewer
 				if(bmp != null)
 				{
 					if(tex == null)
-						tex = new GLTexture2D(bmp, false, texFilterLinear);
+						tex = new GLTexture2D(bmp, false, !isFloatImage);
 					if(bmp_depth != null && tex_depth == null)
 						tex_depth = new GLTexture2D(bmp_depth, false, false);
+					if(bmp_lum != null && tex_lum == null)
+						tex_lum = new GLTexture2D(bmp_lum, false, true);
 					renderMutex.ReleaseMutex();
 					texloaded = true;
 				}
@@ -247,7 +255,7 @@ namespace csharp_viewer
 			if(sdr_DepthScale != -1)
 				GL.Uniform1(sdr_DepthScale, depthscale);*/
 
-			mesh.Bind(sdr, tex, tex_depth);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
+			mesh.Bind(sdr, tex, tex_depth, tex_lum);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
 			//GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
 			mesh.Draw();
 			//GL.EndQuery(QueryTarget.SamplesPassed);
@@ -266,7 +274,7 @@ namespace csharp_viewer
 			//worldmatrix *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
 			//worldmatrix *= Matrix4.CreateScale((float)img.Width / (float)img.Height, 1.0f, 1.0f);
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-			if(depth_filename == null) // Do not always face screen when rendering volume images
+			//if(depth_filename == null) // Do not always face screen when rendering volume images
 				worldmatrix *= invvieworient;//Matrix4_CreateBillboardRotation(animatedPos, viewpos);
 			worldmatrix *= Matrix4.CreateTranslation(animatedPos);
 

@@ -679,7 +679,7 @@ namespace csharp_viewer
 			if(imageCloud != null)
 			{
 				try {
-					imageCloud.Load(newimages, valuerange, imageSize, image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
+					imageCloud.Load(newimages, valuerange, imageSize, true/*image_pixel_format != null && image_pixel_format.Equals("I24")*/, false/*depth_name_pattern != null*/);
 				} catch(Exception ex) {
 					MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 					throw ex;
@@ -818,6 +818,10 @@ namespace csharp_viewer
 			// Parse meta data from info.json
 			Cinema.CinemaArgument[] newargs;
 			Cinema.ParseCinemaDescriptor(filename, out newargs, out name_pattern, out depth_name_pattern, out image_pixel_format);
+			bool useFloatImages = image_pixel_format != null && image_pixel_format.Equals("I24");
+
+			Cinema.CinemaStore store = Cinema.CinemaStore.Load(filename + "image/info.json");
+			newargs = store.arguments;
 
 			image_render_mutex.WaitOne();
 			int[] newargindices;
@@ -826,7 +830,7 @@ namespace csharp_viewer
 
 			// >>> Load images and image meta
 
-			string imagepath;
+			//string imagepath;
 			List<TransformedImage> newimages = null;
 			#pragma warning disable 162
 			if(false)
@@ -839,7 +843,7 @@ namespace csharp_viewer
 			{
 				image_render_mutex.WaitOne();
 
-				// Load images and image meta data by iterating over all argument combinations
+				/*// Load images and image meta data by iterating over all argument combinations
 				int[] argidx = new int[newargs.Length];
 				newimages = new List<TransformedImage>();
 				bool done;
@@ -853,11 +857,6 @@ namespace csharp_viewer
 						imagevalues[i] = newargs[i].values[argidx[i]];
 						imagestrvalues[i] = newargs[i].strValues[argidx[i]];
 						imagepath = imagepath.Replace("{" + newargs[i].name + "}", newargs[i].strValues[argidx[i]].ToString());
-
-						/*if(imagevalues[i].GetType() == typeof(string) && float.TryParse((string)imagevalues[i], out floatvalue))
-							imagevalues[i] = floatvalue;
-						else if(imagevalues[i].GetType() == typeof(long))
-							imagevalues[i] = (float)(long)imagevalues[i];*/
 					}
 					imagepath = filename + "image/" + imagepath;
 
@@ -884,15 +883,6 @@ namespace csharp_viewer
 					cimg.key = new int[argidx.Length]; Array.Copy(argidx, cimg.key, argidx.Length);
 					newimages.Add(cimg);
 
-					/*for(int i = 0; i < newargs.Length; ++i)
-					{
-						List<TransformedImage> valueimages;
-						newargs[i].images.TryGetValue(imagevalues[i], out valueimages);
-						if(valueimages == null)
-							valueimages = new List<TransformedImage>();
-						valueimages.Add(cimg);
-					}*/
-
 					if(cimg.meta != null)
 						foreach(KeyValuePair<string, object> meta in cimg.meta)
 						{
@@ -915,7 +905,62 @@ namespace csharp_viewer
 							break;
 						}
 					}
-				} while(!done);
+				} while(!done);*/
+
+				// Load images and image meta data by iterating over all argument combinations
+				newimages = new List<TransformedImage>();
+				foreach(int[] argidx in store.iterateKeys())
+				{
+					float[] imagevalues = store.GetImageValues(argidx);
+					string[] imagestrvalues = store.GetImageStrValues(argidx);
+					Cinema.CinemaStore.Parameter[] dependentAssociations = store.GetDependentAssociations(argidx);
+
+					string imagepath, depthpath, lumpath;
+					bool isFloatImage;
+					store.GetImageFilePath(argidx, dependentAssociations, out imagepath, out depthpath, out lumpath, out isFloatImage);
+					imagepath = filename + imagepath;
+					if(depthpath != null)
+						depthpath = filename + depthpath;
+					if(lumpath != null)
+						lumpath = filename + lumpath;
+
+					// Load CinemaImage
+					TransformedImage cimg = new TransformedImage();
+					cimg.LocationChanged += imageCloud.InvalidateOverallBounds;
+					cimg.values = imagevalues;
+					cimg.strValues = imagestrvalues;
+					cimg.args = newargs;
+					cimg.globalargindices = newargindices;
+					cimg.filename = imagepath;
+					cimg.depth_filename = depthpath;
+					cimg.lum_filename = lumpath;
+					cimg.isFloatImage = useFloatImages || isFloatImage;
+					Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
+
+					cimg.key = argidx;
+					newimages.Add(cimg);
+
+					//for(int i = 0; i < newargs.Length; ++i)
+					//{
+					//	List<TransformedImage> valueimages;
+					//	newargs[i].images.TryGetValue(imagevalues[i], out valueimages);
+					//	if(valueimages == null)
+					//		valueimages = new List<TransformedImage>();
+					//	valueimages.Add(cimg);
+					//}
+
+					if(cimg.meta != null)
+						foreach(KeyValuePair<string, object> meta in cimg.meta)
+						{
+							HashSet<object> range;
+							if(!valuerange.TryGetValue(meta.Key, out range))
+							{
+								range = new HashSet<object>();
+								valuerange.Add(meta.Key, range);
+							}
+							range.Add(meta.Value);
+						}
+				}
 
 				#if !DISABLE_DATAVIZ
 				if(dataviz != null)
@@ -934,13 +979,13 @@ namespace csharp_viewer
 				return;
 
 			// Get image size
-			imagepath = name_pattern;
-			for(int i = 0; i < newargs.Length; ++i)
-				imagepath = imagepath.Replace("{" + Global.arguments[i].name + "}", Global.arguments[i].strValues[0].ToString());
-			imagepath = filename + "image/" + imagepath;
-			Image img = Image.FromFile(imagepath);
-			Size imageSize = new Size(img.Width, img.Height);
-			img.Dispose();
+			Size imageSize = new Size(256, 256);
+			if(File.Exists(newimages[0].filename))
+			{
+				Image img = Image.FromFile(newimages[0].filename);
+				imageSize = new Size(img.Width, img.Height);
+				img.Dispose();
+			}
 
 			PostLoad(newimages, imageSize);
 
@@ -1139,10 +1184,13 @@ namespace csharp_viewer
 			#endif
 
 			// Get image size
-			Image img = Image.FromFile(newimages[0].filename);
-			Size imageSize = new Size(img.Width, img.Height);
-			img.Dispose();
-
+			Size imageSize = new Size(256, 256);
+			if(File.Exists(newimages[0].filename))
+			{
+				Image img = Image.FromFile(newimages[0].filename);
+				imageSize = new Size(img.Width, img.Height);
+				img.Dispose();
+			}
 			PostLoad(newimages, imageSize);
 		}
 
@@ -1465,7 +1513,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			CallSelectionChangedHandlers();
 		}
 
-		private string GetSkipImageExpr(HashSet<int> byExpr_usedArgumentIndices)
+		public static string GetSkipImageExpr(HashSet<int> byExpr_usedArgumentIndices)
 		{
 			string skipImageExpr = "";
 			int highestIdx = -1;

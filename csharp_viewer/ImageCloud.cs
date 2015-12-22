@@ -111,7 +111,7 @@ namespace csharp_viewer
 		";
 		public const string FS = @"
 			varying vec2 uv;
-			uniform sampler2D Texture;
+			uniform sampler2D Texture, Texture2, Texture3;
 			uniform vec4 Color;
 			uniform int HasTexture;
 			varying float alpha;
@@ -120,12 +120,21 @@ namespace csharp_viewer
 
 			void main()
 			{
-gl_FragDepth = gl_FragCoord.z;
 				if(HasTexture != 0)
-					gl_FragColor = Color * shade(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);
+				{
+vec3 lum = texture2D(Texture3, uv).rgb;
+float depth = texture2D(Texture2, uv).r;
+gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
+
+					gl_FragColor = Color * shade(Texture, uv) * vec4(lum, alpha);
+
+//gl_FragColor = vec4(depth, depth, depth, 1.0);
+//gl_FragColor = vec4(depth / 2.0, depth / 2.0, depth / 2.0, 1.0);
+//gl_FragColor += vec4(depth, 0.0, 0.0, depth);
+//gl_FragColor = vec4(lum, 1.0);
+				}
 				else
 					gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
-gl_FragDepth -= gl_FragColor.r * 0.001;
 			}
 		";
 		public const string FS_DEFAULT_DECODER = @"
@@ -136,10 +145,7 @@ gl_FragDepth -= gl_FragColor.r * 0.001;
 			}
 		";
 		public const string FS_COLORTABLE_DECODER = @"
-			//uniform sampler1D InnerColorTable, OuterColorTable;
-			//uniform int HasOuterColorTable;
-			//uniform float MinValue, MaxValue;
-uniform sampler1D Colormap;
+			uniform sampler1D Colormap;
 			uniform vec3 NanColor;
 
 			vec4 shade(sampler2D sampler, in vec2 uv)
@@ -157,15 +163,7 @@ uniform sampler1D Colormap;
 				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
 				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
 
-				/*// Sample color table based on valueS
-				if(valueS < MinValue)
-					return HasOuterColorTable != 0 ? vec4(texture1D(OuterColorTable, valueS).rgb, alpha) : vec4(texture1D(InnerColorTable, 0.0).rgb, alpha);
-				else if(valueS > MaxValue)
-					return HasOuterColorTable != 0 ? vec4(texture1D(OuterColorTable, valueS).rgb, alpha) : vec4(texture1D(InnerColorTable, 1.0 - 1e-5).rgb, alpha);
-				else
-					return vec4(texture1D(InnerColorTable, (valueS - MinValue) / (MaxValue - MinValue)).rgb, alpha);*/
-
-return vec4(texture1D(Colormap, valueS).rgb, alpha);
+				return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 		";
 	}
@@ -235,7 +233,7 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 					GL.Uniform1(depthScale, depthscale);
 			}
 		}
-		RenderShader sdr2D, sdr3D;
+		RenderShader sdr2D_default, sdr2D_cm, sdr3D_default, sdr3D_cm;
 		GLShader sdrAabb;
 		GLMesh mesh2D, mesh3D;
 
@@ -457,7 +455,6 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 		ArgumentIndex argIndex = new ArgumentIndex();
 		#endif
 
-		bool floatimages;
 		GLTextureStream texstream;
 		CoordinateSystem coordsys;
 		LineGrid grid;
@@ -545,50 +542,47 @@ return vec4(texture1D(Colormap, valueS).rgb, alpha);
 
 			this.images = Viewer.images;
 			this.arguments = Global.arguments;
-			this.floatimages = floatimages;
 
 			if(floatimages)
 			{
 				colorTableMgr.Visible = true;
 				colorTableMgr.OnSizeChanged(backbuffersize);
 				colorTableMgr.Reset();
+
+				//foreach(TransformedImage newimage in newimages)
+				//	newimage.isFloatImage = true;
 			}
 			else
 			{
-				colorTableMgr.Visible = false;
-				foreach(TransformedImage newimage in newimages)
-					newimage.texFilterLinear = true;
+				//foreach(TransformedImage newimage in newimages)
+				//	newimage.isFloatImage = false;
 			}
 
-			if(sdr2D == null)
+			if(sdr2D_default == null)
 			{
 #if USE_GS_QUAD
-				sdr2D = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
+				sdr2D_default = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
+				sdr2D_cm = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
 #else
-				sdr2D = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {
-					IMAGE_CLOUD_SHADER.FS,
-					floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER
-				}, null);
+				sdr2D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
+				sdr2D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, null);
 #endif
-				sdr3D = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {
-					IMAGE_CLOUD_SHADER.FS,
-					floatimages ? IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER : IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER
-				}, null);
+				sdr3D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
+				sdr3D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, null);
 
-				foreach(GLShader sdr in new GLShader[] {sdr2D, sdr3D})
+				foreach(GLShader sdr in new GLShader[] {sdr2D_cm, sdr3D_cm})
 				{
 					sdr.Bind();
-					GL.ActiveTexture(TextureUnit.Texture2);
+					GL.ActiveTexture(TextureUnit.Texture3);
 					colorTableMgr.Colormap.Bind();
-					GL.Uniform1(sdr.GetUniformLocation("Colormap"), 2);
+					GL.Uniform1(sdr.GetUniformLocation("Colormap"), 3);
 				}
 				GL.ActiveTexture(TextureUnit.Texture0);
 			}
 
 			texstream.AddImages(newimages);
 
-if(mesh3D != null) depthimages = false; //DELETE
-			if(depthimages)
+			if(depthimages && mesh3D == null)
 			{
 				// Create mesh for depth rendering
 				Size depthimagesize = new Size(imageSize.Width, imageSize.Height);
@@ -619,8 +613,6 @@ if(mesh3D != null) depthimages = false; //DELETE
 				mesh3D = new GLMesh(positions, null, null, null, texcoords, null, PrimitiveType.Points);
 				//GL.PointSize(2.0f);
 			}
-			else
-				mesh3D = null;
 
 			#if USE_ARG_IDX
 			argIndex.Load(images, arguments, valuerange);
@@ -647,6 +639,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 
 		public void Unload()
 		{
+			colorTableMgr.Visible = false;
 			images = null;
 			arguments = null;
 			selectionAabb = null;
@@ -656,8 +649,8 @@ if(mesh3D != null) depthimages = false; //DELETE
 				/*texstream.Free();
 				texstream = null;*/
 			}
-			sdr2D = null;
-			sdr3D = null;
+			sdr2D_default = sdr2D_cm = null;
+			sdr3D_default = sdr3D_cm = null;
 			if(mesh3D != null)
 				mesh3D.Free();
 			mesh3D = null;
@@ -817,7 +810,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 			sdrAabb.Bind();
 			GL.Uniform2(sdrAabb.GetUniformLocation("HalfBackbufferSize"), new Vector2((float)backbuffersize.Width / 2.0f, (float)backbuffersize.Height / 2.0f));
 
-			if(floatimages)
+			if(colorTableMgr.Visible)
 				colorTableMgr.OnSizeChanged(backbuffersize);
 		}
 
@@ -1054,15 +1047,17 @@ if(mesh3D != null) depthimages = false; //DELETE
 				//renderlist.reversed = true;
 				foreach(TransformedImageAndMatrix iter in renderlist)
 				{
-					if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
+					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
 					{
-						sdr3D.Bind();
-						iter.image.Render(mesh3D, sdr3D, depthRenderingEnabled_fade, freeview, iter.matrix, fragmentcounter);
+						RenderShader sdr = iter.image.isFloatImage ? sdr3D_cm : sdr3D_default;
+						sdr.Bind();
+						iter.image.Render(mesh3D, sdr, depthRenderingEnabled_fade, freeview, iter.matrix, fragmentcounter);
 					}
 					else
 					{
-						sdr2D.Bind();
-						iter.image.Render(mesh2D, sdr2D, 0.0f, freeview, iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : iter.matrix, fragmentcounter);
+						RenderShader sdr = iter.image.isFloatImage ? sdr2D_cm : sdr2D_default;
+						sdr.Bind();
+						iter.image.Render(mesh2D, sdr, 0.0f, freeview, iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : iter.matrix, fragmentcounter);
 					}
 				}
 
@@ -1151,7 +1146,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 				Common.fontText.DrawString(10.0f, backbuffersize.Height - 30.0f, status_str, backbuffersize);
 			}
 
-			if(floatimages)
+			if(colorTableMgr.Visible)
 				colorTableMgr.Draw(dt);
 
 			if(selection != null)
@@ -1232,7 +1227,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 			if(ContextMenu.MouseDown(sender, e, backbuffersize))
 				return;
 			
-			if(floatimages && colorTableMgr.MouseDown(e))
+			if(colorTableMgr.Visible && colorTableMgr.MouseDown(e))
 				return;
 
 			#if USE_ARG_IDX
@@ -1351,7 +1346,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 				else if(e.Button == MouseButtons.Right)
 					Viewer.browser.OnImageRightClick(dragImage);
 			}
-			else if(!ContextMenu.MouseUp(sender, e, backbuffersize) && floatimages)
+			else if(!ContextMenu.MouseUp(sender, e, backbuffersize) && colorTableMgr.Visible)
 				colorTableMgr.MouseUp(e);
 
 			dragImage = null;
@@ -1383,7 +1378,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 				if(ContextMenu.MouseMove(sender, e, backbuffersize))
 					return;
 
-				if(floatimages && colorTableMgr.MouseMove(e))
+				if(colorTableMgr.Visible && colorTableMgr.MouseMove(e))
 					return;
 
 				return;
@@ -1541,7 +1536,7 @@ if(mesh3D != null) depthimages = false; //DELETE
 		{
 			if(!mouseDownInsideImageCloud)
 			{
-				if(floatimages && colorTableMgr.MouseWheel(e))
+				if(colorTableMgr.Visible && colorTableMgr.MouseWheel(e))
 					return;
 
 				return;

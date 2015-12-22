@@ -217,9 +217,10 @@ namespace csharp_viewer
 			defparams.lightparams = GL.GetUniformLocation(shaderprogram, "LightParams");
 			defparams.power = GL.GetUniformLocation(shaderprogram, "Power");
 
-			defparams.tex = new int[2];
+			defparams.tex = new int[3];
 			defparams.tex[0] = GL.GetUniformLocation(shaderprogram, "Texture");
 			defparams.tex[1] = GL.GetUniformLocation(shaderprogram, "Texture2");
+			defparams.tex[2] = GL.GetUniformLocation(shaderprogram, "Texture3");
 			defparams.hastex = GL.GetUniformLocation(shaderprogram, "HasTexture");
 
 			defparams.time = GL.GetUniformLocation(shaderprogram, "Time");

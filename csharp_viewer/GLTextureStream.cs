@@ -61,7 +61,7 @@ namespace csharp_viewer
 						return -memory; // Return memory gain achieved by unloading this image
 					}
 
-					int factor = image.depth_filename != null ? 2 : 1;
+					int factor = 1 + (image.depth_filename != null ? 1 : 0) + (image.lum_filename != null ? 1 : 0);
 
 					if(memory > 0) // If image already loaded
 					{
@@ -446,6 +446,26 @@ namespace csharp_viewer
 						++GLTextureStream.foo;
 					}
 
+					// Load luminance image from disk
+					Bitmap newbmp_lum = null;
+					if(image.lum_filename != null)
+					{
+						newbmp_lum = ImageLoader.Load(image.lum_filename);
+						if(newbmp_lum == null)
+						{
+							if(newbmp != null)
+							{
+								newbmp.Dispose();
+								newbmp = null;
+							}
+
+							image.tex = texFileNotFound;
+							image.texIsStatic = true;
+							return memory = 0;
+						}
+						++GLTextureStream.foo;
+					}
+
 					// Compute original dimensions
 					image.originalWidth = newbmp.Width;
 					image.originalHeight = newbmp.Height;
@@ -513,6 +533,20 @@ namespace csharp_viewer
 							originalBmp.Dispose();
 							originalBmp = null;
 						}
+
+						if(image.lum_filename != null)
+						{
+							originalBmp = newbmp_lum;
+							newbmp_lum = new Bitmap(width, height, originalBmp.PixelFormat);
+							gfx = Graphics.FromImage(newbmp_lum);
+							gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+							gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+							gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+							gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
+							gfx.Flush();
+							originalBmp.Dispose();
+							originalBmp = null;
+						}
 					}
 
 					#if DEBUG_GLTEXTURESTREAM
@@ -543,11 +577,22 @@ namespace csharp_viewer
 						image.bmp_depth = newbmp_depth;
 					}
 
+					if(image.lum_filename != null)
+					{
+						if(image.bmp_lum != null)
+						{
+							// Unload old image
+							image.bmp_lum.Dispose();
+							image.bmp_lum = null;
+						}
+						image.bmp_lum = newbmp_lum;
+					}
+
 					image.renderMutex.ReleaseMutex();
 
 					sizePriority = (float)image.originalWidth / (float)width;
 
-					int factor = image.depth_filename != null ? 2 : 1;
+					int factor = 1 + (image.depth_filename != null ? 1 : 0) + (image.lum_filename != null ? 1 : 0);
 
 					int memorydiff = width * height * factor - memory;
 					memory = width * height * factor;

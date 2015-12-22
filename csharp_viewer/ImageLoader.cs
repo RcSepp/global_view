@@ -122,7 +122,14 @@ namespace csharp_viewer
 				fs.Close();
 				return null;
 			}
-			string imageSize = readline.Substring("Image size (x*y): ".Length);
+			string[] imageSize = readline.Substring("Image size (x*y): ".Length).Split('*');
+			int width, height;
+			if(imageSize.Length != 2 || !int.TryParse(imageSize[0], out width) || width <= 0 || !int.TryParse(imageSize[1], out height) || height <= 0)
+			{
+				// Error: Illegal value for 'Image size'
+				fs.Close();
+				return null;
+			}
 
 			readline = sr.ReadLine();
 			if(!readline.StartsWith("File size (no of images): "))
@@ -135,16 +142,32 @@ namespace csharp_viewer
 			fs.Position = 0x200;
 
 			BinaryReader br = new BinaryReader(fs);
-			byte[] data = new byte[4 * 300 * 300];
-			for(int i = 0; i < 300 * 300; ++i)
+			int numpixels = width * height;
+			float[] values = new float[numpixels];
+			byte[] data = new byte[4 * numpixels];
+			float vmin = float.MaxValue, vmax = float.MinValue;
+			for(int i = 0; i < numpixels; ++i)
 			{
-				data[4 * i + 0] = data[4 * i + 1] = data[4 * i + 2] = (byte)(br.ReadSingle() * 255.0f);
-				data[4 * i + 3] = 255;
+				values[i] = br.ReadSingle();
+				vmin = Math.Min(vmin, values[i]);
+				vmax = Math.Max(vmax, values[i]);
 			}
+
+			vmin = 0.0f;
+			vmax = 1.0f;//256.0f;
+
+			float vscale = 255.0f / (vmax - vmin);
+			for(int y = 0; y < height; ++y)
+				for(int x = 0; x < width; ++x)
+				{
+					int i = y * width + x;
+					data[4 * i + 0] = data[4 * i + 1] = data[4 * i + 2] = (byte)((values[(height - y - 1) * width + x] - vmin) * vscale);
+					data[4 * i + 3] = 255;
+				}
 
 			fs.Close();
 
-			Bitmap bmp = new Bitmap(300, 300, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+			Bitmap bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
 			System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
 			System.Runtime.InteropServices.Marshal.Copy(data, 0, bmpdata.Scan0, data.Length);

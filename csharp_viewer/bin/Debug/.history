@@ -2624,3 +2624,116 @@ cd spec_b
 cd "spec_b"
 ls
 load "mpas_specB"
+show all
+animate all by #time
+animate by #time
+load "hobo_mpas/eddy_db"
+exit
+exit
+load "hobo_mpas/eddy_db"
+load "hobo_mpas/eddy_db"
+rspread3d all
+focus all
+spread all
+x all by #contour * 2
+focus all
+clear all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+clear all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+clear all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+clear all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+clear all
+show all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+show all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+show all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+show all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+show all
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+hide where #time != 0
+spread #theta * 2, #phi * 2, #time * 2
+spread all by #theta * 2, #phi * 2, #time * 2
+star all by #theta * 2, #phi * 2, #time * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2, #time * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2, #time * 2
+hide where #time != 0
+focus visible
+hide where #time != 0
+focus visible
+star all by #theta * 2, #phi * 2
+focus visible
+star all by #theta * 2, #phi * 2
+focus visible
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+focus visible
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+focus visible
+show all
+animate #time
+animate by #time
+clear all
+x all by #time * 2
+hide where #theta != 0
+hide where #phi != 0
+x all by #time * -2
+animate visible by #time
+animate by #time
+clear all
+skip visible where (time * 0.1) % 9 != #time
+skip visible by (time * 0.1) % 9 != #time
+clear all
+skip visible by (int)(time * 0.1) % 9 != #time
+clear all
+hide where #time != 0
+count visible
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+star all by #theta * 2, #phi * 2
+hide where #time != 0
+look all by $phi * pi / 180, (180 + $theta) * pi / 180
+show all
+hide where $contour == 55
+show all
+hide where $contour == 55
+look all by $phi * pi / 180, $theta * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+hide where $theta != 45 || #phi != 0
+clear all
+hide where $theta != 0 || #phi != 45
+clear all
+hide where $theta != 0 || $phi != 45
+clear all
+show all
+hide where $theta != 0 || $phi != 45

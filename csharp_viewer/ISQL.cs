@@ -207,8 +207,9 @@ namespace ISQL
 		}
 		private static IEnumerable<csharp_viewer.TransformedImage> CompileScopeCondition(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, ref string warnings)
 		{
+			HashSet<int> byExpr_usedArgumentIndices = new HashSet<int>();
 			bool isTemporal;
-			string scopeExpr = ParseExpression(code, fragments, firstfragment, lastfragment, null, out isTemporal);
+			string scopeExpr = ParseExpression(code, fragments, firstfragment, lastfragment, byExpr_usedArgumentIndices, out isTemporal);
 
 			// Define source code for image enumerator class
 			string source = string.Format(@"
@@ -226,12 +227,12 @@ namespace csharp_viewer
 	    public IEnumerator<TransformedImage> GetEnumerator()
 		{{
 			foreach(TransformedImage image in images)
-				if({0})
+				if(!({0}) && {1})
 					yield return image;
 		}}
 		IEnumerator IEnumerable.GetEnumerator() {{ return this.GetEnumerator(); }}
 	}}
-}}", scopeExpr);
+}}", csharp_viewer.Viewer.GetSkipImageExpr(byExpr_usedArgumentIndices), scopeExpr);
 
 			return (IEnumerable<csharp_viewer.TransformedImage>)CompileCSharpClass(source, "csharp_viewer", "ImageEnumerator", ref warnings, csharp_viewer.Viewer.images);
 		}

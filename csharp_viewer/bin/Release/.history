@@ -1705,3 +1705,150 @@ load "volume-render"
 cd "spec_a"
 load "volume-render"
 exit
+ls
+cd ".."
+ls
+load "cinema"
+hide where #time != 0
+count visible
+thetaphi visible by $theta * pi / 180, $phi * pi / 180
+thetaphi visible by $theta * pi / 180, $phi * pi / 180, 5
+hide where $theta > 90 || $theta < -90
+clear all
+thetaphi visible by $phi * pi / 180, $theta * pi / 180, 5
+thetaphi visible by $phi * pi / 180, (90 + $theta) * pi / 180, 5
+clear all
+thetaphi visible by $phi * pi / 180, (90 + $theta) * pi / 180, 5
+thetaphi &theta * pi / 180, $phi * pi / 180
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $phi * pi / 180, $theta * pi / 180, 3
+clear all
+thetaphi all by $phi * pi / 180, $theta * pi / 180, 3
+unload
+ls
+load "h3d_multiple"
+unload
+load "cosmo"
+rspread all
+focus all
+thetaphi all by $phi * pi / 180, ($theta + 90) * pi / 180, 3
+thetaphi all by $phi * pi / 180, (90 + $theta) * pi / 180, 3
+thetaphi all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180, 3
+clear all
+thetaphi all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180, 3
+clear all
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+look all by (360 - $phi) * pi / 180, (90 - $theta) * pi / 180
+unload
+clear all
+look all by $theta * pi / 180, phi * pi / 180
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, 90 * pi / 180
+clear all
+look all by $theta * pi / 180, 100 * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+exit
+ls
+load "hobo_mpas"
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+load "hobo_mpas/eddy_db"
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+hide all
+load "hobo_mpas/eddy_db"
+thetaphi visible by $theta * pi / 180, $phi * pi / 180, 0.1
+thetaphi visible by $theta * pi / 180, $phi * pi / 180, 0.1f
+show all
+look all by $theta * pi / 180, $phi * pi / 180
+animate by #time
+look all by $theta * pi / 180, $phi * pi / 180
+look all by $theta * pi / 180, $phi * pi / 180
+hide all
+load "hobo_mpas/eddy_db"
+load "hobo_mpas/eddy_db"
+unload
+load "hobo_mpas/eddy_db"
+load "hobo_mpas/eddy_db"
+load "hobo_mpas/eddy_db"
+look all by $theta * pi / 180, $phi * pi / 180
+animate by #time
+animate by #simtime
+animate by #simTime
+load "hobo_mpas/eddy_db"
+load "hobo_mpas/eddy_db"
+hide where #simTime > 10
+load "hobo_mpas/eddy_db"
+hide where #simTime > 10
+rspread visible
+rspread all
+spread all
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+animate by #time
+look all by $theta * pi / 180, $phi * pi / 180
+animate by #time
+look all by $theta * pi / 180, $phi * pi / 180
+animate by #time
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+hide where #time != 0
+look all by $theta * pi / 180, $phi * pi / 180
+animate #time
+exit
+animate by #time
+unload
+unload
+animate by #time
+unload
+rspread all
+focus all
+look all by $theta * pi / 180, $phi * pi / 180
+spread #x * 5, #y * 5, #z * 5
+star all by #x * 5, #y * 5, #z * 5
+clear all
+spread #x * 5, #y * 5, #z * 5
+look all by $theta * pi / 180, $phi * pi / 180
+star all by #x * 2, #y * 2, #z * 2
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+star all by #x * -2, #y * 2, #z * 2
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+star all by 1 - 2 * #x, -1 #y * 2, #z * -2
+star all by 1 - 2 * #x, -1 + 2 * #y * 2,1 - 2 * #z
+clear all
+star all by 1 - 2 * #x, -1 + 2 * #y * 2,1 - 2 * #z
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+star all by 1 - 2 * #x, -1 + 2 * #y,1 - 2 * #z
+look all by $theta * pi / 180, $phi * pi / 180
+look all by $theta * pi / 180, $phi * pi / 180
+load "bunny"

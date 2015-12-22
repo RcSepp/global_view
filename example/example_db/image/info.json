@@ -1,13 +1,13 @@
 {
 	"arguments": {
 		"theta": {
-			"default": 90,
+			"default": 0,
 			"values": [0, 30, 60, 90],
 			"type": "range",
 			"label": "theta"
 		},
 		"phi": {
-		"default": -120,
+			"default": 0,
 			"values": [0, 30, 60, 90],
 			"type": "range",
 			"label": "phi"

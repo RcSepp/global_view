@@ -117,7 +117,7 @@ namespace csharp_viewer
 			primitivetype = _primitivetype.Value;
 		}
 
-		public void Bind(GLShader shader, GLTexture texture = null, GLTexture texture2 = null)
+		public void Bind(GLShader shader, GLTexture texture = null, GLTexture texture2 = null, GLTexture texture3 = null)
 		{
 			if(posbuffer == -1) // Mesh without vertex positions can't be rendered
 				return;
@@ -167,6 +167,13 @@ namespace csharp_viewer
 				texture2.Bind();
 				if(shader != null)
 					shader.SetTexture(1);
+			}
+			if(texture3 != null)
+			{
+				GL.ActiveTexture(TextureUnit.Texture2);
+				texture3.Bind();
+				if(shader != null)
+					shader.SetTexture(2);
 			}
 			if(idxbuffer != -1)
 				GL.BindBuffer(BufferTarget.ElementArrayBuffer, idxbuffer);
