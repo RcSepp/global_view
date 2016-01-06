@@ -946,15 +946,15 @@ namespace csharp_viewer
 					{
 						//if(foo++ != 1)
 						//	continue;
-						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
+						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
 						layer.filename = filename + layerdesc.imagepath;
 						layer.depth_filename = layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath;
 						layer.lum_filename = layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath;
 						layer.isFloatImage = useFloatImages || layerdesc.isFloatImage;
 						cimg.layers.Add(layer);
 					}
-					//if(cimg.layers.Count == 0)
-					//	throw new Exception();
+					if(cimg.layers.Count == 0)
+						throw new Exception();
 
 					//Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 					cimg.invview = Matrix4.Identity;
@@ -1156,7 +1156,7 @@ namespace csharp_viewer
 				cimg.args = newargs;
 				cimg.globalargindices = newargindices;
 
-				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
+				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
 				layer.filename = imagepath;
 				layer.depth_filename = null;
 				layer.lum_filename = null;
@@ -1282,7 +1282,7 @@ namespace csharp_viewer
 				cimg.strValues = imagestrvalues;
 				cimg.args = Global.arguments;
 
-				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
+				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
 				layer.filename = imagepath;
 				cimg.layers.Add(layer);
 

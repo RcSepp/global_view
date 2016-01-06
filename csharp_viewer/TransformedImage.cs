@@ -9,8 +9,49 @@ namespace csharp_viewer
 {
 	public class TransformedImage : Cinema.CinemaImage
 	{
+		private static class IMAGE_ASSEMBLY_SHADER
+		{
+			public const string VS = @"
+				attribute vec3 vpos;
+				attribute vec2 vtexcoord;
+				uniform mat4 World;
+				varying vec2 uv;
+
+				void main()
+				{
+					gl_Position = World * vec4(vpos, 1.0);
+					uv = vtexcoord;
+				}
+			";
+			public const string FS = @"
+				varying vec2 uv;
+				uniform sampler2D Texture, Texture2, Texture3;
+				//uniform vec4 Color;
+
+				//vec4 shade(sampler2D sampler, in vec2 uv);
+
+				void main()
+				{
+					vec4 color = vec4(texture2D(Texture, uv));
+					float depth = texture2D(Texture2, uv).r / 100.0; //EDIT: Set with a uniform representing global max depth
+					vec4 lum = vec4(texture2D(Texture3, uv));
+					
+					gl_FragData[0] = color;
+					gl_FragData[1] = vec4(0.0, 0.0, 0.0, 1.0);
+					gl_FragData[2] = vec4(lum.rgb, 1.0);
+					gl_FragDepth = depth;
+				}
+			";
+		}
+
 		public class ImageLayer
 		{
+			public TransformedImage image;
+			public ImageLayer(TransformedImage image)
+			{
+				this.image = image;
+			}
+
 			public string filename;
 			public string depth_filename, lum_filename;
 
@@ -46,6 +87,8 @@ namespace csharp_viewer
 						GL.DeleteTexture(tex_lum.tex);
 						tex_lum = null;
 					}
+
+					image.FreeAssembledImage();
 				}
 				oldbmp = bmp;
 			}
@@ -60,11 +103,20 @@ namespace csharp_viewer
 					if(bmp != null)
 					{
 						if(tex == null)
+						{
 							tex = new GLTexture2D(bmp, false, !isFloatImage);
+							image.FreeAssembledImage();
+						}
 						if(bmp_depth != null && tex_depth == null)
+						{
 							tex_depth = new GLTexture2D(bmp_depth, false, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
+							image.FreeAssembledImage();
+						}
 						if(bmp_lum != null && tex_lum == null)
+						{
 							tex_lum = new GLTexture2D(bmp_lum, false, true);
+							image.FreeAssembledImage();
+						}
 						renderMutex.ReleaseMutex();
 						return true;
 					}
@@ -77,6 +129,136 @@ namespace csharp_viewer
 			}
 		}
 		public List<ImageLayer> layers = new List<ImageLayer>();
+
+		public GLTexture2D finalTex, finalTexFloat, finalTexLum;
+		public bool finalTexIsAssembled, finalTexHasDefaultComponent, finalTexHasFloatComponent;
+		private static GLShader sdrImageAssembly;
+		public bool AssembleImage()
+		{
+			if(finalTex != null)
+				return false; // Texture already assembled
+
+			if(layers.Count == 1)
+			{
+				finalTexIsAssembled = false;
+				finalTexHasDefaultComponent = !layers[0].isFloatImage;
+				finalTexHasFloatComponent = layers[0].isFloatImage;
+				finalTex = layers[0].tex;
+				finalTexFloat = layers[0].tex;
+				finalTexLum = layers[0].tex_lum;
+				return false;
+			}
+			finalTexIsAssembled = true;
+
+			if(sdrImageAssembly == null)
+				sdrImageAssembly = new GLShader(new string[] {IMAGE_ASSEMBLY_SHADER.VS}, new string[] {IMAGE_ASSEMBLY_SHADER.FS});
+
+			// Get framebuffer dimensions
+			int framebufferWidth = 0, framebufferHeight = 0;
+			foreach(ImageLayer layer in layers)
+			{
+				framebufferWidth = Math.Max(framebufferWidth, layer.renderWidth);
+				framebufferHeight = Math.Max(framebufferHeight, layer.renderWidth);
+			}
+			if(framebufferWidth == 0 || framebufferHeight == 0)
+				return false; // None of the layers has been created so far
+
+			// Create and activate rendertexture, depthtexture and framebuffer
+			finalTex = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
+			finalTexFloat = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:false);
+			finalTexLum = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
+			GLTexture2D finalTexDepth = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.DepthComponent, PixelInternalFormat.DepthComponent, PixelType.Float);
+			int finalTexFramebuffer = GL.GenFramebuffer();
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, finalTexFramebuffer);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, finalTex.tex, 0);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, finalTexFloat.tex, 0);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, finalTexLum.tex, 0);
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, finalTexDepth.tex, 0);
+			FramebufferErrorCode ferr;
+			if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
+				throw new Exception(ferr.ToString());
+
+			// Render layers
+			GL.PushAttrib(AttribMask.ViewportBit);
+			GL.Enable(EnableCap.DepthTest);
+			GL.Disable(EnableCap.DepthClamp);
+			GL.DepthFunc(DepthFunction.Lequal);
+			GL.BlendEquation(BlendEquationMode.FuncAdd);
+			//GL.DrawBuffer(DrawBufferMode.ColorAttachment1);
+			GL.DrawBuffers(3, new DrawBuffersEnum[] {DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2});
+			GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+			GL.Viewport(0, 0, framebufferWidth, framebufferHeight);
+
+			finalTexHasDefaultComponent = finalTexHasFloatComponent = false;
+
+			foreach(ImageLayer layer in layers)
+			{
+				bool texloaded = layer.CreateIfLoaded();
+				if(!texloaded)
+					continue;
+
+				if(layer.isFloatImage)
+				{
+					finalTexHasFloatComponent = true;
+					GL.DrawBuffers(3, new DrawBuffersEnum[] {
+						DrawBuffersEnum.ColorAttachment1,
+						DrawBuffersEnum.ColorAttachment0,
+						DrawBuffersEnum.ColorAttachment2
+					});
+				}
+				else
+				{
+					finalTexHasDefaultComponent = true;
+					GL.DrawBuffers(3, new DrawBuffersEnum[] {
+						DrawBuffersEnum.ColorAttachment0,
+						DrawBuffersEnum.ColorAttachment1,
+						DrawBuffersEnum.ColorAttachment2
+					});
+				}
+				
+				sdrImageAssembly.Bind(Matrix4.CreateScale(2.0f * layer.originalAspectRatio, -2.0f, 1.0f));
+
+				Common.meshQuad2.Bind(sdrImageAssembly, layer.tex, layer.tex_depth, layer.tex_lum);
+				Common.meshQuad2.Draw();
+			}
+
+			/* // Debug: Save screenshot
+			byte[] bytes = new byte[4 * finalTex.width * finalTex.height];
+			GL.ReadPixels(0, 0, finalTex.width, finalTex.height, PixelFormat.Bgra, PixelType.Byte, bytes);
+			for(int i = 3; i < bytes.Length; i += 4)
+				bytes[i] = 0xFF;
+			System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(finalTex.width, finalTex.height);
+			System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new System.Drawing.Rectangle(System.Drawing.Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
+			System.Runtime.InteropServices.Marshal.Copy(bytes, 0, bmpdata.Scan0, bytes.Length);
+			bmp.UnlockBits(bmpdata);
+			bmp.Save("AssembledImageScreenshot.png");*/
+
+			// Deactivate and remove depthtexture and framebuffer
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+			GL.DeleteTexture(finalTexDepth.tex);
+			GL.DeleteFramebuffer(finalTexFramebuffer);
+
+			// Restore old framebuffer state
+			finalTexDepth = null;
+			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
+			GL.PopAttrib();
+
+			return true;
+		}
+		public void FreeAssembledImage()
+		{
+			if(finalTex != null)
+			{
+				if(finalTexIsAssembled)
+				{
+					GL.DeleteTexture(finalTex.tex);
+					GL.DeleteTexture(finalTexFloat.tex);
+					GL.DeleteTexture(finalTexLum.tex);
+				}
+				finalTex = finalTexFloat = finalTexLum = null;
+			}
+		}
 
 		//public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
 		public int[] key;
@@ -284,8 +466,22 @@ namespace csharp_viewer
 				}
 			}
 		}
-		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, Vector2 invbackbuffersize, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter, GLTexture2D texdepth = null)
+		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assembled, Vector2 invbackbuffersize, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter, GLTexture2D texdepth = null)
 		{
+			AssembleImage();
+			if(finalTex != null)
+			{
+				bool _texloaded = true;
+				ImageCloud.RenderShader _sdr = sdr_assembled;
+				Color4 _clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
+				_sdr.Bind(transforms[0], _clr, _texloaded, false, true, invbackbuffersize, depthscale);
+				GL.Uniform1(_sdr.GetUniformLocation("HasDefaultComponent"), finalTexHasDefaultComponent ? 1 : 0);
+				GL.Uniform1(_sdr.GetUniformLocation("HasFloatComponent"), finalTexHasFloatComponent ? 1 : 0);
+				mesh.Bind(_sdr, finalTex, finalTexFloat, finalTexLum);
+				mesh.Draw();
+			}
+			return;
+
 			for(int i = 0; i < transforms.Length; ++i)
 			{
 				ImageLayer layer = layers[i];

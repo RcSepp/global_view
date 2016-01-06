@@ -2923,3 +2923,10 @@ hide where $phi != 80
 star #theta * 3.0, #phi * 3.0, #time * 3.0
 star all by #theta * 3.0, #phi * 3.0, #time * 3.0
 star all by #theta * 3.0f, #phi * 3.0f, #time * 3.0f
+clear all
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+focus all
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+focus all
+star all by #theta * 3.0f, #phi * 3.0f, #time * 3.0f

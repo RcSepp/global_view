@@ -173,8 +173,8 @@ namespace csharp_viewer
 				const float MAX = 1.0;//0.85;
 
 				// Get float value (valueS) from RGB data
-				vec3 rgb = texture2D(Texture, uv).rgb;
-				float alpha = texture2D(Texture, uv).a;
+				vec3 rgb = texture2D(sampler, uv).rgb;
+				float alpha = texture2D(sampler, uv).a;
 				int valueI = int(rgb.r * 255.0) * 0x10000 + int(rgb.g * 255.0) * 0x100 + int(rgb.b * 255.0);
 				if(valueI == 0)
 					return vec4(NanColor, alpha);
@@ -219,6 +219,49 @@ namespace csharp_viewer
 //float depth = texture2D(Texture2, gl_FragCoord.xy * InvBackbufferSize).r;
 				//depth = gl_FragCoord.z + (depth - 1.0) * 1e-8;
 				gl_FragColor = vec4(depth, depth, depth, 1.0);
+			}
+		";
+		public const string FS_ASSEMBLED_IMAGE = @"
+			varying vec2 uv;
+			uniform sampler2D Texture, Texture2, Texture3;
+			uniform vec4 Color;
+			uniform int HasDefaultComponent, HasFloatComponent, HasLuminance;
+			uniform vec2 InvBackbufferSize;
+			varying float alpha;
+			
+			vec4 shade_default(sampler2D sampler, in vec2 uv)
+			{
+				return texture2D(Texture, uv);
+			}
+			
+			uniform sampler1D Colormap;
+			uniform vec3 NanColor;
+
+			vec4 shade_float(sampler2D sampler, in vec2 uv)
+			{
+				//const vec3 COLOR_NAN = vec3(65.0, 68.0, 91.0) / 255.0;
+				const float MIN = 0.0;//0.35;
+				const float MAX = 1.0;//0.85;
+
+				// Get float value (valueS) from RGB data
+				vec3 rgb = texture2D(sampler, uv).rgb;
+				float alpha = texture2D(sampler, uv).a;
+				int valueI = int(rgb.r * 255.0) * 0x10000 + int(rgb.g * 255.0) * 0x100 + int(rgb.b * 255.0);
+				if(valueI == 0)
+					return vec4(NanColor, alpha);
+				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
+				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
+
+				return vec4(texture1D(Colormap, valueS).rgb, alpha);
+			}
+			
+			void main()
+			{
+				vec4 color_default = HasDefaultComponent != 0 ? shade_default(Texture, uv) : vec4(0.0, 0.0, 0.0, 1.0);
+				vec4 color_float = HasFloatComponent != 0 ? shade_float(Texture2, uv) : vec4(0.0, 0.0, 0.0, 1.0);
+				vec4 lum = texture2D(Texture3, uv);
+				
+				gl_FragColor = Color * vec4(color_default.rgb + color_float.rgb, color_default.a * color_float.a) * vec4(lum.rgb, alpha);
 			}
 		";
 	}
@@ -295,7 +338,7 @@ namespace csharp_viewer
 					GL.Uniform2(invBackbufferSize, invbackbuffersize);
 			}
 		}
-		RenderShader sdr2D_default, sdr2D_cm, sdr3D_default, sdr3D_cm;
+		RenderShader sdr2D_default, sdr2D_cm, sdr2D_assembled, sdr3D_default, sdr3D_cm;
 		GLShader sdrAabb, sdrDepth1, sdrDepth2;
 		GLMesh mesh2D, mesh3D;
 
@@ -634,11 +677,12 @@ namespace csharp_viewer
 #else
 				sdr2D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
 				sdr2D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, null);
+				sdr2D_assembled = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLED_IMAGE});
 #endif
 				sdr3D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
 				sdr3D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, null);
 
-				foreach(GLShader sdr in new GLShader[] {sdr2D_cm, sdr3D_cm})
+				foreach(GLShader sdr in new GLShader[] {sdr2D_cm, sdr3D_cm, sdr2D_assembled})
 				{
 					sdr.Bind();
 					GL.ActiveTexture(TextureUnit.Texture4);
@@ -1147,7 +1191,7 @@ namespace csharp_viewer
 					}
 				}
 
-				if(saveDepthBuffer)
+				/*if(saveDepthBuffer)
 				{
 					float[] pixels = new float[backbuffersize.Width * backbuffersize.Height];
 					GL.ReadPixels(0, 0, backbuffersize.Width, backbuffersize.Height, PixelFormat.Red, PixelType.Float, pixels);
@@ -1156,7 +1200,7 @@ namespace csharp_viewer
 					System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bmpdata.Scan0, pixels.Length);
 					bmp.UnlockBits(bmpdata);
 					bmp.Save("depthBufferScreenshot1.png");
-				}
+				}*/
 
 				GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth2);
 				GL.ClearColor(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue);
@@ -1170,7 +1214,7 @@ namespace csharp_viewer
 				foreach(TransformedImageAndMatrix iter in renderlist)
 					iter.image.RenderDepth(mesh2D, sdrDepth2, freeview, /*iter.selected ? transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, texdepth1);
 
-				if(saveDepthBuffer)
+				/*if(saveDepthBuffer)
 				{
 					saveDepthBuffer = false;
 
@@ -1182,7 +1226,7 @@ namespace csharp_viewer
 					bmp.UnlockBits(bmpdata);
 					bmp.Save("depthBufferScreenshot2.png");
 					Status("Depth buffer screenshot saved to \"depthBufferScreenshot.png\"");
-				}
+				}*/
 
 				GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 				GL.BlendEquation(BlendEquationMode.FuncAdd);
@@ -1194,9 +1238,9 @@ namespace csharp_viewer
 					// >>> Render image
 
 					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
-						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, invbackbuffersize, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter, texdepth2);
+						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, invbackbuffersize, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter, texdepth2);
 					else
-						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, invbackbuffersize, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter, texdepth2);
+						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, invbackbuffersize, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter, texdepth2);
 				}
 
 				// >>> Draw frame around selected images
@@ -1213,6 +1257,14 @@ namespace csharp_viewer
 				GL.LineWidth(1.0f);
 #endif
 			}
+
+			/*if(saveDepthBuffer)
+			{
+				saveDepthBuffer = false;
+				foreach(TransformedImage image in images)
+					if(image.AssembleImage())
+						break;
+			}*/
 
 			if(showLineGrid)
 				grid.Draw(freeview, selectionAabb, new Color4(0.5f, 1.0f, 0.5f, 1.0f), backbuffersize, viewControl == ViewControl.TwoDimensional ? 2 : 3);
