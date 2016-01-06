@@ -179,11 +179,19 @@ namespace csharp_viewer
 
 		public static void CreateCommonFonts()
 		{
+			ErrorCode err;
+
 			//fontText = new GLTextFont("HelveticaNeueText_12.png", new Vector2(17.0f, 23.0f), meshQuad);
 			//fontText = new GLTextFont2(new System.Drawing.Font("Helvetica Neue", 14.0f));
 			fontText = new GLTextFont("HelveticaNeueText_8.png", new Vector2(10.0f, 17.0f), meshQuad);
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
 			fontText2 = new GLTextFont2(new System.Drawing.Font("Consolas", 12.0f));
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
 			fontTextSmall = new GLTextFont2(new System.Drawing.Font("Arial", 11.0f, System.Drawing.FontStyle.Bold));
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
 		}
 
 		public static void CreateCommonShaders()

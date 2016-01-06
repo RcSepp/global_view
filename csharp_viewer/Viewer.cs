@@ -18,6 +18,8 @@ namespace csharp_viewer
 {
 	public static class Global
 	{
+		public static decimal OPENGL_VERSION = -1;
+
 		public static float time = 0.0f;
 		public static Cinema.CinemaArgument[] arguments = new Cinema.CinemaArgument[0]; // An array of descriptors for each dimension
 	}
@@ -481,9 +483,9 @@ namespace csharp_viewer
 				if(!se.MoveNext())
 					return null;
 
-				string args = string.Format("\"{0}\" ", se.Current.filename);
+				string args = string.Format("\"{0}\" ", se.Current.layers[0].filename);
 				foreach(TransformedImage image in scope)
-					args += string.Format("\"{0}\" ", image.filename);
+					args += string.Format("\"{0}\" ", image.layers[0].filename);
 
 				var process = new System.Diagnostics.Process
 				{
@@ -547,7 +549,7 @@ namespace csharp_viewer
 
 							break;
 						}*/
-					if(!se.MoveNext() || !se.Current.filename.Equals(filename))
+					if(!se.MoveNext() || !se.Current.layers[0].filename.Equals(filename))
 						scrCle.PrintOutput(string.Format("Error: Unexpected filename ({0})", filename));
 
 					GLTextureStream.ImageMetaData[] meta = new GLTextureStream.ImageMetaData[1];
@@ -913,16 +915,16 @@ namespace csharp_viewer
 				{
 					float[] imagevalues = store.GetImageValues(argidx);
 					string[] imagestrvalues = store.GetImageStrValues(argidx);
-					Cinema.CinemaStore.Parameter[] dependentAssociations = store.GetDependentAssociations(argidx);
+					Cinema.CinemaStore.Association[] dependentAssociations = store.GetDependentAssociations(argidx);
 
-					string imagepath, depthpath, lumpath;
+					/*string imagepath, depthpath, lumpath;
 					bool isFloatImage;
 					store.GetImageFilePath(argidx, dependentAssociations, out imagepath, out depthpath, out lumpath, out isFloatImage);
 					imagepath = filename + imagepath;
 					if(depthpath != null)
 						depthpath = filename + depthpath;
 					if(lumpath != null)
-						lumpath = filename + lumpath;
+						lumpath = filename + lumpath;*/
 
 					// Load CinemaImage
 					TransformedImage cimg = new TransformedImage();
@@ -931,11 +933,31 @@ namespace csharp_viewer
 					cimg.strValues = imagestrvalues;
 					cimg.args = newargs;
 					cimg.globalargindices = newargindices;
-					cimg.filename = imagepath;
-					cimg.depth_filename = depthpath;
-					cimg.lum_filename = lumpath;
-					cimg.isFloatImage = useFloatImages || isFloatImage;
-					Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
+
+					/*TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
+					layer.filename = imagepath;
+					layer.depth_filename = depthpath;
+					layer.lum_filename = lumpath;
+					layer.isFloatImage = useFloatImages || isFloatImage;
+					cimg.layers.Add(layer);*/
+
+					int foo = 0;
+					foreach(Cinema.CinemaStore.LayerDescription layerdesc in store.iterateLayers(argidx, dependentAssociations))
+					{
+						//if(foo++ != 1)
+						//	continue;
+						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
+						layer.filename = filename + layerdesc.imagepath;
+						layer.depth_filename = layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath;
+						layer.lum_filename = layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath;
+						layer.isFloatImage = useFloatImages || layerdesc.isFloatImage;
+						cimg.layers.Add(layer);
+					}
+					//if(cimg.layers.Count == 0)
+					//	throw new Exception();
+
+					//Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
+					cimg.invview = Matrix4.Identity;
 
 					cimg.key = argidx;
 					newimages.Add(cimg);
@@ -980,9 +1002,9 @@ namespace csharp_viewer
 
 			// Get image size
 			Size imageSize = new Size(256, 256);
-			if(File.Exists(newimages[0].filename))
+			if(File.Exists(newimages[0].layers[0].filename))
 			{
-				Image img = Image.FromFile(newimages[0].filename);
+				Image img = Image.FromFile(newimages[0].layers[0].filename);
 				imageSize = new Size(img.Width, img.Height);
 				img.Dispose();
 			}
@@ -1133,8 +1155,14 @@ namespace csharp_viewer
 				cimg.strValues = strValues;
 				cimg.args = newargs;
 				cimg.globalargindices = newargindices;
-				cimg.filename = imagepath;
-				cimg.depth_filename = null;
+
+				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
+				layer.filename = imagepath;
+				layer.depth_filename = null;
+				layer.lum_filename = null;
+				layer.isFloatImage = false;
+				cimg.layers.Add(layer);
+
 				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 
 				cimg.key = key;
@@ -1185,9 +1213,9 @@ namespace csharp_viewer
 
 			// Get image size
 			Size imageSize = new Size(256, 256);
-			if(File.Exists(newimages[0].filename))
+			if(File.Exists(newimages[0].layers[0].filename))
 			{
-				Image img = Image.FromFile(newimages[0].filename);
+				Image img = Image.FromFile(newimages[0].layers[0].filename);
 				imageSize = new Size(img.Width, img.Height);
 				img.Dispose();
 			}
@@ -1253,7 +1281,10 @@ namespace csharp_viewer
 				cimg.values = imagevalues;
 				cimg.strValues = imagestrvalues;
 				cimg.args = Global.arguments;
-				cimg.filename = imagepath;
+
+				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
+				layer.filename = imagepath;
+				cimg.layers.Add(layer);
 
 				/*for(int i = 0; i < Global.arguments.Length; ++i)
 				{
@@ -1611,14 +1642,20 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		private void RenderThread()
 		{
 			glImageCloud.Init();
+			Global.OPENGL_VERSION = decimal.Parse(GL.GetString(StringName.Version).Split(' ')[0]);
+
 			//GL.ClearColor(0.8f, 0.8f, 0.8f, 1.0f);
-			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
+			//GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f); // Set inside image cload!
 			//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
 			GL.Viewport(glImageCloud.Size);
 			GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
 			GL.Enable(EnableCap.Blend);
 			GL.DepthFunc(DepthFunction.Lequal);
 			//GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+
+			GL.ClampColor(ClampColorTarget.ClampReadColor, ClampColorMode.False);
+			GL.ClampColor(ClampColorTarget.ClampVertexColor, ClampColorMode.False);
+			GL.ClampColor(ClampColorTarget.ClampFragmentColor, ClampColorMode.False);
 
 			Common.CreateCommonMeshes();
 			Common.CreateCommonFonts();

@@ -143,8 +143,7 @@ namespace csharp_viewer
 
 			BinaryReader br = new BinaryReader(fs);
 			int numpixels = width * height;
-			float[] values = new float[numpixels];
-			byte[] data = new byte[4 * numpixels];
+			float[] values = new float[numpixels], valuesFlippedY = new float[numpixels];
 			float vmin = float.MaxValue, vmax = float.MinValue;
 			for(int i = 0; i < numpixels; ++i)
 			{
@@ -153,24 +152,17 @@ namespace csharp_viewer
 				vmax = Math.Max(vmax, values[i]);
 			}
 
-			vmin = 0.0f;
-			vmax = 1.0f;//256.0f;
-
 			float vscale = 255.0f / (vmax - vmin);
 			for(int y = 0; y < height; ++y)
 				for(int x = 0; x < width; ++x)
-				{
-					int i = y * width + x;
-					data[4 * i + 0] = data[4 * i + 1] = data[4 * i + 2] = (byte)((values[(height - y - 1) * width + x] - vmin) * vscale);
-					data[4 * i + 3] = 255;
-				}
+					valuesFlippedY[y * width + x] = (values[(height - y - 1) * width + x] - vmin) * vscale;
 
 			fs.Close();
 
 			Bitmap bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
 			System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
-			System.Runtime.InteropServices.Marshal.Copy(data, 0, bmpdata.Scan0, data.Length);
+			System.Runtime.InteropServices.Marshal.Copy(valuesFlippedY, 0, bmpdata.Scan0, valuesFlippedY.Length);
 			bmp.UnlockBits(bmpdata);
 
 			return bmp;

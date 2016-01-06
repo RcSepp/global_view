@@ -81,7 +81,7 @@ namespace csharp_viewer
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
 		}
-		public GLTexture2D(int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
+		public GLTexture2D(int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte, bool linearfilter = false)
 			: base(TextureTarget.Texture2D, width, height)
 		{
 			tex = GL.GenTexture();
@@ -91,13 +91,29 @@ namespace csharp_viewer
 			if(genmipmaps)
 			{
 				GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapNearest);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+				if(linearfilter)
+				{
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+				}
+				else
+				{
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.NearestMipmapNearest);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+				}
 			}
 			else
 			{
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-				GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+				if(linearfilter)
+				{
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+				}
+				else
+				{
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+					GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+				}
 			}
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);

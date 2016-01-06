@@ -2737,3 +2737,189 @@ hide where $theta != 0 || $phi != 45
 clear all
 show all
 hide where $theta != 0 || $phi != 45
+unload
+load "bunny"
+rspread all
+focus all
+show all
+clear all
+rspread all
+hide where @source != "mpas"
+select where #phi == 0 && #theta == 0
+unload
+load "mpas2"
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+clear all
+clear all
+clear all
+clear all
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+focus all
+x all by #source * 5.0
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+clear all
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+focus all
+focus all
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #source * 5.0
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+clear all
+clear all
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #time * 2
+clear all
+x all by #theta * 2
+y all by #phi * 2
+x all by #time * 6
+x all by #time * 6
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by #time * 6
+y all by #phi * 2
+x all by #theta * 2
+x all by #theta * 2
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+clear all
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+x all by $layer
+clear all
+hide where $theta != 0
+hide where $phi != 0
+show all
+hide where $theta != 0
+hide where $phi != 80
+y all by #layer * 1
+clear all
+show all
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+thetaphi all by $theta * pi / 180, $phi * pi / 180, 3
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+hide where $theta != 0
+hide where $phi != 80
+clear all
+clear all
+clear all
+hide where $phi != 80
+hide where $theta != 0
+hide where $phi != 80
+hide where $theta != 0
+hide where $theta != 0
+hide where $phi != 80
+hide where $theta != 0
+hide where $phi != 80
+star #theta * 3.0, #phi * 3.0, #time * 3.0
+star all by #theta * 3.0, #phi * 3.0, #time * 3.0
+star all by #theta * 3.0f, #phi * 3.0f, #time * 3.0f

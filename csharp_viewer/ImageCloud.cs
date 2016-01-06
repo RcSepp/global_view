@@ -111,27 +111,45 @@ namespace csharp_viewer
 		";
 		public const string FS = @"
 			varying vec2 uv;
-			uniform sampler2D Texture, Texture2, Texture3;
+			uniform sampler2D Texture, Texture2, Texture3, Texture4;
 			uniform vec4 Color;
-			uniform int HasTexture;
+			uniform int HasTexture, HasDepth, HasLuminance;
+			uniform vec2 InvBackbufferSize;
 			varying float alpha;
 
 			vec4 shade(sampler2D sampler, in vec2 uv);
 
 			void main()
 			{
+				if(HasDepth != 0)
+				{
+					float d1 = texture2D(Texture3, gl_FragCoord.xy * InvBackbufferSize).r;
+					float d2 = texture2D(Texture2, uv).r;
+					//d2 = gl_FragCoord.z + (d2 - 1.0) * 1e-8;
+
+					//float depth = d1 / 2.0;//(d2 - d1) / 100.0;
+					//gl_FragColor = vec4(depth, depth, depth, 1.0);
+					//return;
+
+					if(d1 != d2)
+						discard;
+				}
+				
 				if(HasTexture != 0)
 				{
-vec3 lum = texture2D(Texture3, uv).rgb;
-float depth = texture2D(Texture2, uv).r;
-gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
-
-					gl_FragColor = Color * shade(Texture, uv) * vec4(lum, alpha);
-
+					/*if(HasDepth != 0)
+					{
+						float depth = texture2D(Texture2, uv).r;
+						gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) * 1e-5;
 //gl_FragColor = vec4(depth, depth, depth, 1.0);
 //gl_FragColor = vec4(depth / 2.0, depth / 2.0, depth / 2.0, 1.0);
 //gl_FragColor += vec4(depth, 0.0, 0.0, depth);
+					}*/
+					
+					vec3 lum = HasLuminance != 0 ? texture2D(Texture4, uv).rgb : vec3(1.0, 1.0, 1.0);
 //gl_FragColor = vec4(lum, 1.0);
+					
+					gl_FragColor = Color * shade(Texture, uv) * vec4(lum, alpha);
 				}
 				else
 					gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
@@ -164,6 +182,43 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
 
 				return vec4(texture1D(Colormap, valueS).rgb, alpha);
+			}
+		";
+		public const string FS_DEPTH1 = @"
+			varying vec2 uv;
+			uniform sampler2D Texture, Texture2, Texture3;
+			uniform vec4 Color;
+			uniform int HasTexture, HasDepth, HasLuminance;
+			uniform vec2 InvBackbufferSize;
+			varying float alpha;
+
+			vec4 shade(sampler2D sampler, in vec2 uv);
+
+			void main()
+			{
+				float depth = gl_FragCoord.z;
+				gl_FragColor = vec4(depth, depth, depth, 1.0);
+			}
+		";
+		public const string FS_DEPTH2 = @"
+			varying vec2 uv;
+			uniform sampler2D Texture, Texture2, Texture3;
+			uniform vec4 Color;
+			uniform int HasTexture, HasDepth, HasLuminance;
+			uniform vec2 InvBackbufferSize;
+			varying float alpha;
+
+			vec4 shade(sampler2D sampler, in vec2 uv);
+
+			void main()
+			{
+				if(texture2D(Texture2, gl_FragCoord.xy * InvBackbufferSize).r != gl_FragCoord.z)
+					discard;
+
+				float depth = texture2D(Texture, uv).r;
+//float depth = texture2D(Texture2, gl_FragCoord.xy * InvBackbufferSize).r;
+				//depth = gl_FragCoord.z + (depth - 1.0) * 1e-8;
+				gl_FragColor = vec4(depth, depth, depth, 1.0);
 			}
 		";
 	}
@@ -211,30 +266,37 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 
 		public class RenderShader : GLShader
 		{
-			int colorParam, hastex, depthScale, imageViewInv;
+			int colorParam, hastex, hasdepth, haslum, depthScale, imageViewInv, invBackbufferSize;
 
 			public RenderShader(string[] vs, string[] fs, string[] gs = null)
 				: base (vs, fs, gs)
 			{
 				colorParam = GetUniformLocation("Color");
 				hastex = GetUniformLocation("HasTexture");
+				hasdepth = GetUniformLocation("HasDepth");
+				haslum = GetUniformLocation("HasLuminance");
 				depthScale = GetUniformLocation("DepthScale");
 				imageViewInv = GetUniformLocation("ImageViewInv");
+				invBackbufferSize = GetUniformLocation("InvBackbufferSize");
 			}
 
-			public void Bind(Matrix4 transform, Color4 clr, bool texloaded, float depthscale = 0.0f, Matrix4 invview = default(Matrix4))
+			public void Bind(Matrix4 transform, Color4 clr, bool texloaded, bool hasdepth, bool haslum, Vector2 invbackbuffersize, float depthscale = 0.0f, Matrix4 invview = default(Matrix4))
 			{
 				Bind(transform);
 				GL.Uniform4(colorParam, clr);
 				GL.Uniform1(hastex, texloaded ? (int)1 : (int)0);
+				GL.Uniform1(this.hasdepth, hasdepth ? (int)1 : (int)0);
+				GL.Uniform1(this.haslum, haslum ? (int)1 : (int)0);
 				if(imageViewInv != -1)
 					GL.UniformMatrix4(imageViewInv, false, ref invview);
 				if(depthScale != -1)
 					GL.Uniform1(depthScale, depthscale);
+				if(invBackbufferSize != -1)
+					GL.Uniform2(invBackbufferSize, invbackbuffersize);
 			}
 		}
 		RenderShader sdr2D_default, sdr2D_cm, sdr3D_default, sdr3D_cm;
-		GLShader sdrAabb;
+		GLShader sdrAabb, sdrDepth1, sdrDepth2;
 		GLMesh mesh2D, mesh3D;
 
 		private GLWindow glcontrol;
@@ -449,6 +511,10 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 
 		GLTexture2D texdot;
 
+		GLTexture2D texdepth1, texdepth2;
+		int fbdepth1, fbdepth2;
+		bool saveDepthBuffer = false;
+
 		ColorTableManager colorTableMgr;
 
 		#if USE_ARG_IDX
@@ -498,6 +564,8 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 
 			// Load shaders
 			sdrAabb = new GLShader(new string[] {AABB_SHADER.VS}, new string[] {AABB_SHADER.FS});
+			sdrDepth1 = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS_DEPTH1});
+			sdrDepth2 = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS_DEPTH2});
 
 			// Create mesh for non-depth rendering
 #if USE_GS_QUAD
@@ -573,9 +641,9 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 				foreach(GLShader sdr in new GLShader[] {sdr2D_cm, sdr3D_cm})
 				{
 					sdr.Bind();
-					GL.ActiveTexture(TextureUnit.Texture3);
+					GL.ActiveTexture(TextureUnit.Texture4);
 					colorTableMgr.Colormap.Bind();
-					GL.Uniform1(sdr.GetUniformLocation("Colormap"), 3);
+					GL.Uniform1(sdr.GetUniformLocation("Colormap"), 4);
 				}
 				GL.ActiveTexture(TextureUnit.Texture0);
 			}
@@ -804,6 +872,10 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 
 		public void OnSizeChanged(Size backbuffersize)
 		{
+			ErrorCode err;
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
+
 			this.backbuffersize = backbuffersize;
 			freeview.OnSizeChanged(aspectRatio = (float)backbuffersize.Width / (float)backbuffersize.Height);
 
@@ -812,17 +884,54 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 
 			if(colorTableMgr.Visible)
 				colorTableMgr.OnSizeChanged(backbuffersize);
+
+			if(texdepth1 != null)
+				GL.DeleteTexture(texdepth1.tex);
+			texdepth1 = new GLTexture2D(backbuffersize.Width, backbuffersize.Height, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
+
+			/*if(texdepthdepth != null)
+				GL.DeleteTexture(texdepthdepth.tex);
+			texdepthdepth = new GLTexture2D(backbuffersize.Width, backbuffersize.Height, false, PixelFormat.DepthComponent, PixelInternalFormat.DepthComponent24, PixelType.Float);*/
+
+			fbdepth1 = GL.GenFramebuffer();
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth1);
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, texdepth1.tex, 0);
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
+			//GL.DrawBuffer(DrawBufferMode.ColorAttachment0);
+			FramebufferErrorCode ferr;
+			if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
+				throw new Exception(ferr.ToString());
+
+			if(texdepth2 != null)
+				GL.DeleteTexture(texdepth2.tex);
+			texdepth2 = new GLTexture2D(backbuffersize.Width, backbuffersize.Height, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
+
+			fbdepth2 = GL.GenFramebuffer();
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth2);
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
+			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, texdepth2.tex, 0);
+			if((err = GL.GetError()) != ErrorCode.NoError)
+				throw new Exception(err.ToString());
+			//GL.DrawBuffer(DrawBufferMode.ColorAttachment0);
+			if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
+				throw new Exception(ferr.ToString());
+
+			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 		}
 
 		struct TransformedImageAndMatrix
 		{
 			public TransformedImage image;
-			public Matrix4 matrix;
+			public Matrix4[] transforms;
 
-			public TransformedImageAndMatrix(TransformedImage image, Matrix4 matrix)
+			public TransformedImageAndMatrix(TransformedImage image, Matrix4[] transforms)
 			{
 				this.image = image;
-				this.matrix = matrix;
+				this.transforms = transforms;
 			}
 		}
 		private Point oldmousepos = Control.MousePosition;
@@ -974,8 +1083,12 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 			if(images != null)
 			{
 #if USE_DEPTH_SORTING
-			SortedList<TransformedImageAndMatrix> renderlist = new SortedList<TransformedImageAndMatrix>();
+				SortedList<TransformedImageAndMatrix> renderlist = new SortedList<TransformedImageAndMatrix>();
 #endif
+
+				Vector2 invbackbuffersize = new Vector2(1.0f / backbuffersize.Width, 1.0f / backbuffersize.Height);
+
+				// >>> Perform temporal prefetching
 
 				float _time = Global.time;
 				//Global.time += 0.5f; // Prefetch 0.5 second into the future
@@ -988,47 +1101,38 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 					iter.PrefetchRenderPriority(freeview, invvieworient, backbuffersize);
 				Global.time = _time;
 
+				GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth1);
+				GL.ClearColor(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue);
+				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+				GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
+				GL.BlendEquation(BlendEquationMode.Min);
+				GL.DepthFunc(DepthFunction.Lequal);
+
 				foreach(TransformedImage iter in Viewer.visible)
 				{
-					// Make sure texture is loaded
-					iter.LoadTexture(texstream);
+					// >>> Update image transforms
 
-					/*bool skip = false;
-				foreach(_ImageTransform transform in transforms)
-					if(transform.SkipImage(iter.Key, iter.Value))
-					{
-						skip = true;
-						break;
-					}
-				if(skip)
-					continue;
-
-				Matrix4 worldmatrix = Matrix4.Identity;
-				worldmatrix *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-				worldmatrix *= Matrix4.CreateScale((float)iter.Value.img.Width / (float)iter.Value.img.Height, 1.0f, 1.0f);
-				worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-				foreach(_ImageTransform transform in transforms)
-					worldmatrix *= transform.LocationTransform(iter.Key, iter.Value);
-				//worldmatrix *= Matrix4.CreateScale((float)iter.Value.img.Width / (float)iter.Value.img.Height, 1.0f, 1.0f);*/
-
-					/*Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-				foreach(_ImageTransform transform in transforms)
-					transform.ColorTransform(iter.Key, iter.Value, ref clr);*/
-
-					/*sdrTextured.Bind(worldmatrix * viewprojmatrix);
-				GL.Uniform4(sdrTextured_colorParam, clr);*/
 					iter.Update(dt);
-					Matrix4 transform;
-					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out transform))
+
+					Matrix4[] transforms;
+					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out transforms))
 					{
 #if USE_DEPTH_SORTING
-						float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;
+						// >>> Add visible images to depth sorted list
+
+						float dist = Vector3.TransformPerspective(Vector3.Zero, transforms[0]).Z;
 						if(dist >= freeview.znear && dist <= freeview.zfar)
 						{
 							//dist = -dist;
-							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transform));
+							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transforms));
 						}
+
+						// >>> Render visible images to depth texture
+
+						iter.RenderDepth(mesh2D, sdrDepth1, freeview, /*iter.selected ? transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ transforms);
 #else
+						// >>> Render visible images
+
 						if(depthRenderingEnabled_fade > 0.0 && iter.Value.HasDepthInfo)
 						{
 							sdr3D.Bind();
@@ -1043,30 +1147,66 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 					}
 				}
 
+				if(saveDepthBuffer)
+				{
+					float[] pixels = new float[backbuffersize.Width * backbuffersize.Height];
+					GL.ReadPixels(0, 0, backbuffersize.Width, backbuffersize.Height, PixelFormat.Red, PixelType.Float, pixels);
+					Bitmap bmp = new Bitmap(backbuffersize.Width, backbuffersize.Height);
+					System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, backbuffersize), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
+					System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bmpdata.Scan0, pixels.Length);
+					bmp.UnlockBits(bmpdata);
+					bmp.Save("depthBufferScreenshot1.png");
+				}
+
+				GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth2);
+				GL.ClearColor(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue);
+				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+				GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
+				GL.BlendEquation(BlendEquationMode.Min);
+				GL.DepthFunc(DepthFunction.Lequal);
+
+				sdrDepth2.Bind();
+				GL.Uniform2(sdrDepth2.GetUniformLocation("InvBackbufferSize"), invbackbuffersize);
+				foreach(TransformedImageAndMatrix iter in renderlist)
+					iter.image.RenderDepth(mesh2D, sdrDepth2, freeview, /*iter.selected ? transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, texdepth1);
+
+				if(saveDepthBuffer)
+				{
+					saveDepthBuffer = false;
+
+					float[] pixels = new float[backbuffersize.Width * backbuffersize.Height];
+					GL.ReadPixels(0, 0, backbuffersize.Width, backbuffersize.Height, PixelFormat.Red, PixelType.Float, pixels);
+					Bitmap bmp = new Bitmap(backbuffersize.Width, backbuffersize.Height);
+					System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, backbuffersize), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
+					System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bmpdata.Scan0, pixels.Length);
+					bmp.UnlockBits(bmpdata);
+					bmp.Save("depthBufferScreenshot2.png");
+					Status("Depth buffer screenshot saved to \"depthBufferScreenshot.png\"");
+				}
+
+				GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+				GL.BlendEquation(BlendEquationMode.FuncAdd);
+
 #if USE_DEPTH_SORTING
 				//renderlist.reversed = true;
 				foreach(TransformedImageAndMatrix iter in renderlist)
 				{
+					// >>> Render image
+
 					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
-					{
-						RenderShader sdr = iter.image.isFloatImage ? sdr3D_cm : sdr3D_default;
-						sdr.Bind();
-						iter.image.Render(mesh3D, sdr, depthRenderingEnabled_fade, freeview, iter.matrix, fragmentcounter);
-					}
+						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, invbackbuffersize, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter, texdepth2);
 					else
-					{
-						RenderShader sdr = iter.image.isFloatImage ? sdr2D_cm : sdr2D_default;
-						sdr.Bind();
-						iter.image.Render(mesh2D, sdr, 0.0f, freeview, iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : iter.matrix, fragmentcounter);
-					}
+						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, invbackbuffersize, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter, texdepth2);
 				}
+
+				// >>> Draw frame around selected images
 
 				GL.LineWidth(2.5f);
 				Common.meshLineQuad.Bind(sdrAabb);
 				foreach(TransformedImageAndMatrix iter in renderlist)
 					if(iter.image.selected)
 					{
-						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.002f);
+						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.transforms[0] * Matrix4.CreateTranslation(0.0f, 0.0f, -0.002f);
 						sdrAabb.Bind(transform);
 						Common.meshLineQuad.Draw();
 					}
@@ -1571,6 +1711,10 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 			case Keys.Delete:
 				ActionManager.Do(HideAction, selection);
 				break;*/
+
+			case Keys.NumPad7:
+				saveDepthBuffer = true;
+				break;
 			}
 		}
 
@@ -1625,7 +1769,7 @@ gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) / 10.0;
 		public void MoveIntoView(TransformedImage image)
 		{
 			float tanY = (float)Math.Tan(FOV_Y / 2.0f), tanX = tanY * aspectRatio;
-			Vector3 pos = Vector3.Transform(new Vector3(0.0f, 0.0f, -Math.Max(0.5f / tanY, 0.5f * image.originalAspectRatio / tanX)), freeview.viewmatrix.Inverted());
+			Vector3 pos = Vector3.Transform(new Vector3(0.0f, 0.0f, -Math.Max(0.5f / tanY, 0.5f * image.layers[0].originalAspectRatio / tanX)), freeview.viewmatrix.Inverted());
 			image.pos = pos;
 
 			if(image.selected)

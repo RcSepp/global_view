@@ -184,7 +184,8 @@ namespace csharp_viewer
 				#pragma warning restore 618
 				GL.AttachShader(shaderprogram, geometryshader);
 			}
-			GL.ProgramParameter(shaderprogram, ProgramParameterName.ProgramBinaryRetrievableHint, 1);
+			if(Global.OPENGL_VERSION >= 4.1m)
+				GL.ProgramParameter(shaderprogram, ProgramParameterName.ProgramBinaryRetrievableHint, 1);
 			GL.LinkProgram(shaderprogram);
 			GL.GetProgram(shaderprogram, GetProgramParameterName.LinkStatus, out isLinked);
 			if(isLinked == 0)
@@ -217,10 +218,11 @@ namespace csharp_viewer
 			defparams.lightparams = GL.GetUniformLocation(shaderprogram, "LightParams");
 			defparams.power = GL.GetUniformLocation(shaderprogram, "Power");
 
-			defparams.tex = new int[3];
+			defparams.tex = new int[4];
 			defparams.tex[0] = GL.GetUniformLocation(shaderprogram, "Texture");
 			defparams.tex[1] = GL.GetUniformLocation(shaderprogram, "Texture2");
 			defparams.tex[2] = GL.GetUniformLocation(shaderprogram, "Texture3");
+			defparams.tex[3] = GL.GetUniformLocation(shaderprogram, "Texture4");
 			defparams.hastex = GL.GetUniformLocation(shaderprogram, "HasTexture");
 
 			defparams.time = GL.GetUniformLocation(shaderprogram, "Time");

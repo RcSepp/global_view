@@ -38,13 +38,13 @@ namespace csharp_viewer
 		{
 			public class Image : IComparable<Image> //EDIT: Make private
 			{
-				public TransformedImage image; //EDIT: Make private
+				public TransformedImage.ImageLayer image; //EDIT: Make private
 				private int width, height;
 				public float sizePriority; //EDIT: Make private
 				public int memory; //EDIT: Make private
 				private bool metadataLoaded;
 
-				public Image(TransformedImage image)
+				public Image(TransformedImage.ImageLayer image)
 				{
 					this.image = image;
 					sizePriority = 1.0f;
@@ -411,8 +411,8 @@ namespace csharp_viewer
 							return memory = 0;
 						}
 
-						if(meta.Count == 0 || ReadImageMetaData(image, meta.ToArray()))
-							metadataLoaded = true;
+						//if(meta.Count == 0 || ReadImageMetaData(image, meta.ToArray()))
+						//	metadataLoaded = true;
 					}
 					else
 					{
@@ -677,21 +677,23 @@ namespace csharp_viewer
 			public void AddImage(TransformedImage image)
 			{
 				addImageMutex.WaitOne();
-				prioritySortedImages.Add(new Image(image));
+				foreach(TransformedImage.ImageLayer layer in image.layers)
+					prioritySortedImages.Add(new Image(layer));
 				addImageMutex.ReleaseMutex();
 			}
 			public void AddImages(IEnumerable<TransformedImage> images)
 			{
 				addImageMutex.WaitOne();
 				foreach(TransformedImage image in images)
-					prioritySortedImages.Add(new Image(image));
+					foreach(TransformedImage.ImageLayer layer in image.layers)
+						prioritySortedImages.Add(new Image(layer));
 				addImageMutex.ReleaseMutex();
 			}
 			public void RemoveImage(TransformedImage image) // O(n)
 			{
 				addImageMutex.WaitOne();
 				prioritySortedImages.RemoveAll(delegate(Image img) {
-					return img.image == image;
+					return image.layers.Contains(img.image);
 				});
 				addImageMutex.ReleaseMutex();
 			}
@@ -700,7 +702,7 @@ namespace csharp_viewer
 				addImageMutex.WaitOne();
 				prioritySortedImages.RemoveAll(delegate(Image img) {
 					foreach(TransformedImage image in images)
-						if(img.image == image)
+						if(image.layers.Contains(img.image))
 							return true;
 					return false;
 				});

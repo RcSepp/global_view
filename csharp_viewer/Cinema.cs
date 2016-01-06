@@ -58,9 +58,6 @@ namespace csharp_viewer
 
 		public class CinemaImage
 		{
-			public string filename;
-			public string depth_filename, lum_filename;
-
 			public float[] values;
 			public string[] strValues;
 			public CinemaArgument[] args;
@@ -228,7 +225,7 @@ namespace csharp_viewer
 			{
 				//public string name;
 				//public string defaultValue;
-				public bool isField;
+				public bool isField, isLayer;
 				//public string label;
 				//public string[] values;
 				public string type;
@@ -237,8 +234,18 @@ namespace csharp_viewer
 				public string depthValue, lumValue;
 			}
 			private Dictionary<string, Parameter> parameterMap = new Dictionary<string, Parameter>();
-			private class DependencyMap : Dictionary<CinemaArgument, string[]> {}
-			private List<KeyValuePair<Parameter, DependencyMap>> associations = new List<KeyValuePair<Parameter, DependencyMap>>();
+			public class DependencyMap : Dictionary<CinemaArgument, string[]> {}
+			public struct Association
+			{
+				public Parameter parameter;
+				public DependencyMap dependencyMap;
+				public Association(Parameter parameter, DependencyMap dependencyMap)
+				{
+					this.parameter = parameter;
+					this.dependencyMap = dependencyMap;
+				}
+			}
+			private List<Association> associations = new List<Association>();
 
 			public static CinemaStore Load(string filename)
 			{
@@ -265,76 +272,90 @@ namespace csharp_viewer
 					
 				foreach(KeyValuePair<string, JToken> argumentMeta in argumentsMeta)
 				{
+					CinemaArgument carg;
+					Parameter parameter;
+
 					if(store.namePattern.Contains("{" + argumentMeta.Key + "}"))
 					{
 						// argumentMeta describes CinemaArgument
 
 						// Create CinemaArgument from JToken
-						CinemaArgument carg = new CinemaArgument();
+						parameter = null;
+						carg = new CinemaArgument();
 						store.argumentMap.Add(argumentMeta.Key, carg);
 						carg.name = argumentMeta.Key;
 						carg.label = argumentMeta.Value["label"].ToObject<string>();
 						carg.strValues = argumentMeta.Value["values"].ToObject<string[]>();
-
-						object[] values = argumentMeta.Value["values"].ToObject<object[]>();
-						object defaultValue = argumentMeta.Value["default"].ToObject<object>();
-
-						Dictionary<string, int> strValueIndices = null;
-						if(defaultValue.GetType() == typeof(string))
-						{
-							if(!float.TryParse((string)defaultValue, out carg.defaultValue))
-							{
-								strValueIndices = new Dictionary<string, int>();
-								strValueIndices[(string)defaultValue] = 0;
-								carg.defaultValue = 0.0f;
-							}
-						}
-						else if(defaultValue.GetType() == typeof(long))
-							carg.defaultValue = (float)(long)defaultValue;
-
-						carg.values = new float[values.Length];
-						for(int i = 0; i < values.Length; ++i)
-						{
-							if(strValueIndices != null)
-							{
-								// Values are indices of unique strings (mapping through strValueIndices)
-								int index;
-								if(!strValueIndices.TryGetValue((string)values[i], out index))
-									strValueIndices[(string)values[i]] = index = strValueIndices.Count;
-								carg.values[i] = (float)index;
-								continue;
-							}
-
-							if(values[i].GetType() == typeof(string))
-								float.TryParse((string)values[i], out carg.values[i]);
-							else if(values[i].GetType() == typeof(long))
-								carg.values[i] = (float)(long)values[i];
-						}
 					}
 					else
 					{
 						// argumentMeta describes Parameter
-						Parameter parameter = new Parameter();
+						carg = parameter = new Parameter();
 						parameter.name = argumentMeta.Key;
 						parameter.defaultStrValue = (string)argumentMeta.Value["default"];
 						parameter.isField = (string)argumentMeta.Value["isfield"] == "yes" ? true : false;
+						parameter.isLayer = (string)argumentMeta.Value["islayer"] == "yes" ? true : false;
 						parameter.label = (string)argumentMeta.Value["label"];
 						parameter.strValues = (string[])argumentMeta.Value["values"].ToObject<string[]>();
 						parameter.type = (string)argumentMeta.Value["type"];
 						try { parameter.types = (string[])argumentMeta.Value["types"].ToObject<string[]>(); } catch {}
 
-						if(parameter.types != null)
-						{
-							int depthIdx = Array.IndexOf<string>(parameter.types, "depth");
-							if(depthIdx != -1)
-								parameter.depthValue = parameter.strValues[depthIdx];
+						store.parameterMap.Add(argumentMeta.Key, parameter);
+					}
 
-							int lumIdx = Array.IndexOf<string>(parameter.types, "luminance");
-							if(lumIdx != -1)
-								parameter.lumValue = parameter.strValues[lumIdx];
+					object[] values = argumentMeta.Value["values"].ToObject<object[]>();
+					if(parameter != null && parameter.types != null)
+					{
+						int depthIdx = Array.IndexOf<string>(parameter.types, "depth");
+						if(depthIdx != -1)
+						{
+							parameter.depthValue = parameter.strValues[depthIdx];
+							values = values.RemoveAt(depthIdx);
+							parameter.strValues = parameter.strValues.RemoveAt(depthIdx);
+							parameter.types = parameter.types.RemoveAt(depthIdx);
 						}
 
-						store.parameterMap.Add(argumentMeta.Key, parameter);
+						int lumIdx = Array.IndexOf<string>(parameter.types, "luminance");
+						if(lumIdx != -1)
+						{
+							parameter.lumValue = parameter.strValues[lumIdx];
+							values = values.RemoveAt(lumIdx);
+							parameter.strValues = parameter.strValues.RemoveAt(lumIdx);
+							parameter.types = parameter.types.RemoveAt(lumIdx);
+						}
+					}
+					object defaultValue = argumentMeta.Value["default"].ToObject<object>();
+
+					Dictionary<string, int> strValueIndices = null;
+					if(defaultValue.GetType() == typeof(string))
+					{
+						if(!float.TryParse((string)defaultValue, out carg.defaultValue))
+						{
+							strValueIndices = new Dictionary<string, int>();
+							strValueIndices[(string)defaultValue] = 0;
+							carg.defaultValue = 0.0f;
+						}
+					}
+					else if(defaultValue.GetType() == typeof(long))
+						carg.defaultValue = (float)(long)defaultValue;
+
+					carg.values = new float[values.Length];
+					for(int i = 0; i < values.Length; ++i)
+					{
+						if(strValueIndices != null)
+						{
+							// Values are indices of unique strings (mapping through strValueIndices)
+							int index;
+							if(!strValueIndices.TryGetValue((string)values[i], out index))
+								strValueIndices[(string)values[i]] = index = strValueIndices.Count;
+							carg.values[i] = (float)index;
+							continue;
+						}
+
+						if(values[i].GetType() == typeof(string))
+							float.TryParse((string)values[i], out carg.values[i]);
+						else if(values[i].GetType() == typeof(long))
+							carg.values[i] = (float)(long)values[i];
 					}
 				}
 				store.arguments = new CinemaArgument[store.argumentMap.Count];
@@ -354,7 +375,7 @@ namespace csharp_viewer
 							throw new Exception(string.Format("Association for inexistent parameter '{0}'", associationMeta.Key));
 
 						DependencyMap dependencyMap = new DependencyMap();
-						store.associations.Add(new KeyValuePair<Parameter, DependencyMap>(parameter, dependencyMap));
+						store.associations.Add(new Association(parameter, dependencyMap));
 
 						foreach(KeyValuePair<string, JToken> dependencyMeta in (JObject)associationMeta.Value)
 						{
@@ -449,24 +470,24 @@ namespace csharp_viewer
 					return strcmp(x.name, y.name);
 				}
 			}
-			public Parameter[] GetDependentAssociations(int[] argidx)
+			public Association[] GetDependentAssociations(int[] argidx)
 			{
-				SortedSet<Parameter> dependentAssociations = new SortedSet<Parameter>(new ParameterComparer());
+				SortedDictionary<Parameter, DependencyMap> dependentAssociations = new SortedDictionary<Parameter, DependencyMap>(new ParameterComparer());
 
 				for(int i = 0; i < associations.Count; ++i)
 				{
-					KeyValuePair<Parameter, DependencyMap> association = associations[i];
+					Association association = associations[i];
 
-					if(dependentAssociations.Contains(association.Key))
+					if(dependentAssociations.ContainsKey(association.parameter))
 						continue; // association is already part of dependentAssociations
 
 					bool dependenciesSatisfied = true;
-					foreach(KeyValuePair<CinemaArgument, string[]> dependency in association.Value)
+					foreach(KeyValuePair<CinemaArgument, string[]> dependency in association.dependencyMap)
 					{
 						Parameter dependentParameter = dependency.Key as Parameter;
 						if(dependentParameter != null) // If dependency.Key is a parameter
 						{
-							if(!dependentAssociations.Contains(dependentParameter))
+							if(!dependentAssociations.ContainsKey(dependentParameter))
 							{
 								// Dependency not satisfied (dependent parameter is not part of dependentAssociations)
 								dependenciesSatisfied = false;
@@ -493,7 +514,7 @@ namespace csharp_viewer
 					if(dependenciesSatisfied)
 					{
 						// Add association and restart for loop ()
-						dependentAssociations.Add(association.Key);
+						dependentAssociations.Add(association.parameter, association.dependencyMap);
 						i = 0;
 					}
 				}
@@ -505,12 +526,18 @@ namespace csharp_viewer
 
 				return dependentAssociations.ToArray();*/
 
-				Parameter[] dependentAssociationsArray = new Parameter[dependentAssociations.Count];
+				/*Parameter[] dependentAssociationsArray = new Parameter[dependentAssociations.Count];
 				dependentAssociations.CopyTo(dependentAssociationsArray);
+				return dependentAssociationsArray;*/
+
+				Association[] dependentAssociationsArray = new Association[dependentAssociations.Count];
+				int j = 0;
+				foreach(KeyValuePair<Parameter, DependencyMap> dependentAssociation in dependentAssociations)
+					dependentAssociationsArray[j++] = new Association(dependentAssociation.Key, dependentAssociation.Value);
 				return dependentAssociationsArray;
 			}
 
-			public void GetImageFilePath(int[] argidx, Parameter[] dependentAssociations, out string imagepath, out string imageDepthPath, out string imageLumPath, out bool isFloatImage)
+			public void GetImageFilePath(int[] argidx, Association[] dependentAssociations, out string imagepath, out string imageDepthPath, out string imageLumPath, out bool isFloatImage)
 			{
 				Dictionary<string, string> imageParameters = new Dictionary<string, string>();
 				for(int i = 0; i < arguments.Length; ++i)
@@ -571,28 +598,149 @@ namespace csharp_viewer
 						imageLumPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : parameter.defaultStrValue);
 					}
 				}*/
-				foreach(Parameter parameter in dependentAssociations)
+				foreach(Association association in dependentAssociations)
 				{
-					imageParameters.Add(parameter.name, parameter.defaultStrValue);
+					imageParameters.Add(association.parameter.name, association.parameter.defaultStrValue);
 
-					imagepath += Path.DirectorySeparatorChar + parameter.name + "=" + parameter.defaultStrValue;
+					imagepath += Path.DirectorySeparatorChar + association.parameter.name + "=" + association.parameter.defaultStrValue;
 					int defaultIndex;
-					if(parameter.types != null && (defaultIndex = Array.IndexOf<string>(parameter.strValues, parameter.defaultStrValue)) != -1 && parameter.types[defaultIndex] == "value")
+					if(association.parameter.types != null && (defaultIndex = Array.IndexOf<string>(association.parameter.strValues, association.parameter.defaultStrValue)) != -1 && association.parameter.types[defaultIndex] == "value")
 						isFloatImage = true;
 
-					if(parameter.depthValue != null)
+					if(association.parameter.depthValue != null)
 						hasDepth = true;
-					imageDepthPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.depthValue != null ? parameter.depthValue : parameter.defaultStrValue);
+					imageDepthPath += Path.DirectorySeparatorChar + association.parameter.name + "=" + (association.parameter.depthValue != null ? association.parameter.depthValue : association.parameter.defaultStrValue);
 
-					if(parameter.lumValue != null)
+					if(association.parameter.lumValue != null)
 						hasLum = true;
-					imageLumPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : parameter.defaultStrValue);
+					imageLumPath += Path.DirectorySeparatorChar + association.parameter.name + "=" + (association.parameter.lumValue != null ? association.parameter.lumValue : association.parameter.defaultStrValue);
 				}
 
 				// Assemble final paths (relative to Cinema database directory)
 				imagepath = "image/" + imagepath + ext;
 				imageDepthPath = hasDepth ? "image/" + imageDepthPath + ".im" : null;
 				imageLumPath = hasLum ? "image/" + imageLumPath + ext : null;
+			}
+
+			public struct LayerDescription
+			{
+				public string imagepath, imageDepthPath, imageLumPath;
+				public bool isFloatImage;
+
+				public LayerDescription(LayerDescription layer)
+				{
+					this.imagepath = layer.imagepath;
+					this.imageDepthPath = layer.imageDepthPath;
+					this.imageLumPath = layer.imageLumPath;
+					this.isFloatImage = layer.isFloatImage;
+				}
+			}
+			public class LayerCollection : IEnumerable<LayerDescription>
+			{
+				private CinemaStore store;
+				private int[] argidx;
+				private Association[] dependentAssociations;
+
+				public LayerCollection(CinemaStore store, int[] argidx, Association[] dependentAssociations)
+				{
+					this.store = store;
+					this.argidx = argidx;
+					this.dependentAssociations = dependentAssociations;
+				}
+
+				public IEnumerator<LayerDescription> GetEnumerator()
+				{
+					LayerDescription layer = new LayerDescription();
+
+					/*Dictionary<string, string> imageParameters = new Dictionary<string, string>();
+					for(int i = 0; i < store.arguments.Length; ++i)
+						imageParameters.Add(store.arguments[i].name, store.arguments[i].strValues[argidx[i]]);*/
+
+					// Start with name pattern
+					layer.imagepath = store.namePattern;
+
+					// Split path and extension
+					string ext = Path.GetExtension(layer.imagepath);
+					layer.imagepath = layer.imagepath.Substring(0, layer.imagepath.Length - ext.Length);
+
+					// Insert argument names
+					for(int i = 0; i < store.arguments.Length; ++i)
+						layer.imagepath = layer.imagepath.Replace("{" + store.arguments[i].name + "}", store.arguments[i].strValues[argidx[i]]);
+
+					// Up to this point depth-path == luminance-path == image-path
+					layer.imageDepthPath = layer.imageLumPath = layer.imagepath;
+
+					// Iterate dependent parameter cobinations
+					int[] paramidx = new int[dependentAssociations.Length];
+					bool done;
+					do {
+						LayerDescription _layer = new LayerDescription(layer);
+
+						// Append dependent parameters
+						bool hasDepth = false, hasLum = false, isValid = true;
+						_layer.isFloatImage = false;
+						int p = 0;
+						foreach(Association association in dependentAssociations)
+						{
+							string strValue = association.parameter.strValues[paramidx[p]];
+
+							string[] validValues;
+							foreach(Association _association in dependentAssociations)
+								if(_association.dependencyMap.TryGetValue(association.parameter, out validValues) && Array.IndexOf(validValues, strValue) == -1)
+								{
+									isValid = false;
+									break;
+								}
+							if(!isValid)
+								break;
+
+							//imageParameters.Add(parameter.name, strValue);
+
+							_layer.imagepath += Path.DirectorySeparatorChar + association.parameter.name + "=" + association.parameter.strValues[paramidx[p]];
+							int defaultIndex;
+							if(association.parameter.types != null && (defaultIndex = Array.IndexOf<string>(association.parameter.strValues, strValue)) != -1 && association.parameter.types[defaultIndex] == "value")
+								_layer.isFloatImage = true;
+
+							if(association.parameter.depthValue != null)
+								hasDepth = true;
+							_layer.imageDepthPath += Path.DirectorySeparatorChar + association.parameter.name + "=" + (association.parameter.depthValue != null ? association.parameter.depthValue : strValue);
+
+							if(association.parameter.lumValue != null)
+								hasLum = true;
+							_layer.imageLumPath += Path.DirectorySeparatorChar + association.parameter.name + "=" + (association.parameter.lumValue != null ? association.parameter.lumValue : strValue);
+							++p;
+						}
+
+						if(isValid)
+						{
+							// Assemble final paths (relative to Cinema database directory)
+							_layer.imagepath = "image/" + _layer.imagepath + ext;
+							_layer.imageDepthPath = hasDepth ? "image/" + _layer.imageDepthPath + ".im" : null;
+							_layer.imageLumPath = hasLum ? "image/" + _layer.imageLumPath + ext : null;
+
+							yield return _layer;
+						}
+
+						// Get next parameter combination -> paramidx[]
+						done = true;
+						for(int i = 0; i < dependentAssociations.Length; ++i) {
+							if(++paramidx[i] == dependentAssociations[i].parameter.values.Length)
+								paramidx[i] = 0;
+							else {
+								done = false;
+								break;
+							}
+						}
+					} while(!done);
+				}
+				System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+				{
+					return this.GetEnumerator();
+				}
+			}
+			public LayerCollection iterateLayers(int[] argidx, Association[] dependentAssociations)
+			{
+				return new LayerCollection(this, argidx, dependentAssociations);
 			}
 
 			public float[] GetImageValues(int[] argidx)
@@ -609,6 +757,21 @@ namespace csharp_viewer
 					imagestrvalues[i] = arguments[i].strValues[argidx[i]];
 				return imagestrvalues;
 			}
+		}
+	}
+
+	public static class Extensions
+	{
+		public static T[] RemoveAt<T>(this T[] source, int index)
+		{
+			T[] dest = new T[source.Length - 1];
+			if( index > 0 )
+				Array.Copy(source, 0, dest, 0, index);
+
+			if( index < source.Length - 1 )
+				Array.Copy(source, index + 1, dest, index, source.Length - index - 1);
+
+			return dest;
 		}
 	}
 }

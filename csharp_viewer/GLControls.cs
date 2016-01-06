@@ -220,7 +220,7 @@ namespace csharp_viewer
 		public new event EventHandler Load;
 
 		public GLWindow()
-			: base(new GraphicsMode(32, 24, 8, 1), 3, 0, GraphicsContextFlags.Default)
+			: base(new GraphicsMode(32, 32, 0, 4), 3, 0, GraphicsContextFlags.Default)
 		{
 			Controls = new List<GLControl>();
 			base.Load += OnLoad;
