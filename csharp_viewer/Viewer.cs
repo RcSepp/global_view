@@ -22,6 +22,7 @@ namespace csharp_viewer
 
 		public static float time = 0.0f;
 		public static Cinema.CinemaArgument[] arguments = new Cinema.CinemaArgument[0]; // An array of descriptors for each dimension
+		public static Cinema.CinemaStore.Parameter[] parameters = new Cinema.CinemaStore.Parameter[0]; // An array of descriptors for each parameter
 	}
 
 	public class Viewer : Form
@@ -483,9 +484,9 @@ namespace csharp_viewer
 				if(!se.MoveNext())
 					return null;
 
-				string args = string.Format("\"{0}\" ", se.Current.layers[0].filename);
+				string args = string.Format("\"{0}\" ", se.Current.FirstLayer.filename);
 				foreach(TransformedImage image in scope)
-					args += string.Format("\"{0}\" ", image.layers[0].filename);
+					args += string.Format("\"{0}\" ", image.FirstLayer.filename);
 
 				var process = new System.Diagnostics.Process
 				{
@@ -549,7 +550,7 @@ namespace csharp_viewer
 
 							break;
 						}*/
-					if(!se.MoveNext() || !se.Current.layers[0].filename.Equals(filename))
+					if(!se.MoveNext() || !se.Current.FirstLayer.filename.Equals(filename))
 						scrCle.PrintOutput(string.Format("Error: Unexpected filename ({0})", filename));
 
 					GLTextureStream.ImageMetaData[] meta = new GLTextureStream.ImageMetaData[1];
@@ -611,20 +612,20 @@ namespace csharp_viewer
 			return stdout;
 		}
 
-		private void AddArguments(Cinema.CinemaArgument[] newargs, out int[] globalargindices)
+		private void AddArguments<T>(ref T[] arguments, T[] newargs, out int[] globalargindices) where T : Cinema.CinemaArgument
 		{
-			int oldnumargs = Global.arguments.Length, newnumargs = Global.arguments.Length;
+			int oldnumargs = arguments.Length, newnumargs = arguments.Length;
 
-			globalargindices = new int[Global.arguments.Length + newargs.Length];
-			Array.Resize(ref Global.arguments, Global.arguments.Length + newargs.Length);
+			globalargindices = new int[arguments.Length + newargs.Length];
+			Array.Resize(ref arguments, arguments.Length + newargs.Length);
 
-			for(int i = 0; i < Global.arguments.Length; ++i)
+			for(int i = 0; i < arguments.Length; ++i)
 				globalargindices[i] = -1;
 			for(int i = 0; i < newargs.Length; ++i)
 			{
 				int newargindex = -1;
 				for(int j = 0; j < oldnumargs; ++j)
-					if(Global.arguments[j].label.Equals(newargs[i].label))
+					if(arguments[j].label.Equals(newargs[i].label))
 					{
 						newargindex = j;
 						break;
@@ -632,17 +633,17 @@ namespace csharp_viewer
 
 				if(newargindex == -1)
 				{
-					Global.arguments[newnumargs] = newargs[i];
+					arguments[newnumargs] = newargs[i];
 					globalargindices[newnumargs++] = i;
 				}
 				else
 					globalargindices[newargindex] = i;
 			}
 				
-			if(newnumargs != Global.arguments.Length)
+			if(newnumargs != arguments.Length)
 			{
 				Array.Resize(ref globalargindices, newnumargs);
-				Array.Resize(ref Global.arguments, newnumargs);
+				Array.Resize(ref arguments, newnumargs);
 			}
 		}
 
@@ -822,12 +823,16 @@ namespace csharp_viewer
 			Cinema.ParseCinemaDescriptor(filename, out newargs, out name_pattern, out depth_name_pattern, out image_pixel_format);
 			bool useFloatImages = image_pixel_format != null && image_pixel_format.Equals("I24");
 
+			Cinema.CinemaStore.Parameter[] newparams;
 			Cinema.CinemaStore store = Cinema.CinemaStore.Load(filename + "image/info.json");
 			newargs = store.arguments;
+			newparams = store.parameters;
 
 			image_render_mutex.WaitOne();
 			int[] newargindices;
-			AddArguments(newargs, out newargindices);
+			AddArguments(ref Global.arguments, newargs, out newargindices);
+			int[] newparamindices;
+			AddArguments(ref Global.parameters, newparams, out newparamindices);
 			image_render_mutex.ReleaseMutex();
 
 			// >>> Load images and image meta
@@ -939,21 +944,24 @@ namespace csharp_viewer
 					layer.depth_filename = depthpath;
 					layer.lum_filename = lumpath;
 					layer.isFloatImage = useFloatImages || isFloatImage;
-					cimg.layers.Add(layer);*/
+					cimg.AddLayer(layer);*/
 
-					int foo = 0;
+					//int foo = 0;
 					foreach(Cinema.CinemaStore.LayerDescription layerdesc in store.iterateLayers(argidx, dependentAssociations))
 					{
-						//if(foo++ != 1)
+						//if(foo++ >= 1)
 						//	continue;
 						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
 						layer.filename = filename + layerdesc.imagepath;
 						layer.depth_filename = layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath;
 						layer.lum_filename = layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath;
 						layer.isFloatImage = useFloatImages || layerdesc.isFloatImage;
-						cimg.layers.Add(layer);
+						layer.key = layerdesc.paramidx;
+						layer.parameters = newparams;
+						layer.globalparamindices = newparamindices;
+						cimg.AddLayer(layer);
 					}
-					if(cimg.layers.Count == 0)
+					if(cimg.activelayers.Count + cimg.inactivelayers.Count == 0)
 						throw new Exception();
 
 					//Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
@@ -1002,9 +1010,9 @@ namespace csharp_viewer
 
 			// Get image size
 			Size imageSize = new Size(256, 256);
-			if(File.Exists(newimages[0].layers[0].filename))
+			if(File.Exists(newimages[0].FirstLayer.filename))
 			{
-				Image img = Image.FromFile(newimages[0].layers[0].filename);
+				Image img = Image.FromFile(newimages[0].FirstLayer.filename);
 				imageSize = new Size(img.Width, img.Height);
 				img.Dispose();
 			}
@@ -1085,7 +1093,7 @@ namespace csharp_viewer
 
 			image_render_mutex.WaitOne();
 			int[] newargindices;
-			AddArguments(newargs, out newargindices);
+			AddArguments(ref Global.arguments, newargs, out newargindices);
 			image_render_mutex.ReleaseMutex();
 
 			// >>> Load images and image meta
@@ -1161,7 +1169,7 @@ namespace csharp_viewer
 				layer.depth_filename = null;
 				layer.lum_filename = null;
 				layer.isFloatImage = false;
-				cimg.layers.Add(layer);
+				cimg.AddLayer(layer);
 
 				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 
@@ -1213,9 +1221,9 @@ namespace csharp_viewer
 
 			// Get image size
 			Size imageSize = new Size(256, 256);
-			if(File.Exists(newimages[0].layers[0].filename))
+			if(File.Exists(newimages[0].FirstLayer.filename))
 			{
-				Image img = Image.FromFile(newimages[0].layers[0].filename);
+				Image img = Image.FromFile(newimages[0].FirstLayer.filename);
 				imageSize = new Size(img.Width, img.Height);
 				img.Dispose();
 			}
@@ -1284,7 +1292,7 @@ namespace csharp_viewer
 
 				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
 				layer.filename = imagepath;
-				cimg.layers.Add(layer);
+				cimg.AddLayer(layer);
 
 				/*for(int i = 0; i < Global.arguments.Length; ++i)
 				{
@@ -1372,7 +1380,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			}
 
 			int[] globalargindices;
-			AddArguments(newargs, out globalargindices);
+			AddArguments(ref Global.arguments, newargs, out globalargindices);
 
 			int oldargslen = image.args.Length;
 			Array.Resize(ref image.args, image.args.Length + meta.Length);

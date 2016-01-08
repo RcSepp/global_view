@@ -26,19 +26,22 @@ namespace csharp_viewer
 			public const string FS = @"
 				varying vec2 uv;
 				uniform sampler2D Texture, Texture2, Texture3;
-				//uniform vec4 Color;
+				uniform int HasLuminance;
 
 				//vec4 shade(sampler2D sampler, in vec2 uv);
 
 				void main()
 				{
 					vec4 color = vec4(texture2D(Texture, uv));
-					float depth = texture2D(Texture2, uv).r / 100.0; //EDIT: Set with a uniform representing global max depth
+					float depth = texture2D(Texture2, uv).r / 512.0; //EDIT: Set with a uniform representing global max depth
 					vec4 lum = vec4(texture2D(Texture3, uv));
+
+					if(depth > gl_FragCoord.z)
+						discard;
 					
 					gl_FragData[0] = color;
 					gl_FragData[1] = vec4(0.0, 0.0, 0.0, 1.0);
-					gl_FragData[2] = vec4(lum.rgb, 1.0);
+					gl_FragData[2] = HasLuminance != 0 ? vec4(lum.rgb, 1.0) : vec4(1.0, 1.0, 1.0, 1.0);
 					gl_FragDepth = depth;
 				}
 			";
@@ -54,6 +57,10 @@ namespace csharp_viewer
 
 			public string filename;
 			public string depth_filename, lum_filename;
+
+			public int[] key;
+			public Cinema.CinemaStore.Parameter[] parameters;
+			public int[] globalparamindices;
 
 			public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
 			public System.Drawing.Bitmap bmp = null, bmp_depth = null, bmp_lum = null;
@@ -128,7 +135,105 @@ namespace csharp_viewer
 				return false;
 			}
 		}
-		public List<ImageLayer> layers = new List<ImageLayer>();
+		public List<ImageLayer> inactivelayers = new List<ImageLayer>(), activelayers = new List<ImageLayer>();
+		public ImageLayer FirstLayer
+		{
+			get {
+				if(activelayers.Count != 0)
+					return activelayers[0];
+				if(inactivelayers.Count != 0)
+					return inactivelayers[0];
+				return null;
+			}
+		}
+
+		public void AddLayer(ImageLayer newlayer)
+		{
+			bool isActive = true;
+			int paramidx = 0;
+			foreach(Cinema.CinemaStore.Parameter parameter in Global.parameters)
+				if(!parameter.isChecked[newlayer.key[paramidx++]])
+				{
+					isActive = false;
+					break;
+				}
+			if(isActive)
+				activelayers.Add(newlayer);
+			else
+				inactivelayers.Add(newlayer);
+		}
+
+		public static class FramebufferCollection
+		{
+			private const int MAX_NUMFRAMEBUFFERS = 16;
+
+			private class FramebufferAndTime
+			{
+				public int framebuffer;
+				public DateTime lastAccessTime;
+			}
+			private static Dictionary<System.Drawing.Size, FramebufferAndTime> framebuffers = new Dictionary<System.Drawing.Size, FramebufferAndTime>();
+
+			public static int RequestFramebuffer(GLTexture2D tex0, GLTexture2D tex1, GLTexture2D tex2, GLTexture2D texDepth)
+			{
+				System.Drawing.Size framebufferSize = new System.Drawing.Size(tex0.width, tex0.height);
+
+				FramebufferAndTime fb_t;
+				if(!framebuffers.TryGetValue(framebufferSize, out fb_t))
+				{
+					framebuffers.Add(framebufferSize, fb_t = new FramebufferAndTime());
+					fb_t.framebuffer = GL.GenFramebuffer();
+					fb_t.lastAccessTime = DateTime.Now;
+
+					if(framebuffers.Count > MAX_NUMFRAMEBUFFERS)
+					{
+						// Remove framebuffer that hasn't been used for the longest time
+						DateTime oldestTime = DateTime.Now;
+						KeyValuePair<System.Drawing.Size, FramebufferAndTime> oldestPair = new KeyValuePair<System.Drawing.Size, FramebufferAndTime>();
+						foreach(KeyValuePair<System.Drawing.Size, FramebufferAndTime> pair in framebuffers)
+						{
+							if(pair.Value.lastAccessTime < oldestTime)
+							{
+								oldestTime = pair.Value.lastAccessTime;
+								oldestPair = pair;
+							}
+						}
+						System.Diagnostics.Debug.Assert(oldestPair.Key != framebufferSize);
+						GL.DeleteFramebuffer(oldestPair.Value.framebuffer);
+						framebuffers.Remove(oldestPair.Key);
+					}
+				}
+				else
+					fb_t.lastAccessTime = DateTime.Now;
+
+				GL.BindFramebuffer(FramebufferTarget.Framebuffer, fb_t.framebuffer);
+
+				GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, tex0.tex, 0);
+				GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, tex1.tex, 0);
+				GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, tex2.tex, 0);
+				GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, texDepth.tex, 0);
+				//FramebufferErrorCode ferr;
+				//if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
+				//	throw new Exception(ferr.ToString());
+
+				GL.PushAttrib(AttribMask.ViewportBit);
+				GL.Enable(EnableCap.DepthTest);
+				GL.Disable(EnableCap.DepthClamp);
+				GL.DepthFunc(DepthFunction.Lequal);
+				GL.BlendEquation(BlendEquationMode.FuncAdd);
+				GL.DrawBuffers(3, new DrawBuffersEnum[] {DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2});
+				GL.ClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+				GL.Viewport(0, 0, framebufferSize.Width, framebufferSize.Height);
+
+				return fb_t.framebuffer;
+			}
+			public static void ReturnFramebuffer(int framebuffer)
+			{
+				GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+				//GL.DeleteFramebuffer(framebuffer);
+			}
+		}
 
 		public GLTexture2D finalTex, finalTexFloat, finalTexLum;
 		public bool finalTexIsAssembled, finalTexHasDefaultComponent, finalTexHasFloatComponent;
@@ -138,14 +243,23 @@ namespace csharp_viewer
 			if(finalTex != null)
 				return false; // Texture already assembled
 
-			if(layers.Count == 1)
+			switch(activelayers.Count)
 			{
+			case 0:
 				finalTexIsAssembled = false;
-				finalTexHasDefaultComponent = !layers[0].isFloatImage;
-				finalTexHasFloatComponent = layers[0].isFloatImage;
-				finalTex = layers[0].tex;
-				finalTexFloat = layers[0].tex;
-				finalTexLum = layers[0].tex_lum;
+				finalTexHasDefaultComponent = false;
+				finalTexHasFloatComponent = false;
+				finalTex = null;
+				finalTexFloat = null;
+				finalTexLum = null;
+				return false;
+			case 1:
+				finalTexIsAssembled = false;
+				finalTexHasDefaultComponent = !activelayers[0].isFloatImage;
+				finalTexHasFloatComponent = activelayers[0].isFloatImage;
+				finalTex = activelayers[0].tex;
+				finalTexFloat = activelayers[0].tex;
+				finalTexLum = activelayers[0].tex_lum;
 				return false;
 			}
 			finalTexIsAssembled = true;
@@ -155,44 +269,25 @@ namespace csharp_viewer
 
 			// Get framebuffer dimensions
 			int framebufferWidth = 0, framebufferHeight = 0;
-			foreach(ImageLayer layer in layers)
+			foreach(ImageLayer layer in activelayers)
 			{
 				framebufferWidth = Math.Max(framebufferWidth, layer.renderWidth);
 				framebufferHeight = Math.Max(framebufferHeight, layer.renderWidth);
 			}
 			if(framebufferWidth == 0 || framebufferHeight == 0)
-				return false; // None of the layers has been created so far
+				return false; // None of the active layers has been created so far
 
 			// Create and activate rendertexture, depthtexture and framebuffer
 			finalTex = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
 			finalTexFloat = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:false);
 			finalTexLum = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
 			GLTexture2D finalTexDepth = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.DepthComponent, PixelInternalFormat.DepthComponent, PixelType.Float);
-			int finalTexFramebuffer = GL.GenFramebuffer();
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, finalTexFramebuffer);
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, finalTex.tex, 0);
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D, finalTexFloat.tex, 0);
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D, finalTexLum.tex, 0);
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, finalTexDepth.tex, 0);
-			FramebufferErrorCode ferr;
-			if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
-				throw new Exception(ferr.ToString());
 
-			// Render layers
-			GL.PushAttrib(AttribMask.ViewportBit);
-			GL.Enable(EnableCap.DepthTest);
-			GL.Disable(EnableCap.DepthClamp);
-			GL.DepthFunc(DepthFunction.Lequal);
-			GL.BlendEquation(BlendEquationMode.FuncAdd);
-			//GL.DrawBuffer(DrawBufferMode.ColorAttachment1);
-			GL.DrawBuffers(3, new DrawBuffersEnum[] {DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2});
-			GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-			GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-			GL.Viewport(0, 0, framebufferWidth, framebufferHeight);
+			int finalTexFramebuffer = FramebufferCollection.RequestFramebuffer(finalTex, finalTexFloat, finalTexLum, finalTexDepth);
 
+			// Render activelayers 
 			finalTexHasDefaultComponent = finalTexHasFloatComponent = false;
-
-			foreach(ImageLayer layer in layers)
+			foreach(ImageLayer layer in activelayers)
 			{
 				bool texloaded = layer.CreateIfLoaded();
 				if(!texloaded)
@@ -218,29 +313,33 @@ namespace csharp_viewer
 				}
 				
 				sdrImageAssembly.Bind(Matrix4.CreateScale(2.0f * layer.originalAspectRatio, -2.0f, 1.0f));
-
+				GL.Uniform1(sdrImageAssembly.GetUniformLocation("HasLuminance"), layer.tex_lum != null ? 1 : 0);
 				Common.meshQuad2.Bind(sdrImageAssembly, layer.tex, layer.tex_depth, layer.tex_lum);
 				Common.meshQuad2.Draw();
 			}
 
-			/* // Debug: Save screenshot
-			byte[] bytes = new byte[4 * finalTex.width * finalTex.height];
-			GL.ReadPixels(0, 0, finalTex.width, finalTex.height, PixelFormat.Bgra, PixelType.Byte, bytes);
-			for(int i = 3; i < bytes.Length; i += 4)
-				bytes[i] = 0xFF;
-			System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(finalTex.width, finalTex.height);
-			System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new System.Drawing.Rectangle(System.Drawing.Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
-			System.Runtime.InteropServices.Marshal.Copy(bytes, 0, bmpdata.Scan0, bytes.Length);
-			bmp.UnlockBits(bmpdata);
-			bmp.Save("AssembledImageScreenshot.png");*/
+			// Debug: Save screenshot //EDIT: Not working
+			if(ImageCloud.saveAssembledImage == true)
+			{
+				ImageCloud.saveAssembledImage = false;
+				byte[] bytes = new byte[4 * finalTex.width * finalTex.height];
+				GL.DrawBuffer(DrawBufferMode.ColorAttachment2);
+				GL.ReadPixels(0, 0, finalTex.width, finalTex.height, PixelFormat.Bgra, PixelType.Byte, bytes);
+				for(int i = 3; i < bytes.Length; i += 4)
+					bytes[i] = 0xFF;
+				System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(finalTex.width, finalTex.height);
+				System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new System.Drawing.Rectangle(System.Drawing.Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
+				System.Runtime.InteropServices.Marshal.Copy(bytes, 0, bmpdata.Scan0, bytes.Length);
+				bmp.UnlockBits(bmpdata);
+				bmp.Save("AssembledImageScreenshot.png");
+			}
 
 			// Deactivate and remove depthtexture and framebuffer
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+			FramebufferCollection.ReturnFramebuffer(finalTexFramebuffer);
 			GL.DeleteTexture(finalTexDepth.tex);
-			GL.DeleteFramebuffer(finalTexFramebuffer);
+			finalTexDepth = null;
 
 			// Restore old framebuffer state
-			finalTexDepth = null;
 			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
 			GL.PopAttrib();
 
@@ -257,6 +356,45 @@ namespace csharp_viewer
 					GL.DeleteTexture(finalTexLum.tex);
 				}
 				finalTex = finalTexFloat = finalTexLum = null;
+			}
+		}
+
+		public void OnParameterChanged(Cinema.CinemaStore.Parameter parameter, int paramidx)
+		{
+			for(int i = activelayers.Count - 1; i >= 0; i--)
+			{
+				ImageLayer layer = activelayers[i];
+				if(!parameter.isChecked[layer.key[paramidx]])
+				{
+					// Deactivate layer
+					activelayers.RemoveAt(i);
+					inactivelayers.Add(layer);
+					FreeAssembledImage();
+					layer.renderPriority = 0;
+				}
+			}
+
+			for(int i = inactivelayers.Count - 1; i >= 0; i--)
+			{
+				ImageLayer layer = inactivelayers[i];
+				if(parameter.isChecked[layer.key[paramidx]])
+				{
+					bool isActive = true;
+					int _paramidx = 0;
+					foreach(Cinema.CinemaStore.Parameter _parameter in Global.parameters)
+						if(!_parameter.isChecked[layer.key[_paramidx++]])
+						{
+							isActive = false;
+							break;
+						}
+					if(isActive)
+					{
+						// Activate layer
+						inactivelayers.RemoveAt(i);
+						activelayers.Add(layer);
+						FreeAssembledImage();
+					}
+				}
 			}
 		}
 
@@ -349,7 +487,7 @@ namespace csharp_viewer
 					hasDynamicLocationTransform = true;
 			}
 
-			foreach(ImageLayer layer in layers)
+			foreach(ImageLayer layer in activelayers)
 				layer.RemoveIfUnloaded();
 			/*if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
 			{
@@ -371,7 +509,7 @@ namespace csharp_viewer
 			}
 			oldbmp = bmp;*/
 
-			transforms = new Matrix4[layers.Count];
+			transforms = new Matrix4[activelayers.Count];
 			for(int i = 0; i < transforms.Length; ++i)
 				transforms[i] = invview; //Matrix4.Identity
 			if(visible_dynamic)
@@ -383,7 +521,7 @@ namespace csharp_viewer
 				for(int i = 0; i < transforms.Length; ++i)
 				{
 					//transforms[i] *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-					transforms[i] *= Matrix4.CreateScale(layers[i].originalAspectRatio, 1.0f, 1.0f);
+					transforms[i] *= Matrix4.CreateScale(activelayers[i].originalAspectRatio, 1.0f, 1.0f);
 					//transforms[i] *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 					//if(depth_filename == null) // Do not always face screen when rendering volume images
 						transforms[i] *= invvieworient;
@@ -395,23 +533,23 @@ namespace csharp_viewer
 
 						// Set render priority and dimensions (thread safety: priority has to be set after width/height)
 						Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transforms[i]) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transforms[i]); // Size of image in device units
-						layers[i].renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
-						layers[i].renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
+						activelayers[i].renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
+						activelayers[i].renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
 
-						//if(layers[i].renderPriority == 0)
-							layers[i].renderPriority = 1000;
+						//if(activelayers[i].renderPriority == 0)
+							activelayers[i].renderPriority = 1000;
 
 						inside_frustum = true;
 					}
 					else if(Global.time > prefetchHoldTime)
-						layers[i].renderPriority = 0;
+						activelayers[i].renderPriority = 0;
 				}
 				return inside_frustum;
 			}
 			else
 			{
 				if(Global.time > prefetchHoldTime)
-					foreach(ImageLayer layer in layers)
+					foreach(ImageLayer layer in activelayers)
 						layer.renderPriority = 0;
 				return false;
 			}
@@ -435,7 +573,7 @@ namespace csharp_viewer
 			if(!hasDynamicSkipTransform && !hasDynamicLocationTransform) // If neither location nor skipping is time variant
 				return; // Don't prefetch
 
-			Matrix4[] transforms = new Matrix4[layers.Count];
+			Matrix4[] transforms = new Matrix4[activelayers.Count];
 			for(int i = 0; i < transforms.Length; ++i)
 				transforms[i] = invview; //Matrix4.Identity
 			if(visible_dynamic)
@@ -446,7 +584,7 @@ namespace csharp_viewer
 				for(int i = 0; i < transforms.Length; ++i)
 				{
 					//transforms[i] *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-					transforms[i] *= Matrix4.CreateScale(layers[i].originalAspectRatio, 1.0f, 1.0f);
+					transforms[i] *= Matrix4.CreateScale(activelayers[i].originalAspectRatio, 1.0f, 1.0f);
 					//transforms[i] *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 					//if(depth_filename == null) // Do not always face screen when rendering volume images
 						transforms[i] *= invvieworient;
@@ -458,9 +596,9 @@ namespace csharp_viewer
 
 						// Set render priority and dimensions (thread safety: priority has to be set after width/height)
 						Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transforms[i]) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transforms[i]); // Size of image in device units
-						layers[i].renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
-						layers[i].renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
-						layers[i].renderPriority = 1200; // Prefetch renderPriority should be higher than render renderPriority to prefere images being loaded before they are being rendered
+						activelayers[i].renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
+						activelayers[i].renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
+						activelayers[i].renderPriority = 1200; // Prefetch renderPriority should be higher than render renderPriority to prefere images being loaded before they are being rendered
 						prefetchHoldTime = Global.time;
 					}
 				}
@@ -484,7 +622,7 @@ namespace csharp_viewer
 
 			for(int i = 0; i < transforms.Length; ++i)
 			{
-				ImageLayer layer = layers[i];
+				ImageLayer layer = activelayers[i];
 				bool texloaded = layer.CreateIfLoaded();
 				ImageCloud.RenderShader sdr = layer.isFloatImage ? sdr_float : sdr_default;
 				/*bool texloaded;
@@ -547,7 +685,7 @@ namespace csharp_viewer
 		{
 			for(int i = 0; i < transforms.Length; ++i)
 			{
-				ImageLayer layer = layers[i];
+				ImageLayer layer = activelayers[i];
 				bool texloaded = layer.CreateIfLoaded();
 				/*bool texloaded;
 				if(texIsStatic)
@@ -632,7 +770,7 @@ namespace csharp_viewer
 
 			//System.Windows.Forms.MessageBox.Show(dest.ToString());
 
-			float halfwidth = 0.5f * layers[0].originalAspectRatio, halfheight = 0.5f;
+			float halfwidth = 0.5f * FirstLayer.originalAspectRatio, halfheight = 0.5f;
 			return -halfwidth < dest.X && dest.X < halfwidth && -halfheight < dest.Y && dest.Y < halfheight ? from.Z : float.MaxValue;
 		}
 
@@ -714,8 +852,8 @@ namespace csharp_viewer
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 			worldmatrix *= Matrix4.CreateTranslation(pos);
 
-			aabb.Include(Vector3.TransformPosition(new Vector3(-0.5f * layers[0].originalAspectRatio, -0.5f, -0.5f * layers[0].originalAspectRatio), worldmatrix));
-			aabb.Include(Vector3.TransformPosition(new Vector3( 0.5f * layers[0].originalAspectRatio,  0.5f,  0.5f * layers[0].originalAspectRatio), worldmatrix));
+			aabb.Include(Vector3.TransformPosition(new Vector3(-0.5f * FirstLayer.originalAspectRatio, -0.5f, -0.5f * FirstLayer.originalAspectRatio), worldmatrix));
+			aabb.Include(Vector3.TransformPosition(new Vector3( 0.5f * FirstLayer.originalAspectRatio,  0.5f,  0.5f * FirstLayer.originalAspectRatio), worldmatrix));
 
 			return aabb;
 		}

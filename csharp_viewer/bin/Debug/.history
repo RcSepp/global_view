@@ -2930,3 +2930,6 @@ clear all
 look all by $theta * pi / 180, $phi * pi / 180
 focus all
 star all by #theta * 3.0f, #phi * 3.0f, #time * 3.0f
+look all by $theta * pi / 180 + time, $phi * pi / 180
+clear all
+look all by $theta * pi / 180 + time, $phi * pi / 180

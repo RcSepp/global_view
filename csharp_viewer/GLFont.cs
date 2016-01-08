@@ -1,4 +1,5 @@
 ﻿//#define DEBUG_GLFONT
+//#define SAVE_AND_LOAD_CHARMAPS
 
 using System;
 using System.Drawing;
@@ -358,12 +359,14 @@ namespace csharp_viewer
 			blankWidth = (int)Math.Ceiling(gfx.MeasureString(" ", font).Width);
 
 			#if !DEBUG_GLFONT
-			string bmp_filename = "charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png";
-			if(System.IO.File.Exists(bmp_filename))
-				bmp = (Bitmap)Bitmap.FromFile(bmp_filename);
-			else
-			{
+				string bmp_filename = "charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png";
+				#if SAVE_AND_LOAD_CHARMAPS
+				if(System.IO.File.Exists(bmp_filename))
+					bmp = (Bitmap)Bitmap.FromFile(bmp_filename);
+				else
 				#endif
+			{
+			#endif
 				bmp = new Bitmap(1024, y + lineMaxHeight);
 				gfx = Graphics.FromImage(bmp);
 				#if DEBUG_GLFONT
@@ -374,11 +377,15 @@ namespace csharp_viewer
 					if(!char.IsControl((char)i))
 						gfx.DrawString(new string((char)i, 1), font, Brushes.White, new RectangleF((float)charBounds[i].X - 1, (float)charBounds[i].Y - 2, (float)charBounds[i].Width, (float)charBounds[i].Height));
 				gfx.Flush();
-				#if DEBUG_GLFONT
-				bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + "_debug.png");
-				#else
-				bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png");
-			}
+			#if DEBUG_GLFONT
+					#if SAVE_AND_LOAD_CHARMAPS
+					bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + "_debug.png");
+					#endif
+			#else
+					#if SAVE_AND_LOAD_CHARMAPS
+					bmp.Save("charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png");
+					#endif
+				}
 			#endif
 
 			texture = new GLTexture2D(bmp);

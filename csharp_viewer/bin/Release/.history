@@ -1852,3 +1852,6 @@ star all by 1 - 2 * #x, -1 + 2 * #y,1 - 2 * #z
 look all by $theta * pi / 180, $phi * pi / 180
 look all by $theta * pi / 180, $phi * pi / 180
 load "bunny"
+animate all by #time
+animate by #time
+animate by #time

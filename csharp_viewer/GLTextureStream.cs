@@ -430,8 +430,7 @@ namespace csharp_viewer
 					Bitmap newbmp_depth = null;
 					if(image.depth_filename != null)
 					{
-						newbmp_depth = ImageLoader.Load(image.depth_filename);
-						if(newbmp_depth == null)
+						if(!File.Exists(image.depth_filename) || (newbmp_depth = ImageLoader.Load(image.depth_filename)) == null)
 						{
 							if(newbmp != null)
 							{
@@ -450,8 +449,7 @@ namespace csharp_viewer
 					Bitmap newbmp_lum = null;
 					if(image.lum_filename != null)
 					{
-						newbmp_lum = ImageLoader.Load(image.lum_filename);
-						if(newbmp_lum == null)
+						if(!File.Exists(image.lum_filename) || (newbmp_lum = ImageLoader.Load(image.lum_filename)) == null)
 						{
 							if(newbmp != null)
 							{
@@ -677,7 +675,9 @@ namespace csharp_viewer
 			public void AddImage(TransformedImage image)
 			{
 				addImageMutex.WaitOne();
-				foreach(TransformedImage.ImageLayer layer in image.layers)
+				foreach(TransformedImage.ImageLayer layer in image.activelayers)
+					prioritySortedImages.Add(new Image(layer));
+				foreach(TransformedImage.ImageLayer layer in image.inactivelayers)
 					prioritySortedImages.Add(new Image(layer));
 				addImageMutex.ReleaseMutex();
 			}
@@ -685,15 +685,19 @@ namespace csharp_viewer
 			{
 				addImageMutex.WaitOne();
 				foreach(TransformedImage image in images)
-					foreach(TransformedImage.ImageLayer layer in image.layers)
+				{
+					foreach(TransformedImage.ImageLayer layer in image.activelayers)
 						prioritySortedImages.Add(new Image(layer));
+					foreach(TransformedImage.ImageLayer layer in image.inactivelayers)
+						prioritySortedImages.Add(new Image(layer));
+				}
 				addImageMutex.ReleaseMutex();
 			}
 			public void RemoveImage(TransformedImage image) // O(n)
 			{
 				addImageMutex.WaitOne();
 				prioritySortedImages.RemoveAll(delegate(Image img) {
-					return image.layers.Contains(img.image);
+					return image.activelayers.Contains(img.image) || image.inactivelayers.Contains(img.image);
 				});
 				addImageMutex.ReleaseMutex();
 			}
@@ -702,7 +706,7 @@ namespace csharp_viewer
 				addImageMutex.WaitOne();
 				prioritySortedImages.RemoveAll(delegate(Image img) {
 					foreach(TransformedImage image in images)
-						if(image.layers.Contains(img.image))
+						if(image.activelayers.Contains(img.image) || image.inactivelayers.Contains(img.image))
 							return true;
 					return false;
 				});

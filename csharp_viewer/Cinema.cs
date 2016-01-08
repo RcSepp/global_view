@@ -230,6 +230,7 @@ namespace csharp_viewer
 				//public string[] values;
 				public string type;
 				public string[] types;
+				public bool[] isChecked;
 
 				public string depthValue, lumValue;
 
@@ -304,11 +305,17 @@ namespace csharp_viewer
 						parameter.label = (string)argumentMeta.Value["label"];
 						parameter.strValues = (string[])argumentMeta.Value["values"].ToObject<string[]>();
 						parameter.type = (string)argumentMeta.Value["type"];
-						try
+						try { parameter.types = (string[])argumentMeta.Value["types"].ToObject<string[]>(); } catch {}
+						parameter.isChecked = new bool[parameter.strValues.Length];
+
+						if(type == "option")
+							for(int i = 0; i < parameter.strValues.Length; ++i)
+								parameter.isChecked[i] = true;
+						else
 						{
-							parameter.types = (string[])argumentMeta.Value["types"].ToObject<string[]>();
-						} catch
-						{
+							for(int i = 0; i < parameter.strValues.Length; ++i)
+								parameter.isChecked[i] = false;
+							parameter.isChecked[Array.IndexOf(parameter.strValues, parameter.defaultStrValue)] = true;
 						}
 
 						store.parameterMap.Add(argumentMeta.Key, parameter);
@@ -325,6 +332,7 @@ namespace csharp_viewer
 							values = values.RemoveAt(depthIdx);
 							parameter.strValues = parameter.strValues.RemoveAt(depthIdx);
 							parameter.types = parameter.types.RemoveAt(depthIdx);
+							parameter.isChecked = parameter.isChecked.RemoveAt(depthIdx);
 						}
 
 						int lumIdx = Array.IndexOf<string>(parameter.types, "luminance");
@@ -334,6 +342,7 @@ namespace csharp_viewer
 							values = values.RemoveAt(lumIdx);
 							parameter.strValues = parameter.strValues.RemoveAt(lumIdx);
 							parameter.types = parameter.types.RemoveAt(lumIdx);
+							parameter.isChecked = parameter.isChecked.RemoveAt(lumIdx);
 						}
 					}
 					object defaultValue = argumentMeta.Value["default"].ToObject<object>();
@@ -582,6 +591,7 @@ namespace csharp_viewer
 			{
 				public string imagepath, imageDepthPath, imageLumPath;
 				public bool isFloatImage;
+				public int[] paramidx;
 
 				public LayerDescription(LayerDescription layer)
 				{
@@ -589,6 +599,7 @@ namespace csharp_viewer
 					this.imageDepthPath = layer.imageDepthPath;
 					this.imageLumPath = layer.imageLumPath;
 					this.isFloatImage = layer.isFloatImage;
+					this.paramidx = layer.paramidx;
 				}
 			}
 			public class LayerCollection : IEnumerable<LayerDescription>
@@ -749,6 +760,8 @@ namespace csharp_viewer
 						_layer.imagepath = "image/" + _layer.imagepath + ext;
 						_layer.imageDepthPath = hasDepth ? "image/" + _layer.imageDepthPath + ".im" : null;
 						_layer.imageLumPath = hasLum ? "image/" + _layer.imageLumPath + ext : null;
+						_layer.paramidx = new int[paramidx.Length];
+						Array.Copy(paramidx, _layer.paramidx, paramidx.Length);
 
 						yield return _layer;
 

@@ -1,6 +1,7 @@
 ﻿#define USE_DEPTH_SORTING
 //#define USE_GS_QUAD
 #define USE_ARG_IDX
+#define USE_PARAM_IDX
 
 using System;
 using System.Windows.Forms;
@@ -262,6 +263,7 @@ namespace csharp_viewer
 				vec4 lum = texture2D(Texture3, uv);
 				
 				gl_FragColor = Color * vec4(color_default.rgb + color_float.rgb, color_default.a * color_float.a) * vec4(lum.rgb, alpha);
+				//gl_FragColor = color_default;
 			}
 		";
 	}
@@ -557,11 +559,15 @@ namespace csharp_viewer
 		GLTexture2D texdepth1, texdepth2;
 		int fbdepth1, fbdepth2;
 		bool saveDepthBuffer = false;
+		public static bool saveAssembledImage = false;
 
 		ColorTableManager colorTableMgr;
 
 		#if USE_ARG_IDX
-		ArgumentIndex argIndex = new ArgumentIndex();
+			ArgumentIndex argIndex = new ArgumentIndex();
+		#endif
+		#if USE_PARAM_IDX
+			ParameterIndex paramIndex = new ParameterIndex();
 		#endif
 
 		GLTextureStream texstream;
@@ -626,12 +632,26 @@ namespace csharp_viewer
 			//texstream = new GLTextureStream(128*1024, ReadImageMetaData); // Optimize for 512KB of VRAM
 
 			#if USE_ARG_IDX
-			//argIndex.Bounds = new Rectangle(30, 10, 600, 16);
-			//argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-			argIndex.Bounds = new Rectangle(200, 10, Width - 200, 16);
+			//argIndex.Bounds = new Rectangle(200, 10, Width - 200, 16);
+			argIndex.Bounds = new Rectangle(150, 10, Width - 150, 16);
 			argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 			argIndex.Init();
+			argIndex.SelectionChanged += SelectionChanged;//() => { SelectionChanged(); };
+			//argIndex.ArgumentLabelMouseDown += ArgumentIndex_ArgumentLabelMouseDown;
 			this.Controls.Add(argIndex);
+			#endif
+
+			#if USE_PARAM_IDX
+			//paramIndex.Bounds = new Rectangle(200, 0, Width - 200, 16);
+			//paramIndex.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+			paramIndex.Bounds = new Rectangle(16, 0, 300, 16);
+			paramIndex.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+			paramIndex.Init();
+			paramIndex.ParameterChanged += (Cinema.CinemaStore.Parameter parameter, int paramidx) => {
+				foreach(TransformedImage image in images)
+					image.OnParameterChanged(parameter, paramidx);
+			};
+			this.Controls.Add(paramIndex);
 			#endif
 
 			colorTableMgr = new ColorTableManager(glcontrol);
@@ -726,10 +746,15 @@ namespace csharp_viewer
 				//GL.PointSize(2.0f);
 			}
 
+			int argIndexBottom = 0;
 			#if USE_ARG_IDX
-			argIndex.Load(images, arguments, valuerange);
-			argIndex.SelectionChanged += () => { SelectionChanged(); };
-			//argIndex.ArgumentLabelMouseDown += ArgumentIndex_ArgumentLabelMouseDown;
+			argIndex.Load(valuerange);
+			argIndexBottom = argIndex.Bounds.Bottom + arguments.Length * argIndex.Bounds.Height * 3 / 2;
+			#endif
+
+			#if USE_PARAM_IDX
+			paramIndex.Bounds = new Rectangle(paramIndex.Bounds.X, argIndexBottom, paramIndex.Bounds.Width, paramIndex.Bounds.Height);// paramIndex.Bounds.Y = argIndexBottom;
+			paramIndex.Load();
 			#endif
 
 			cmImage = new ImageContextMenu.MenuGroup("");
@@ -769,7 +794,10 @@ namespace csharp_viewer
 			cmImage = null;
 
 			#if USE_ARG_IDX
-			argIndex.Unload();
+				argIndex.Unload();
+			#endif
+			#if USE_PARAM_IDX
+				paramIndex.Unload();
 			#endif
 		}
 
@@ -1323,8 +1351,8 @@ namespace csharp_viewer
 
 			GL.Disable(EnableCap.DepthTest);
 
-			Common.fontText.DrawString(0.0f, 0.0f, camera_speed.ToString(), backbuffersize);
-			Common.fontText.DrawString(200.0f, 0.0f, freeview.zfar.ToString(), backbuffersize);
+			//Common.fontText.DrawString(0.0f, 0.0f, camera_speed.ToString(), backbuffersize);
+			//Common.fontText.DrawString(200.0f, 0.0f, freeview.zfar.ToString(), backbuffersize);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
 			Common.fontText.DrawString(60.0f, 40.0f, GLTextureStream.foo2, backbuffersize);
@@ -1408,7 +1436,7 @@ namespace csharp_viewer
 		private Plane dragImagePlane;
 		private Vector2 mouseDownPos;
 		private Point mouseDownLocation;
-		private bool mouseDownInsideImageCloud = false, mouseDownInsideArgIndex = false;
+		private bool mouseDownInsideImageCloud = false, mouseDownInsideArgIndex = false, mouseDownInsideParamIndex = false;
 		public void MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
 			if(!glcontrol.Focused)
@@ -1426,6 +1454,14 @@ namespace csharp_viewer
 			if(argIndex.MouseDown(Size, e))
 			{
 				mouseDownInsideArgIndex = true;
+				return;
+			}
+			#endif
+
+			#if USE_PARAM_IDX
+			if(paramIndex.MouseDown(Size, e))
+			{
+				mouseDownInsideParamIndex = true;
 				return;
 			}
 			#endif
@@ -1531,6 +1567,12 @@ namespace csharp_viewer
 				return;
 			#endif
 
+			#if USE_PARAM_IDX
+			mouseDownInsideParamIndex = false;
+			if(paramIndex.MouseUp(Size, e))
+				return;
+			#endif
+
 			if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 2)
 			{
 				if(e.Button == MouseButtons.Left)
@@ -1562,6 +1604,11 @@ namespace csharp_viewer
 
 			#if USE_ARG_IDX
 			if(argIndex.MouseMove(Size, e) || mouseDownInsideArgIndex)
+				return;
+			#endif
+
+			#if USE_PARAM_IDX
+			if(paramIndex.MouseMove(Size, e) || mouseDownInsideParamIndex)
 				return;
 			#endif
 
@@ -1765,7 +1812,8 @@ namespace csharp_viewer
 				break;*/
 
 			case Keys.NumPad7:
-				saveDepthBuffer = true;
+				//saveDepthBuffer = true;
+				saveAssembledImage = true;
 				break;
 			}
 		}
@@ -1821,7 +1869,7 @@ namespace csharp_viewer
 		public void MoveIntoView(TransformedImage image)
 		{
 			float tanY = (float)Math.Tan(FOV_Y / 2.0f), tanX = tanY * aspectRatio;
-			Vector3 pos = Vector3.Transform(new Vector3(0.0f, 0.0f, -Math.Max(0.5f / tanY, 0.5f * image.layers[0].originalAspectRatio / tanX)), freeview.viewmatrix.Inverted());
+			Vector3 pos = Vector3.Transform(new Vector3(0.0f, 0.0f, -Math.Max(0.5f / tanY, 0.5f * image.FirstLayer.originalAspectRatio / tanX)), freeview.viewmatrix.Inverted());
 			image.pos = pos;
 
 			if(image.selected)

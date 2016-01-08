@@ -1247,7 +1247,8 @@ namespace csharp_viewer
 			picker.OnSizeChanged(backbuffersize);
 		}
 
-		public new void Draw(float dt)
+		//public new void Draw(float dt)
+		protected override void Draw(float dt, Matrix4 _transform)
 		{
 			foreach(GLButton button in buttons)
 				button.Draw(dt);

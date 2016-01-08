@@ -194,10 +194,10 @@ namespace csharp_viewer
 			meshSelection = new GLMesh(new Vector3[] {new Vector3(-1.0f, -0.1f, 0.0f), new Vector3(-1.0f, 1.15f, 0.0f), new Vector3(1.0f, 1.15f, 0.0f), new Vector3(1.0f, -0.1f, 0.0f)}, null, null, null, null, null, PrimitiveType.TriangleFan);
 		}
 
-		public void Load(TransformedImageCollection images, Cinema.CinemaArgument[] arguments, Dictionary<string, HashSet<object>> valuerange)
+		public void Load(Dictionary<string, HashSet<object>> valuerange)
 		{
-			this.images = images;
-			this.arguments = arguments;
+			this.images = Viewer.images;
+			this.arguments = Global.arguments;
 
 			// Create track bars for each argument
 			trackbars.Clear();
