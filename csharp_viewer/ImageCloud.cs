@@ -185,43 +185,6 @@ namespace csharp_viewer
 				return vec4(texture1D(Colormap, valueS).rgb, alpha);
 			}
 		";
-		public const string FS_DEPTH1 = @"
-			varying vec2 uv;
-			uniform sampler2D Texture, Texture2, Texture3;
-			uniform vec4 Color;
-			uniform int HasTexture, HasDepth, HasLuminance;
-			uniform vec2 InvBackbufferSize;
-			varying float alpha;
-
-			vec4 shade(sampler2D sampler, in vec2 uv);
-
-			void main()
-			{
-				float depth = gl_FragCoord.z;
-				gl_FragColor = vec4(depth, depth, depth, 1.0);
-			}
-		";
-		public const string FS_DEPTH2 = @"
-			varying vec2 uv;
-			uniform sampler2D Texture, Texture2, Texture3;
-			uniform vec4 Color;
-			uniform int HasTexture, HasDepth, HasLuminance;
-			uniform vec2 InvBackbufferSize;
-			varying float alpha;
-
-			vec4 shade(sampler2D sampler, in vec2 uv);
-
-			void main()
-			{
-				if(texture2D(Texture2, gl_FragCoord.xy * InvBackbufferSize).r != gl_FragCoord.z)
-					discard;
-
-				float depth = texture2D(Texture, uv).r;
-//float depth = texture2D(Texture2, gl_FragCoord.xy * InvBackbufferSize).r;
-				//depth = gl_FragCoord.z + (depth - 1.0) * 1e-8;
-				gl_FragColor = vec4(depth, depth, depth, 1.0);
-			}
-		";
 		public const string FS_ASSEMBLED_IMAGE = @"
 			varying vec2 uv;
 			uniform sampler2D Texture, Texture2, Texture3;
@@ -341,7 +304,7 @@ namespace csharp_viewer
 			}
 		}
 		RenderShader sdr2D_default, sdr2D_cm, sdr2D_assembled, sdr3D_default, sdr3D_cm;
-		GLShader sdrAabb, sdrDepth1, sdrDepth2;
+		GLShader sdrAabb;
 		GLMesh mesh2D, mesh3D;
 
 		private GLWindow glcontrol;
@@ -556,9 +519,6 @@ namespace csharp_viewer
 
 		GLTexture2D texdot;
 
-		GLTexture2D texdepth1, texdepth2;
-		int fbdepth1, fbdepth2;
-		bool saveDepthBuffer = false;
 		public static bool saveAssembledImage = false;
 
 		ColorTableManager colorTableMgr;
@@ -613,8 +573,6 @@ namespace csharp_viewer
 
 			// Load shaders
 			sdrAabb = new GLShader(new string[] {AABB_SHADER.VS}, new string[] {AABB_SHADER.FS});
-			sdrDepth1 = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS_DEPTH1});
-			sdrDepth2 = new GLShader(new string[] {IMAGE_CLOUD_SHADER.VS_DEFAULT}, new string[] {IMAGE_CLOUD_SHADER.FS_DEPTH2});
 
 			// Create mesh for non-depth rendering
 #if USE_GS_QUAD
@@ -944,10 +902,6 @@ namespace csharp_viewer
 
 		public void OnSizeChanged(Size backbuffersize)
 		{
-			ErrorCode err;
-			if((err = GL.GetError()) != ErrorCode.NoError)
-				throw new Exception(err.ToString());
-
 			this.backbuffersize = backbuffersize;
 			freeview.OnSizeChanged(aspectRatio = (float)backbuffersize.Width / (float)backbuffersize.Height);
 
@@ -956,43 +910,6 @@ namespace csharp_viewer
 
 			if(colorTableMgr.Visible)
 				colorTableMgr.OnSizeChanged(backbuffersize);
-
-			if(texdepth1 != null)
-				GL.DeleteTexture(texdepth1.tex);
-			texdepth1 = new GLTexture2D(backbuffersize.Width, backbuffersize.Height, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
-
-			/*if(texdepthdepth != null)
-				GL.DeleteTexture(texdepthdepth.tex);
-			texdepthdepth = new GLTexture2D(backbuffersize.Width, backbuffersize.Height, false, PixelFormat.DepthComponent, PixelInternalFormat.DepthComponent24, PixelType.Float);*/
-
-			fbdepth1 = GL.GenFramebuffer();
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth1);
-			if((err = GL.GetError()) != ErrorCode.NoError)
-				throw new Exception(err.ToString());
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, texdepth1.tex, 0);
-			if((err = GL.GetError()) != ErrorCode.NoError)
-				throw new Exception(err.ToString());
-			//GL.DrawBuffer(DrawBufferMode.ColorAttachment0);
-			FramebufferErrorCode ferr;
-			if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
-				throw new Exception(ferr.ToString());
-
-			if(texdepth2 != null)
-				GL.DeleteTexture(texdepth2.tex);
-			texdepth2 = new GLTexture2D(backbuffersize.Width, backbuffersize.Height, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
-
-			fbdepth2 = GL.GenFramebuffer();
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth2);
-			if((err = GL.GetError()) != ErrorCode.NoError)
-				throw new Exception(err.ToString());
-			GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, texdepth2.tex, 0);
-			if((err = GL.GetError()) != ErrorCode.NoError)
-				throw new Exception(err.ToString());
-			//GL.DrawBuffer(DrawBufferMode.ColorAttachment0);
-			if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
-				throw new Exception(ferr.ToString());
-
-			GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 		}
 
 		struct TransformedImageAndMatrix
@@ -1164,21 +1081,15 @@ namespace csharp_viewer
 
 				float _time = Global.time;
 				//Global.time += 0.5f; // Prefetch 0.5 second into the future
-				Global.time += 1.1f;
-				//Global.time += 7.1f;
+				//Global.time += 1.1f;
+				//Global.time += 4.1f;
+				Global.time += 7.1f;
 				// If the prefetching intervall is too short, images aren't loaded on time.
 				// If the prefetching intervall is too long, too much memory is consumed.
 				// Optimally the prefetching intervall should depend on the load time.
 				foreach(TransformedImage iter in Viewer.visible)
 					iter.PrefetchRenderPriority(freeview, invvieworient, backbuffersize);
 				Global.time = _time;
-
-				GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth1);
-				GL.ClearColor(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue);
-				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-				GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
-				GL.BlendEquation(BlendEquationMode.Min);
-				GL.DepthFunc(DepthFunction.Lequal);
 
 				foreach(TransformedImage iter in Viewer.visible)
 				{
@@ -1198,10 +1109,6 @@ namespace csharp_viewer
 							//dist = -dist;
 							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transforms));
 						}
-
-						// >>> Render visible images to depth texture
-
-						iter.RenderDepth(mesh2D, sdrDepth1, freeview, /*iter.selected ? transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ transforms);
 #else
 						// >>> Render visible images
 
@@ -1219,46 +1126,6 @@ namespace csharp_viewer
 					}
 				}
 
-				/*if(saveDepthBuffer)
-				{
-					float[] pixels = new float[backbuffersize.Width * backbuffersize.Height];
-					GL.ReadPixels(0, 0, backbuffersize.Width, backbuffersize.Height, PixelFormat.Red, PixelType.Float, pixels);
-					Bitmap bmp = new Bitmap(backbuffersize.Width, backbuffersize.Height);
-					System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, backbuffersize), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
-					System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bmpdata.Scan0, pixels.Length);
-					bmp.UnlockBits(bmpdata);
-					bmp.Save("depthBufferScreenshot1.png");
-				}*/
-
-				GL.BindFramebuffer(FramebufferTarget.Framebuffer, fbdepth2);
-				GL.ClearColor(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue);
-				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-				GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
-				GL.BlendEquation(BlendEquationMode.Min);
-				GL.DepthFunc(DepthFunction.Lequal);
-
-				sdrDepth2.Bind();
-				GL.Uniform2(sdrDepth2.GetUniformLocation("InvBackbufferSize"), invbackbuffersize);
-				foreach(TransformedImageAndMatrix iter in renderlist)
-					iter.image.RenderDepth(mesh2D, sdrDepth2, freeview, /*iter.selected ? transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, texdepth1);
-
-				/*if(saveDepthBuffer)
-				{
-					saveDepthBuffer = false;
-
-					float[] pixels = new float[backbuffersize.Width * backbuffersize.Height];
-					GL.ReadPixels(0, 0, backbuffersize.Width, backbuffersize.Height, PixelFormat.Red, PixelType.Float, pixels);
-					Bitmap bmp = new Bitmap(backbuffersize.Width, backbuffersize.Height);
-					System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, backbuffersize), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
-					System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bmpdata.Scan0, pixels.Length);
-					bmp.UnlockBits(bmpdata);
-					bmp.Save("depthBufferScreenshot2.png");
-					Status("Depth buffer screenshot saved to \"depthBufferScreenshot.png\"");
-				}*/
-
-				GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-				GL.BlendEquation(BlendEquationMode.FuncAdd);
-
 #if USE_DEPTH_SORTING
 				//renderlist.reversed = true;
 				foreach(TransformedImageAndMatrix iter in renderlist)
@@ -1266,9 +1133,9 @@ namespace csharp_viewer
 					// >>> Render image
 
 					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
-						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, invbackbuffersize, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter, texdepth2);
+						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, invbackbuffersize, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter);
 					else
-						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, invbackbuffersize, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter, texdepth2);
+						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, invbackbuffersize, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter);
 				}
 
 				// >>> Draw frame around selected images

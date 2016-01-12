@@ -1127,7 +1127,7 @@ namespace csharp_viewer
 			ColorMapCreator.Vector3 C1 = new ColorMapCreator.Vector3(180.030f, 4.080f, 38.250f);
 			AddColormap(ColorTableFromRange(C0, C1, new Vector3(65.0f / 255.0f, 68.0f / 255.0f, 91.0f / 255.0f), "Moreland cool/warm", "Divergent"));*/
 			AddColormaps(ColorTableFromXml("ColorMaps.xml"));
-			AddColormap(NamedColorTable.None);
+			//AddColormap(NamedColorTable.None);
 
 			ActionManager.Do(HideColormapPickerAction);
 			Reset();

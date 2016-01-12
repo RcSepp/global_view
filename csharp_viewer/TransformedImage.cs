@@ -59,6 +59,7 @@ namespace csharp_viewer
 			public string depth_filename, lum_filename;
 
 			public int[] key;
+			public bool[] keymask;
 			public Cinema.CinemaStore.Parameter[] parameters;
 			public int[] globalparamindices;
 
@@ -152,11 +153,14 @@ namespace csharp_viewer
 			bool isActive = true;
 			int paramidx = 0;
 			foreach(Cinema.CinemaStore.Parameter parameter in Global.parameters)
-				if(!parameter.isChecked[newlayer.key[paramidx++]])
+			{
+				if(newlayer.keymask[paramidx] && !parameter.isChecked[newlayer.key[paramidx]])
 				{
 					isActive = false;
 					break;
 				}
+				paramidx++;
+			}
 			if(isActive)
 				activelayers.Add(newlayer);
 			else
@@ -254,6 +258,9 @@ namespace csharp_viewer
 				finalTexLum = null;
 				return false;
 			case 1:
+				if(!activelayers[0].CreateIfLoaded())
+					return false;
+
 				finalTexIsAssembled = false;
 				finalTexHasDefaultComponent = !activelayers[0].isFloatImage;
 				finalTexHasFloatComponent = activelayers[0].isFloatImage;
@@ -364,7 +371,7 @@ namespace csharp_viewer
 			for(int i = activelayers.Count - 1; i >= 0; i--)
 			{
 				ImageLayer layer = activelayers[i];
-				if(!parameter.isChecked[layer.key[paramidx]])
+				if(layer.keymask[paramidx] && !parameter.isChecked[layer.key[paramidx]])
 				{
 					// Deactivate layer
 					activelayers.RemoveAt(i);
@@ -377,16 +384,19 @@ namespace csharp_viewer
 			for(int i = inactivelayers.Count - 1; i >= 0; i--)
 			{
 				ImageLayer layer = inactivelayers[i];
-				if(parameter.isChecked[layer.key[paramidx]])
+				if(layer.keymask[paramidx] && parameter.isChecked[layer.key[paramidx]])
 				{
 					bool isActive = true;
 					int _paramidx = 0;
 					foreach(Cinema.CinemaStore.Parameter _parameter in Global.parameters)
-						if(!_parameter.isChecked[layer.key[_paramidx++]])
+					{
+						if(layer.keymask[_paramidx] && !_parameter.isChecked[layer.key[_paramidx]])
 						{
 							isActive = false;
 							break;
 						}
+						_paramidx++;
+					}
 					if(isActive)
 					{
 						// Activate layer
@@ -604,8 +614,11 @@ namespace csharp_viewer
 				}
 			}
 		}
-		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assembled, Vector2 invbackbuffersize, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter, GLTexture2D texdepth = null)
+		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assembled, Vector2 invbackbuffersize, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter)
 		{
+			foreach(ImageLayer layer in activelayers)
+				layer.CreateIfLoaded();
+
 			AssembleImage();
 			if(finalTex != null)
 			{
@@ -668,7 +681,7 @@ namespace csharp_viewer
 				if(sdr_DepthScale != -1)
 					GL.Uniform1(sdr_DepthScale, depthscale);*/
 
-				mesh.Bind(sdr, layer.tex, layer.tex_depth, texdepth, layer.tex_lum);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
+				mesh.Bind(sdr, layer.tex, layer.tex_depth, layer.tex_lum);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
 				//GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
 				mesh.Draw();
 				//GL.EndQuery(QueryTarget.SamplesPassed);
@@ -680,44 +693,6 @@ namespace csharp_viewer
 
 			foreach(ImageTransform t in this.transforms)
 				t.RenderImage(key, this, freeview);
-		}
-		public void RenderDepth(GLMesh mesh, GLShader sdrDepth, ImageCloud.FreeView freeview, Matrix4[] transforms, GLTexture2D texdepth = null)
-		{
-			for(int i = 0; i < transforms.Length; ++i)
-			{
-				ImageLayer layer = activelayers[i];
-				bool texloaded = layer.CreateIfLoaded();
-				/*bool texloaded;
-				if(texIsStatic)
-					texloaded = true;
-				else if(renderMutex.WaitOne(0))
-				{
-					if(bmp != null)
-					{
-						if(tex == null)
-							tex = new GLTexture2D(bmp, false, !isFloatImage);
-						if(bmp_depth != null && tex_depth == null)
-							tex_depth = new GLTexture2D(bmp_depth, false, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
-						if(bmp_lum != null && tex_lum == null)
-							tex_lum = new GLTexture2D(bmp_lum, false, true);
-						renderMutex.ReleaseMutex();
-						texloaded = true;
-					}
-					else
-					{
-						renderMutex.ReleaseMutex();
-						texloaded = false;
-					}
-				}
-				else
-					texloaded = false;*/
-			
-				//texloaded = true;
-				sdrDepth.Bind(transforms[i]);
-
-				mesh.Bind(sdrDepth, layer.tex_depth, texdepth);
-				mesh.Draw();
-			}
 		}
 
 		public Matrix4 GetWorldMatrix(Matrix4 invvieworient)

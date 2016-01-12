@@ -392,6 +392,7 @@ namespace csharp_viewer
 				{
 					if(image.texIsStatic || !File.Exists(image.filename))
 					{
+						Global.cle.PrintOutput("File not found: " + image.filename);
 						image.tex = texFileNotFound;
 						image.texIsStatic = true;
 						return memory = 0;
@@ -406,6 +407,7 @@ namespace csharp_viewer
 						newbmp = ImageLoader.Load(image.filename, meta);
 						if(newbmp == null)
 						{
+							Global.cle.PrintOutput("File not readable: " + image.filename);
 							image.tex = texFileNotFound;
 							image.texIsStatic = true;
 							return memory = 0;
@@ -419,6 +421,7 @@ namespace csharp_viewer
 						newbmp = ImageLoader.Load(image.filename);
 						if(newbmp == null)
 						{
+							Global.cle.PrintOutput("File not readable: " + image.filename);
 							image.tex = texFileNotFound;
 							image.texIsStatic = true;
 							return memory = 0;
@@ -438,6 +441,7 @@ namespace csharp_viewer
 								newbmp = null;
 							}
 
+							Global.cle.PrintOutput((File.Exists(image.depth_filename) ? "File not readable: " : "File not found: ") + image.depth_filename);
 							image.tex = texFileNotFound;
 							image.texIsStatic = true;
 							return memory = 0;
@@ -456,7 +460,13 @@ namespace csharp_viewer
 								newbmp.Dispose();
 								newbmp = null;
 							}
+							if(newbmp_depth != null)
+							{
+								newbmp_depth.Dispose();
+								newbmp_depth = null;
+							}
 
+							Global.cle.PrintOutput((File.Exists(image.lum_filename) ? "File not readable: " : "File not found: ") + image.lum_filename);
 							image.tex = texFileNotFound;
 							image.texIsStatic = true;
 							return memory = 0;
@@ -561,6 +571,7 @@ namespace csharp_viewer
 						// Unload old image
 						image.bmp.Dispose();
 						image.bmp = null;
+						--GLTextureStream.foo;
 					}
 					image.bmp = newbmp;
 
@@ -571,6 +582,7 @@ namespace csharp_viewer
 							// Unload old image
 							image.bmp_depth.Dispose();
 							image.bmp_depth = null;
+							--GLTextureStream.foo;
 						}
 						image.bmp_depth = newbmp_depth;
 					}
@@ -582,6 +594,7 @@ namespace csharp_viewer
 							// Unload old image
 							image.bmp_lum.Dispose();
 							image.bmp_lum = null;
+							--GLTextureStream.foo;
 						}
 						image.bmp_lum = newbmp_lum;
 					}
@@ -610,6 +623,23 @@ namespace csharp_viewer
 					// Unload image
 					image.bmp.Dispose();
 					image.bmp = null;
+					--GLTextureStream.foo;
+
+					if(image.bmp_depth != null)
+					{
+						// Unload old image
+						image.bmp_depth.Dispose();
+						image.bmp_depth = null;
+						--GLTextureStream.foo;
+					}
+						
+					if(image.bmp_lum != null)
+					{
+						// Unload old image
+						image.bmp_lum.Dispose();
+						image.bmp_lum = null;
+						--GLTextureStream.foo;
+					}
 
 					image.renderMutex.ReleaseMutex();
 

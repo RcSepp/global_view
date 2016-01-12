@@ -1855,3 +1855,39 @@ load "bunny"
 animate all by #time
 animate by #time
 animate by #time
+skip where #time != (int)(time * 5.0) % 50
+skip all by #time != (int)(time * 5.0) % 50
+skip all by #time != (int)(time * 5.0) % 50
+animate #time
+animate by #time
+animate by #time
+animate by #time
+animate by #time
+clear all
+animate by #time * 10.0
+clear all
+animate by #time / 10.0
+clear all
+animate by #time
+skip where #time != (int)(time * 5.0) % 50
+skip all by #time != (int)(time * 5.0) % 50
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+skip all where #time != (int)(time * 5.0) % 50
+skip where #time != (int)(time * 5.0) % 50
+skip visible where #time != (int)(time * 5.0) % 50
+skip all by #time != (int)(time * 5.0) % 50
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+star all by #time * 2, #theta * 2, #phi * 2
+clear all
+star all by #time * 2, #theta * 2, #phi * 2
+hide where #time >= 10
+hide where #time >= 1
+hide where #time != 0
+clear all
+spread all
+unload
+load "bunny"
+skip all by #time != (int)(time * 0.5) % 50
+skip all by #time != (int)(time * 0.5) % 50

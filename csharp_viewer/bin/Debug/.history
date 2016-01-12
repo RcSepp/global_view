@@ -2933,3 +2933,26 @@ star all by #theta * 3.0f, #phi * 3.0f, #time * 3.0f
 look all by $theta * pi / 180 + time, $phi * pi / 180
 clear all
 look all by $theta * pi / 180 + time, $phi * pi / 180
+clear all
+look all by $theta * pi / 180 + time, $phi * pi / 180
+look all by $theta * pi / 180, $phi * pi / 180
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+hide where $theta != 60 || $phi != 120
+clear all
+clear all
+hide where $theta != 60 || $phi != 120
+clear all
+hide where $theta != 60 || $phi != 120
+clear all
+hide where $theta != 60 || $phi != 120
+clear all
+hide where $theta != 60 || $phi != 120
+clear all
+hide where $theta != 60 || $phi != 120
+clear all
+hide where $theta != 60 || $phi != 120
+look all by $theta * pi / 180, $phi * pi / 180
+show all
+hide where $theta != 60 || $phi != 120
+clear all

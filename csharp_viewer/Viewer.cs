@@ -23,6 +23,12 @@ namespace csharp_viewer
 		public static float time = 0.0f;
 		public static Cinema.CinemaArgument[] arguments = new Cinema.CinemaArgument[0]; // An array of descriptors for each dimension
 		public static Cinema.CinemaStore.Parameter[] parameters = new Cinema.CinemaStore.Parameter[0]; // An array of descriptors for each parameter
+
+#if USE_STD_IO
+		public static StdConsole cle = new StdConsole();
+#else
+		public static ScriptingConsole cle = new ScriptingConsole();
+#endif
 	}
 
 	public class Viewer : Form
@@ -46,12 +52,7 @@ namespace csharp_viewer
 		ImageCloud imageCloud;
 		Control ctrlConsole = null;
 		ActionManager actMgr = new ActionManager();
-#if USE_STD_IO
-		StdConsole scrCle = new StdConsole();
-#else
-		ScriptingConsole scrCle = new ScriptingConsole();
-#endif
-		Control scrCle_Invoker = null;
+		Control cle_Invoker = null;
 		public static ImageBrowser browser = new SimpleBrowser();
 		//public static ImageBrowser browser = new MPASBrowser();
 
@@ -208,23 +209,23 @@ namespace csharp_viewer
 #if !USE_STD_IO
 			// Create scripting console
 			#if EMBED_CONSOLE
-			ctrlConsole = scrCle.Create();
-			scrCle.ExecuteCommand += Console_Execute;
+			ctrlConsole = Global.cle.Create();
+			Global.cle.ExecuteCommand += Console_Execute;
 			this.Controls.Add(ctrlConsole);
 			#else
 			Form frmConsole = new Form();
 			frmConsole.StartPosition = FormStartPosition.Manual;
 			frmConsole.Bounds = new Rectangle(this.Left + this.Width, this.Top, screenbounds.Width - this.Width, 512);
-			Control ctrlConsole = scrCle.Create();
+			Control ctrlConsole = Global.cle.Create();
 			ctrlConsole.Dock = DockStyle.Fill;
-			scrCle.MethodCall += actMgr.Invoke;
+			Global.cle.MethodCall += actMgr.Invoke;
 			frmConsole.Controls.Add(ctrlConsole);
 			frmConsole.Show();
 			#endif
 #endif
 
 			if(Directory.Exists("/Users/sklaassen/Desktop/work/db"))
-				scrCle.workingDirectory = "/Users/sklaassen/Desktop/work/db";
+				Global.cle.workingDirectory = "/Users/sklaassen/Desktop/work/db";
 
 			this_SizeChanged(null, null);
 
@@ -499,8 +500,8 @@ namespace csharp_viewer
 						RedirectStandardError = true,
 					}
 				};
-				process.OutputDataReceived += (sender, e) => scrCle.PrintOutput(e.Data);
-				process.ErrorDataReceived += (sender, e) => scrCle.PrintOutput(e.Data);
+				process.OutputDataReceived += (sender, e) => Global.cle.PrintOutput(e.Data);
+				process.ErrorDataReceived += (sender, e) => Global.cle.PrintOutput(e.Data);
 
 				process.Start();
 				process.BeginOutputReadLine();
@@ -551,7 +552,7 @@ namespace csharp_viewer
 							break;
 						}*/
 					if(!se.MoveNext() || !se.Current.FirstLayer.filename.Equals(filename))
-						scrCle.PrintOutput(string.Format("Error: Unexpected filename ({0})", filename));
+						Global.cle.PrintOutput(string.Format("Error: Unexpected filename ({0})", filename));
 
 					GLTextureStream.ImageMetaData[] meta = new GLTextureStream.ImageMetaData[1];
 					meta[0].name = "feature";
@@ -565,9 +566,9 @@ namespace csharp_viewer
 			});
 
 #if USE_STD_IO
-			scrCle.MethodCall += actMgr.Invoke;
-			scrCle_Invoker = this;
-			scrCle.Run();
+			Global.cle.MethodCall += actMgr.Invoke;
+			Global.cle_Invoker = this;
+			Global.cle.Run();
 #endif
 		}
 
@@ -601,11 +602,11 @@ namespace csharp_viewer
 		private string compiler_MethodCall(string method, object[] args)
 		{
 			string stdout;
-			if(scrCle_Invoker != null)
+			if(cle_Invoker != null)
 			{
-				IAsyncResult invokeResult = scrCle_Invoker.BeginInvoke(new ISQL.Compiler.MethodCallDelegate(actMgr.Invoke), new object[] { method, args });
+				IAsyncResult invokeResult = cle_Invoker.BeginInvoke(new ISQL.Compiler.MethodCallDelegate(actMgr.Invoke), new object[] { method, args });
 				invokeResult.AsyncWaitHandle.WaitOne();
-				stdout = (string)scrCle_Invoker.EndInvoke(invokeResult);
+				stdout = (string)cle_Invoker.EndInvoke(invokeResult);
 			}
 			else
 				stdout = actMgr.Invoke(method, args);
@@ -652,7 +653,7 @@ namespace csharp_viewer
 			bool isdir;
 			if(!(isdir = System.IO.Directory.Exists(path)) && !System.IO.File.Exists(path))
 			{
-				string relativePath = scrCle.workingDirectory + Path.DirectorySeparatorChar + path;
+				string relativePath = Global.cle.workingDirectory + Path.DirectorySeparatorChar + path;
 				if(!(isdir = System.IO.Directory.Exists(relativePath)) && !System.IO.File.Exists(relativePath))
 					throw new System.IO.FileNotFoundException(path);
 				path = relativePath;
@@ -957,6 +958,7 @@ namespace csharp_viewer
 						layer.lum_filename = layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath;
 						layer.isFloatImage = useFloatImages || layerdesc.isFloatImage;
 						layer.key = layerdesc.paramidx;
+						layer.keymask = layerdesc.paramvalid;
 						layer.parameters = newparams;
 						layer.globalparamindices = newparamindices;
 						cimg.AddLayer(layer);
@@ -1022,7 +1024,7 @@ namespace csharp_viewer
 			string startupscriptfilename = filename + Path.DirectorySeparatorChar + "startup.isql";
 			if(File.Exists(startupscriptfilename))
 			{
-				scrCle.PrintOutput("Executing startup script (startup.isql)");
+				Global.cle.PrintOutput("Executing startup script (startup.isql)");
 				actMgr.RunScript(startupscriptfilename);
 			}
 		}
@@ -1425,7 +1427,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		private void Exit()
 		{
 #if USE_STD_IO
-			scrCle.Close();
+			Global.cle.Close();
 #endif
 			this.Close();
 		}
@@ -1743,7 +1745,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 				glImageCloud.SwapBuffers();
 
-				actMgr.PostRender(glImageCloud, scrCle as ScriptingConsole);
+				actMgr.PostRender(glImageCloud, Global.cle as ScriptingConsole);
 
 				Global.time += dt;
 			}

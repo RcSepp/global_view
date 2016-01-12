@@ -592,6 +592,7 @@ namespace csharp_viewer
 				public string imagepath, imageDepthPath, imageLumPath;
 				public bool isFloatImage;
 				public int[] paramidx;
+				public bool[] paramvalid;
 
 				public LayerDescription(LayerDescription layer)
 				{
@@ -600,6 +601,7 @@ namespace csharp_viewer
 					this.imageLumPath = layer.imageLumPath;
 					this.isFloatImage = layer.isFloatImage;
 					this.paramidx = layer.paramidx;
+					this.paramvalid = layer.paramvalid;
 				}
 			}
 			public class LayerCollection : IEnumerable<LayerDescription>
@@ -762,13 +764,15 @@ namespace csharp_viewer
 						_layer.imageLumPath = hasLum ? "image/" + _layer.imageLumPath + ext : null;
 						_layer.paramidx = new int[paramidx.Length];
 						Array.Copy(paramidx, _layer.paramidx, paramidx.Length);
+						_layer.paramvalid = new bool[paramvalid.Length];
+						Array.Copy(paramvalid, _layer.paramvalid, paramvalid.Length);
 
 						yield return _layer;
 
 						// Get next parameter combination -> paramidx[]
 						done = true;
 						for(int i = 0; i < store.parameters.Length; ++i) {
-							if(++paramidx[i] == store.parameters[i].values.Length)
+							if(paramvalid[i] == false ||  ++paramidx[i] == store.parameters[i].values.Length)
 								paramidx[i] = 0;
 							else {
 								done = false;

@@ -184,10 +184,17 @@ namespace csharp_viewer
 			txt.GoEnd();
 		}
 
+		private delegate void PrintOutputDelegate(string output);
 		public void PrintOutput(string output)
 		{
 			if(output != null && output != "")
 			{
+				if(txt.InvokeRequired)
+				{
+					txt.Invoke(new PrintOutputDelegate(PrintOutput), new object[]{ output });  // invoking itself
+					return;
+				}
+
 				/*// Trim "\n> "
 				if(txt.Text.Substring(txt.Text.Length - 3).Equals("\n> "))
 					txt.Text = txt.Text.Substring(0, txt.Text.Length - 3);
