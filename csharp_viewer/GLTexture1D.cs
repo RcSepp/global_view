@@ -13,8 +13,8 @@ namespace csharp_viewer
 	{
 		private byte[] bytes;
 
-		public GLTexture1D(byte[] bytes, int width, bool genmipmaps = false)
-			: base(TextureTarget.Texture1D, width, 1)
+		public GLTexture1D(string name, byte[] bytes, int width, bool genmipmaps = false)
+			: base(name, TextureTarget.Texture1D, width, 1)
 		{
 			this.bytes = bytes;
 			tex = GL.GenTexture();

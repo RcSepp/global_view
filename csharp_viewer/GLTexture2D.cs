@@ -11,8 +11,8 @@ namespace csharp_viewer
 {
 	public class GLTexture2D : GLTexture
 	{
-		public GLTexture2D(Bitmap bmp, bool genmipmaps = false, bool linearfilter = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
-			: base(TextureTarget.Texture2D, bmp.Width, bmp.Height)
+		public GLTexture2D(string name, Bitmap bmp, bool genmipmaps = false, bool linearfilter = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
+			: base(name, TextureTarget.Texture2D, bmp.Width, bmp.Height)
 		{
 			tex = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, tex);
@@ -57,11 +57,11 @@ namespace csharp_viewer
 			if(!File.Exists(filename))
 				throw new FileNotFoundException();
 
-			return new GLTexture2D(new Bitmap(filename), genmipmaps);
+			return new GLTexture2D(filename, new Bitmap(filename), genmipmaps);
 		}
 
-		public GLTexture2D(byte[] bytes, int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
-			: base(TextureTarget.Texture2D, width, height)
+		public GLTexture2D(string name, byte[] bytes, int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
+			: base(name, TextureTarget.Texture2D, width, height)
 		{
 			tex = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, tex);
@@ -81,8 +81,8 @@ namespace csharp_viewer
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Clamp);
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
 		}
-		public GLTexture2D(int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte, bool linearfilter = false)
-			: base(TextureTarget.Texture2D, width, height)
+		public GLTexture2D(string name, int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte, bool linearfilter = false)
+			: base(name, TextureTarget.Texture2D, width, height)
 		{
 			tex = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, tex);
@@ -119,8 +119,8 @@ namespace csharp_viewer
 			GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Clamp);
 		}
 
-		public GLTexture2D(int tex, int width, int height)
-			: base(TextureTarget.Texture2D, width, height)
+		public GLTexture2D(string name, int tex, int width, int height)
+			: base(name, TextureTarget.Texture2D, width, height)
 		{
 			this.tex = tex;
 		}

@@ -192,7 +192,7 @@ namespace csharp_viewer
 			}}
 		}}
 		ImageAndAngleArray bestImages = new ImageAndAngleArray();
-		Vector3 viewpos;
+		Vector3 viewpos, viewdir;
 
 		public LookAtTransform()
 		{{
@@ -213,11 +213,12 @@ namespace csharp_viewer
 		public override void OnRender(float dt, ImageCloud.FreeView freeview)
 		{{
 			viewpos = freeview.viewpos;
+			viewdir = -freeview.GetViewDirection();
 			bestImages.Clear();
 		}}
 		public override void PrepareImage(int[] imagekey, TransformedImage image)
 		{{
-			Vector3 viewdir = (image.pos - viewpos).Normalized();
+			//Vector3 viewdir = (image.pos - viewpos).Normalized();
 
 			Selection<float> viewangle;
 

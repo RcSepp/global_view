@@ -6,3 +6,7 @@ csharp_viewer/bin/Release/old_ColorMaps.xml
 charmap*.png
 screenshot.png
 parsedFile.txt
+TemporaryGeneratedFile*
+*.cache
+vs2010_csharp_viewer.suo
+*.user

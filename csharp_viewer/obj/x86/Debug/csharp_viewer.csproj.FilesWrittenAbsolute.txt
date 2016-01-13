@@ -8,3 +8,5 @@
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/OpenTK.GLControl.dll
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/FastColoredTextBox.dll
 /Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/ExifLib.dll
+/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/obj/x86/Debug/.NETFramework,Version=v4.0.AssemblyAttribute.cs
+/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/bin/Debug/csharp_viewer.exe.config

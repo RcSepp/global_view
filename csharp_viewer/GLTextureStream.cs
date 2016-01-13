@@ -52,7 +52,7 @@ namespace csharp_viewer
 					metadataLoaded = false;
 				}
 
-				public int RequiredMemory(float tradeoffRenderSizeFactor)
+				public int RequiredMemory(float tradeoffRenderSizeFactor, bool forceOriginalSize)
 				{
 					// Returns (guessed) memory required for Load()
 
@@ -67,7 +67,7 @@ namespace csharp_viewer
 					{
 						// Recompute image size
 						int newwidth, newheight;
-						if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+						if (forceOriginalSize || image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
 						{
 							newwidth = image.originalWidth;
 							newheight = image.originalHeight;
@@ -105,7 +105,7 @@ namespace csharp_viewer
 
 					// Compute image size
 					int width, height; // width and height are only computed locally
-					if(renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
+					if (forceOriginalSize || renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
 					{
 						width = image.originalWidth;
 						height = image.originalHeight;
@@ -133,12 +133,12 @@ namespace csharp_viewer
 				{
 					return memory > 0 && image.renderPriority <= 0;
 				}
-				public bool MemoryShrinkable()
+				public bool MemoryShrinkable(bool forceOriginalSize)
 				{
 					if(memory > 0)
 					{
 						int newwidth;
-						if(image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+						if (forceOriginalSize || image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
 							newwidth = image.originalWidth;
 						else
 						{
@@ -324,7 +324,7 @@ namespace csharp_viewer
 					}
 
 					// Compute width & height
-					if(renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
+					if(forceOriginalSize || renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
 					{
 						width = image.originalWidth;
 						height = image.originalHeight;
@@ -388,7 +388,7 @@ namespace csharp_viewer
 					return memorydiff;
 				}*/
 
-				public int Load(float tradeoffRenderSizeFactor, GLTexture2D texFileNotFound, ReadImageMetaDataDelegate ReadImageMetaData)
+				public int Load(float tradeoffRenderSizeFactor, bool forceOriginalSize, GLTexture2D texFileNotFound, ReadImageMetaDataDelegate ReadImageMetaData)
 				{
 					if(image.texIsStatic || !File.Exists(image.filename))
 					{
@@ -413,8 +413,8 @@ namespace csharp_viewer
 							return memory = 0;
 						}
 
-						//if(meta.Count == 0 || ReadImageMetaData(image, meta.ToArray()))
-						//	metadataLoaded = true;
+						if(meta.Count == 0 || ReadImageMetaData(image.image, meta.ToArray()))
+							metadataLoaded = true;
 					}
 					else
 					{
@@ -492,7 +492,7 @@ namespace csharp_viewer
 					}
 
 					// Compute width & height
-					if(renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
+					if (forceOriginalSize || renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
 					{
 						width = image.originalWidth;
 						height = image.originalHeight;
@@ -669,6 +669,7 @@ namespace csharp_viewer
 			private Mutex addImageMutex;
 
 			private float tradeoffRenderSizeFactor = 1.0f;
+			public bool forceOriginalSize = false;
 
 			private ReadImageMetaDataDelegate ReadImageMetaData;
 
@@ -727,7 +728,14 @@ namespace csharp_viewer
 			{
 				addImageMutex.WaitOne();
 				prioritySortedImages.RemoveAll(delegate(Image img) {
-					return image.activelayers.Contains(img.image) || image.inactivelayers.Contains(img.image);
+					if(image.activelayers.Contains(img.image) || image.inactivelayers.Contains(img.image))
+					{
+						if(img.image.bmp != null)
+							availablememory += img.Unload();
+						return true;
+					}
+					else
+						return false;
 				});
 				addImageMutex.ReleaseMutex();
 			}
@@ -737,7 +745,11 @@ namespace csharp_viewer
 				prioritySortedImages.RemoveAll(delegate(Image img) {
 					foreach(TransformedImage image in images)
 						if(image.activelayers.Contains(img.image) || image.inactivelayers.Contains(img.image))
+						{
+							if(img.image.bmp != null)
+								availablememory += img.Unload();
 							return true;
+						}
 					return false;
 				});
 				addImageMutex.ReleaseMutex();
@@ -745,6 +757,9 @@ namespace csharp_viewer
 			public void ClearImages()
 			{
 				addImageMutex.WaitOne();
+				foreach(Image image in prioritySortedImages)
+					if(image.image.bmp != null)
+						availablememory += image.Unload();
 				prioritySortedImages.Clear();
 				addImageMutex.ReleaseMutex();
 			}
@@ -766,13 +781,13 @@ namespace csharp_viewer
 					for(; loadidx >= 0; --loadidx)
 					{
 						Image img = prioritySortedImages[loadidx];
-						int requiredmemory = img.RequiredMemory(tradeoffRenderSizeFactor);
+						int requiredmemory = img.RequiredMemory(tradeoffRenderSizeFactor, forceOriginalSize);
 
 						if(requiredmemory <= 0) // If image is already loaded
 							continue; // continue checking next-highest priority image
 						if(requiredmemory <= availablememory) // If we have enough memory to load img
 						{
-							availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Load image and update available memory
+							availablememory -= img.Load(tradeoffRenderSizeFactor, forceOriginalSize, texFileNotFound, ReadImageMetaData); // Load image and update available memory
 							break; // Done
 						}
 						else // If we don't have enough memory to load img
@@ -787,17 +802,17 @@ namespace csharp_viewer
 									availablememory += u_img.Unload(); // Unload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
 									{
-										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Load image and update available memory
+										availablememory -= img.Load(tradeoffRenderSizeFactor, forceOriginalSize, texFileNotFound, ReadImageMetaData); // Load image and update available memory
 										imageLoaded = true;
 										break; // Done
 									}
 								}
-								else if(u_img.MemoryShrinkable()) // If image is loaded, but can be shrinked
+								else if(u_img.MemoryShrinkable(forceOriginalSize)) // If image is loaded, but can be shrinked
 								{
-									availablememory -= u_img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Reload image and update available memory
+									availablememory -= u_img.Load(tradeoffRenderSizeFactor, forceOriginalSize, texFileNotFound, ReadImageMetaData); // Reload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
 									{
-										availablememory -= img.Load(tradeoffRenderSizeFactor, texFileNotFound, ReadImageMetaData); // Load image and update available memory
+										availablememory -= img.Load(tradeoffRenderSizeFactor, forceOriginalSize, texFileNotFound, ReadImageMetaData); // Load image and update available memory
 										imageLoaded = true;
 										break; // Done
 									}
@@ -849,6 +864,8 @@ namespace csharp_viewer
 		}
 		private AsyncImageLoader loader;
 
+		public bool forceOriginalSize { get { return loader.forceOriginalSize; } set { loader.forceOriginalSize = value; } }
+
 		private static int ceilBin(int v)
 		{
 			int b;
@@ -893,7 +910,7 @@ namespace csharp_viewer
 			gfx.Flush();
 
 			// Load texture
-			texFileNotFound = new GLTexture2D(bmpFileNotFound, true);
+			texFileNotFound = new GLTexture2D("texFileNotFound", bmpFileNotFound, true);
 
 			loader = new AsyncImageLoader(memorysize, texFileNotFound, ReadImageMetaData);
 		}

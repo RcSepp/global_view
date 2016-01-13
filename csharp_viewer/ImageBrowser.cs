@@ -16,17 +16,19 @@ namespace csharp_viewer
 		public event Selection.MovedDelegate SelectionMoved;
 
 		// Private variables
+		private Viewer viewer;
 		private ImageCloud imageCloud;
 
-		public void Init(ImageCloud imageCloud)
+		public void Init(Viewer viewer, ImageCloud imageCloud)
 		{
+			this.viewer = viewer;
 			this.imageCloud = imageCloud;
 		}
 
 		// Options
 		protected enum Option
 		{
-			BackColor, ViewControl, ViewRotationCenter, ShowCoordinateSystem, ShowLineGrid, EnableMouseRect
+			BackColor, ViewControl, ViewRotationCenter, ShowCoordinateSystem, ShowLineGrid, ShowConsole, EnableMouseRect, FullScreen, ForceOriginalImageSize
 		}
 		protected void SetOption(Option option, object value)
 		{
@@ -48,8 +50,26 @@ namespace csharp_viewer
 			case Option.ShowLineGrid:
 				imageCloud.showLineGrid = (bool)value;
 				break;
+			case Option.ShowConsole:
+				viewer.ConsoleVisible = (bool)value;
+				break;
 			case Option.EnableMouseRect:
 				imageCloud.enableMouseRect = (bool)value;
+				break;
+			case Option.FullScreen:
+				if ((bool)value)
+				{
+					viewer.FormBorderStyle = FormBorderStyle.None;
+					viewer.WindowState = FormWindowState.Maximized;
+				}
+				else
+				{
+					viewer.FormBorderStyle = FormBorderStyle.Sizable;
+					viewer.WindowState = FormWindowState.Normal;
+				}
+				break;
+				case Option.ForceOriginalImageSize:
+				imageCloud.forceOriginalImageSize = (bool)value;
 				break;
 			}
 		}
@@ -261,6 +281,11 @@ namespace csharp_viewer
 			}
 			//SelectionMoved();
 		}
+
+		public void Exit()
+		{
+			viewer.Close();
+		}
 	}
 
 	public class SimpleBrowser : ImageBrowser
@@ -273,12 +298,13 @@ namespace csharp_viewer
 			//SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			SetOption(Option.ShowCoordinateSystem, false);
 
+			SetOption(Option.ForceOriginalImageSize, true);
+
 			cmImage = new ImageContextMenu.MenuGroup("");
 			cmImage.controls.Add(new ImageContextMenu.MenuButton("test"));
 			cmImage.ComputeSize();
 
-			//string output, warnings;
-			//ISQL.Compiler.Execute(string.Format("x all BY #theta * 3.0f"), ActionManager.mgr.Invoke, out output, out warnings);
+			//ExecuteISQL(string.Format("x all BY #theta * 3.0f"));
 		}
 
 		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
@@ -436,6 +462,116 @@ namespace csharp_viewer
 
 				FocusSelection();
 				Select(image);
+			}
+		}
+	}
+
+	public class PhotoBrowser : ImageBrowser
+	{
+		//private ImageContextMenu.MenuGroup cmImage;
+
+		public override void OnLoad()
+		{
+			SetOption(Option.BackColor, Color4.Black);
+			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
+			SetOption(Option.ShowCoordinateSystem, false);
+			SetOption(Option.ShowLineGrid, false);
+			SetOption(Option.ShowConsole, false);
+			SetOption(Option.EnableMouseRect, false);
+			SetOption(Option.FullScreen, true);
+			SetOption(Option.ForceOriginalImageSize, true);
+
+			//cmImage = new ImageContextMenu.MenuGroup("");
+			//cmImage.controls.Add(new ImageContextMenu.MenuButton("test"));
+			//cmImage.ComputeSize();
+
+			ExecuteISQL("x all BY #filename * 3.0f");
+
+			Select(Viewer.images[0]);
+			FocusSelection();
+			ActionManager.mgr.Invoke("SkipViewAnimation", new object[] { });
+		}
+
+		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
+		{
+			enableDrag = Control.MouseButtons == MouseButtons.Left;
+		}
+		public override void OnNonImageMouseDown()
+		{
+		}
+		public override void OnImageRightClick(TransformedImage image)
+		{
+			//ShowContextMenu(cmImage);
+		}
+		public override void OnImageDoubleClick(TransformedImage image)
+		{
+			ClearSelection();
+			MoveIntoView(image);
+		}
+		public override void OnImageDrag(TransformedImage image, Vector3 delta)
+		{
+			MoveSelection(delta);
+		}
+
+		public override void OnKeyDown(KeyEventArgs e)
+		{
+			switch (e.KeyCode)
+			{
+				case Keys.Left:
+					{
+						IEnumerator<TransformedImage> imageenum = Viewer.selection.GetEnumerator();
+						if (!imageenum.MoveNext())
+							break;
+						int imageIndex = imageenum.Current.key[0];
+						if (imageIndex > 0)
+						{
+							ExecuteISQL("SELECT WHERE #filename == " + (--imageIndex).ToString());
+							FocusSelection();
+							ActionManager.mgr.Invoke("SkipViewAnimation", new object[] { });
+						}
+					}
+					break;
+
+				case Keys.Right:
+					{
+						IEnumerator<TransformedImage> imageenum = Viewer.selection.GetEnumerator();
+						if (!imageenum.MoveNext())
+							break;
+						int imageIndex = imageenum.Current.key[0];
+						if (imageIndex < Viewer.images.Count - 1)
+						{
+							ExecuteISQL("SELECT WHERE #filename == " + (++imageIndex).ToString());
+							FocusSelection();
+							ActionManager.mgr.Invoke("SkipViewAnimation", new object[] { });
+						}
+					}
+					break;
+
+				case Keys.Y:
+					{
+						IEnumerator<TransformedImage> imageenum = Viewer.selection.GetEnumerator();
+						if (!imageenum.MoveNext())
+							break;
+						TransformedImage.ImageLayer layer = imageenum.Current.FirstLayer;
+						layer.bmp.RotateFlip(RotateFlipType.Rotate90FlipNone);
+						layer.TriggerReload();
+						layer.originalWidth = layer.bmp.Width;
+						layer.originalHeight = layer.bmp.Height;
+						layer.originalAspectRatio = (float)layer.originalWidth / (float)layer.originalHeight;
+					}
+					break;
+
+				case Keys.Escape:
+					Exit();
+					break;
+
+				case Keys.F:
+					FocusSelection();
+					break;
+
+				case Keys.Delete:
+					HideSelection();
+					break;
 			}
 		}
 	}

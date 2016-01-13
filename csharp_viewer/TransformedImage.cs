@@ -81,24 +81,47 @@ namespace csharp_viewer
 				if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
 				{
 					// Unload texture
-					GL.DeleteTexture(tex.tex);
+					tex.Dispose();
 					tex = null;
 
 					if(tex_depth != null)
 					{
-						GL.DeleteTexture(tex_depth.tex);
+						tex_depth.Dispose();
 						tex_depth = null;
 					}
 
 					if(tex_lum != null)
 					{
-						GL.DeleteTexture(tex_lum.tex);
+						tex_lum.Dispose();
 						tex_lum = null;
 					}
 
 					image.FreeAssembledImage();
 				}
 				oldbmp = bmp;
+			}
+
+			public void TriggerReload()
+			{
+				if (tex != null)
+				{
+					tex.Dispose();
+					tex = null;
+				}
+
+				if (tex_depth != null)
+				{
+					tex_depth.Dispose();
+					tex_depth = null;
+				}
+
+				if (tex_lum != null)
+				{
+					tex_lum.Dispose();
+					tex_lum = null;
+				}
+
+				image.FreeAssembledImage();
 			}
 
 			public bool CreateIfLoaded() // Returns true if ready for rendering
@@ -112,17 +135,17 @@ namespace csharp_viewer
 					{
 						if(tex == null)
 						{
-							tex = new GLTexture2D(bmp, false, !isFloatImage);
+							tex = new GLTexture2D("layer_tex", bmp, false, !isFloatImage);
 							image.FreeAssembledImage();
 						}
 						if(bmp_depth != null && tex_depth == null)
 						{
-							tex_depth = new GLTexture2D(bmp_depth, false, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
+							tex_depth = new GLTexture2D("layer_depthtex", bmp_depth, false, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
 							image.FreeAssembledImage();
 						}
 						if(bmp_lum != null && tex_lum == null)
 						{
-							tex_lum = new GLTexture2D(bmp_lum, false, true);
+							tex_lum = new GLTexture2D("layer_lumtex", bmp_lum, false, true);
 							image.FreeAssembledImage();
 						}
 						renderMutex.ReleaseMutex();
@@ -220,13 +243,13 @@ namespace csharp_viewer
 				//if((ferr = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer)) != FramebufferErrorCode.FramebufferComplete)
 				//	throw new Exception(ferr.ToString());
 
-				GL.PushAttrib(AttribMask.ViewportBit);
+				GL.PushAttrib(AttribMask.ViewportBit | AttribMask.DepthBufferBit | AttribMask.ColorBufferBit);
 				GL.Enable(EnableCap.DepthTest);
 				GL.Disable(EnableCap.DepthClamp);
 				GL.DepthFunc(DepthFunction.Lequal);
 				GL.BlendEquation(BlendEquationMode.FuncAdd);
 				GL.DrawBuffers(3, new DrawBuffersEnum[] {DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2});
-				GL.ClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+				GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 				GL.Viewport(0, 0, framebufferSize.Width, framebufferSize.Height);
 
@@ -236,6 +259,11 @@ namespace csharp_viewer
 			{
 				GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
 				//GL.DeleteFramebuffer(framebuffer);
+
+				// Restore old framebuffer state
+				GL.PopAttrib();
+
+				//GL.DepthFunc(DepthFunction.Less);
 			}
 		}
 
@@ -247,10 +275,10 @@ namespace csharp_viewer
 			if(finalTex != null)
 				return false; // Texture already assembled
 
+			finalTexIsAssembled = false;
 			switch(activelayers.Count)
 			{
 			case 0:
-				finalTexIsAssembled = false;
 				finalTexHasDefaultComponent = false;
 				finalTexHasFloatComponent = false;
 				finalTex = null;
@@ -261,7 +289,6 @@ namespace csharp_viewer
 				if(!activelayers[0].CreateIfLoaded())
 					return false;
 
-				finalTexIsAssembled = false;
 				finalTexHasDefaultComponent = !activelayers[0].isFloatImage;
 				finalTexHasFloatComponent = activelayers[0].isFloatImage;
 				finalTex = activelayers[0].tex;
@@ -269,7 +296,9 @@ namespace csharp_viewer
 				finalTexLum = activelayers[0].tex_lum;
 				return false;
 			}
-			finalTexIsAssembled = true;
+			foreach(ImageLayer layer in activelayers)
+				if(!layer.CreateIfLoaded())
+					return false;
 
 			if(sdrImageAssembly == null)
 				sdrImageAssembly = new GLShader(new string[] {IMAGE_ASSEMBLY_SHADER.VS}, new string[] {IMAGE_ASSEMBLY_SHADER.FS});
@@ -285,10 +314,11 @@ namespace csharp_viewer
 				return false; // None of the active layers has been created so far
 
 			// Create and activate rendertexture, depthtexture and framebuffer
-			finalTex = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
-			finalTexFloat = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:false);
-			finalTexLum = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
-			GLTexture2D finalTexDepth = new GLTexture2D(framebufferWidth, framebufferHeight, false, PixelFormat.DepthComponent, PixelInternalFormat.DepthComponent, PixelType.Float);
+			finalTexIsAssembled = true;
+			finalTex = new GLTexture2D("finalTex", framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
+			finalTexFloat = new GLTexture2D("finalTexFloat", framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:false);
+			finalTexLum = new GLTexture2D("finalTexLum", framebufferWidth, framebufferHeight, false, PixelFormat.Rgba, PixelInternalFormat.Rgba, PixelType.Byte, linearfilter:true);
+			GLTexture2D finalTexDepth = new GLTexture2D("finalTexDepth", framebufferWidth, framebufferHeight, false, PixelFormat.DepthComponent, PixelInternalFormat.DepthComponent, PixelType.Float);
 
 			int finalTexFramebuffer = FramebufferCollection.RequestFramebuffer(finalTex, finalTexFloat, finalTexLum, finalTexDepth);
 
@@ -343,12 +373,8 @@ namespace csharp_viewer
 
 			// Deactivate and remove depthtexture and framebuffer
 			FramebufferCollection.ReturnFramebuffer(finalTexFramebuffer);
-			GL.DeleteTexture(finalTexDepth.tex);
+			finalTexDepth.Dispose();
 			finalTexDepth = null;
-
-			// Restore old framebuffer state
-			GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f);
-			GL.PopAttrib();
 
 			return true;
 		}
@@ -358,11 +384,56 @@ namespace csharp_viewer
 			{
 				if(finalTexIsAssembled)
 				{
-					GL.DeleteTexture(finalTex.tex);
-					GL.DeleteTexture(finalTexFloat.tex);
-					GL.DeleteTexture(finalTexLum.tex);
+					finalTex.Dispose();
+					finalTexFloat.Dispose();
+					finalTexLum.Dispose();
 				}
 				finalTex = finalTexFloat = finalTexLum = null;
+			}
+		}
+
+		public void Dispose()
+		{
+			FreeAssembledImage();
+			foreach(ImageLayer layer in activelayers)
+			{
+				if(layer.tex != null)
+				{
+					layer.tex.Dispose();
+					layer.tex = null;
+				}
+
+				if(layer.tex_depth != null)
+				{
+					layer.tex_depth.Dispose();
+					layer.tex_depth = null;
+				}
+
+				if(layer.tex_lum != null)
+				{
+					layer.tex_lum.Dispose();
+					layer.tex_lum = null;
+				}
+			}
+			foreach(ImageLayer layer in inactivelayers)
+			{
+				if(layer.tex != null)
+				{
+					layer.tex.Dispose();
+					layer.tex = null;
+				}
+
+				if(layer.tex_depth != null)
+				{
+					layer.tex_depth.Dispose();
+					layer.tex_depth = null;
+				}
+
+				if(layer.tex_lum != null)
+				{
+					layer.tex_lum.Dispose();
+					layer.tex_lum = null;
+				}
 			}
 		}
 
@@ -436,6 +507,8 @@ namespace csharp_viewer
 
 		private float prefetchHoldTime = 0.0f; // To avoid images to be unloaded between prefetching and rendering, prefetchHoldTime gets set to the expected render time inside PrefetchRenderPriority()
 
+		private float visibilityFactor = 0.0f; // Percentage of pixel visible on screen (computed by the GPU)
+
 		private bool visible_manual = true; // Publicly controllable visibility
 		private bool visible_static = true; // == visible_manual + visibility for static image skip-transforms
 		public bool Visible
@@ -502,18 +575,18 @@ namespace csharp_viewer
 			/*if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
 			{
 				// Unload texture
-				GL.DeleteTexture(tex.tex);
+				tex.Dispose();
 				tex = null;
 
 				if(tex_depth != null)
 				{
-					GL.DeleteTexture(tex_depth.tex);
+					tex_depth.Dispose();
 					tex_depth = null;
 				}
 
 				if(tex_lum != null)
 				{
-					GL.DeleteTexture(tex_lum.tex);
+					tex_lum.Dispose();
 					tex_lum = null;
 				}
 			}
@@ -547,7 +620,7 @@ namespace csharp_viewer
 						activelayers[i].renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
 
 						//if(activelayers[i].renderPriority == 0)
-							activelayers[i].renderPriority = 1000;
+							activelayers[i].renderPriority = visibilityFactor * (this.selected ? 2000 : 1000);
 
 						inside_frustum = true;
 					}
@@ -614,85 +687,55 @@ namespace csharp_viewer
 				}
 			}
 		}
-		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assembled, Vector2 invbackbuffersize, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter)
+		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assembled, Vector2 invbackbuffersize, float invNumBackbufferPixels, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter)
 		{
 			foreach(ImageLayer layer in activelayers)
 				layer.CreateIfLoaded();
 
 			AssembleImage();
-			if(finalTex != null)
-			{
-				bool _texloaded = true;
-				ImageCloud.RenderShader _sdr = sdr_assembled;
-				Color4 _clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-				_sdr.Bind(transforms[0], _clr, _texloaded, false, true, invbackbuffersize, depthscale);
-				GL.Uniform1(_sdr.GetUniformLocation("HasDefaultComponent"), finalTexHasDefaultComponent ? 1 : 0);
-				GL.Uniform1(_sdr.GetUniformLocation("HasFloatComponent"), finalTexHasFloatComponent ? 1 : 0);
-				mesh.Bind(_sdr, finalTex, finalTexFloat, finalTexLum);
-				mesh.Draw();
-			}
-			return;
+			ImageCloud.RenderShader _sdr = sdr_assembled;
+			Color4 _clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
+			_sdr.Bind(transform:transforms[0], clr:_clr, texloaded:finalTex != null, hasdepth:false, haslum:true, invbackbuffersize:invbackbuffersize, depthscale:depthscale);
+			GL.Uniform1(_sdr.GetUniformLocation("HasDefaultComponent"), finalTex != null && finalTexHasDefaultComponent ? 1 : 0);
+			GL.Uniform1(_sdr.GetUniformLocation("HasFloatComponent"), finalTex != null && finalTexHasFloatComponent ? 1 : 0);
+			mesh.Bind(_sdr, finalTex, finalTexFloat, finalTexLum);
+
+			GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
+			mesh.Draw();
+			GL.EndQuery(QueryTarget.SamplesPassed);
+
+			int numfragments;
+			GL.GetQueryObject(fragmentcounter, GetQueryObjectParam.QueryResult, out numfragments);
+			visibilityFactor = (float)numfragments * invNumBackbufferPixels;
+
+			foreach(ImageTransform t in this.transforms)
+				t.RenderImage(key, this, freeview);
+
+			/*return;
 
 			for(int i = 0; i < transforms.Length; ++i)
 			{
 				ImageLayer layer = activelayers[i];
 				bool texloaded = layer.CreateIfLoaded();
 				ImageCloud.RenderShader sdr = layer.isFloatImage ? sdr_float : sdr_default;
-				/*bool texloaded;
-				if(texIsStatic)
-					texloaded = true;
-				else if(renderMutex.WaitOne(0))
-				{
-					if(bmp != null)
-					{
-						if(tex == null)
-							tex = new GLTexture2D(bmp, false, !isFloatImage);
-						if(bmp_depth != null && tex_depth == null)
-							tex_depth = new GLTexture2D(bmp_depth, false, false, PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
-						if(bmp_lum != null && tex_lum == null)
-							tex_lum = new GLTexture2D(bmp_lum, false, true);
-						renderMutex.ReleaseMutex();
-						texloaded = true;
-					}
-					else
-					{
-						renderMutex.ReleaseMutex();
-						texloaded = false;
-					}
-				}
-				else
-					texloaded = false;*/
 
 				Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-				/*if(selected)
-				{
-					clr.R = 1.0f;//Color4.Azure.R / 2.0f;
-					clr.G = 0.5f;//Color4.Azure.G / 2.0f;
-					clr.B = 0.5f;//Color4.Azure.B / 2.0f;
-				}
-				//clr.A = selected ? 1.0f : 0.3f;
-				clr.A = 1.0f;*/
 
 				//texloaded = true;
-				sdr.Bind(transforms[i], clr, texloaded, layer.tex_depth != null, layer.tex_lum != null, invbackbuffersize, depthscale/*, invview*/);
-				/*GL.Uniform4(sdr_colorParam, clr);
-				//if(sdr_imageViewInv != -1)
-				//	GL.UniformMatrix4(sdr_imageViewInv, false, ref invview);
-				if(sdr_DepthScale != -1)
-					GL.Uniform1(sdr_DepthScale, depthscale);*/
+				sdr.Bind(transforms[i], clr, texloaded, layer.tex_depth != null, layer.tex_lum != null, invbackbuffersize, depthscale);
 
 				mesh.Bind(sdr, layer.tex, layer.tex_depth, layer.tex_lum);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
 				//GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
 				mesh.Draw();
 				//GL.EndQuery(QueryTarget.SamplesPassed);
 
-				/*int numfragments;
-				GL.GetQueryObject(fragmentcounter, GetQueryObjectParam.QueryResult, out numfragments);
-				renderPriority = numfragments;*/
+				//int numfragments;
+				//GL.GetQueryObject(fragmentcounter, GetQueryObjectParam.QueryResult, out numfragments);
+				//renderPriority = numfragments;
 			}
 
 			foreach(ImageTransform t in this.transforms)
-				t.RenderImage(key, this, freeview);
+				t.RenderImage(key, this, freeview);*/
 		}
 
 		public Matrix4 GetWorldMatrix(Matrix4 invvieworient)

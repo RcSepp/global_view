@@ -19,6 +19,7 @@ namespace csharp_viewer
 	public static class Global
 	{
 		public static decimal OPENGL_VERSION = -1;
+		public static string EXE_DIR = Path.GetDirectoryName(Application.ExecutablePath) + Path.DirectorySeparatorChar;
 
 		public static float time = 0.0f;
 		public static Cinema.CinemaArgument[] arguments = new Cinema.CinemaArgument[0]; // An array of descriptors for each dimension
@@ -55,6 +56,7 @@ namespace csharp_viewer
 		Control cle_Invoker = null;
 		public static ImageBrowser browser = new SimpleBrowser();
 		//public static ImageBrowser browser = new MPASBrowser();
+		//public static ImageBrowser browser = new PhotoBrowser();
 
 #if !DISABLE_DATAVIZ
 		Panel pnlPCView;
@@ -62,6 +64,20 @@ namespace csharp_viewer
 #endif
 
 		System.Diagnostics.Stopwatch timer;
+
+		private bool consoleVisible = true;
+		public bool ConsoleVisible
+		{
+			get { return consoleVisible; }
+			set
+			{
+				if (consoleVisible != value)
+				{
+					consoleVisible = value;
+					this_SizeChanged(this, null);
+				}
+			}
+		}
 
 		readonly string[] cmdline;
 		string image_pixel_format = null;
@@ -668,7 +684,7 @@ namespace csharp_viewer
 			//if(images.Count != 0)
 			//	UnloadDatabase(); // Only one database can be loaded at a time
 		}
-		private void PostLoad(IEnumerable<TransformedImage> newimages, Size imageSize)
+		private void PostLoad(IEnumerable<TransformedImage> newimages, Size imageSize, bool hasFloatImages)
 		{
 			/*// Create selection array and populate it with the default values
 			selection = new IndexProductSelection(Global.arguments.Length, valuerange.Count, images);
@@ -683,7 +699,7 @@ namespace csharp_viewer
 			if(imageCloud != null)
 			{
 				try {
-					imageCloud.Load(newimages, valuerange, imageSize, true/*image_pixel_format != null && image_pixel_format.Equals("I24")*/, false/*depth_name_pattern != null*/);
+					imageCloud.Load(newimages, valuerange, imageSize, hasFloatImages/*image_pixel_format != null && image_pixel_format.Equals("I24")*/, false/*depth_name_pattern != null*/);
 				} catch(Exception ex) {
 					MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 					throw ex;
@@ -822,7 +838,8 @@ namespace csharp_viewer
 			// Parse meta data from info.json
 			Cinema.CinemaArgument[] newargs;
 			Cinema.ParseCinemaDescriptor(filename, out newargs, out name_pattern, out depth_name_pattern, out image_pixel_format);
-			bool useFloatImages = image_pixel_format != null && image_pixel_format.Equals("I24");
+			bool useOnlyFloatImages = image_pixel_format != null && image_pixel_format.Equals("I24");
+			bool useFloatImages = useOnlyFloatImages;
 
 			Cinema.CinemaStore.Parameter[] newparams;
 			Cinema.CinemaStore store = Cinema.CinemaStore.Load(filename + "image/info.json");
@@ -940,23 +957,14 @@ namespace csharp_viewer
 					cimg.args = newargs;
 					cimg.globalargindices = newargindices;
 
-					/*TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer();
-					layer.filename = imagepath;
-					layer.depth_filename = depthpath;
-					layer.lum_filename = lumpath;
-					layer.isFloatImage = useFloatImages || isFloatImage;
-					cimg.AddLayer(layer);*/
-
-					//int foo = 0;
 					foreach(Cinema.CinemaStore.LayerDescription layerdesc in store.iterateLayers(argidx, dependentAssociations))
 					{
-						//if(foo++ >= 1)
-						//	continue;
 						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
 						layer.filename = filename + layerdesc.imagepath;
 						layer.depth_filename = layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath;
 						layer.lum_filename = layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath;
-						layer.isFloatImage = useFloatImages || layerdesc.isFloatImage;
+						layer.isFloatImage = useOnlyFloatImages || layerdesc.isFloatImage;
+						useFloatImages |= layer.isFloatImage;
 						layer.key = layerdesc.paramidx;
 						layer.keymask = layerdesc.paramvalid;
 						layer.parameters = newparams;
@@ -1019,7 +1027,7 @@ namespace csharp_viewer
 				img.Dispose();
 			}
 
-			PostLoad(newimages, imageSize);
+			PostLoad(newimages, imageSize, useFloatImages);
 
 			string startupscriptfilename = filename + Path.DirectorySeparatorChar + "startup.isql";
 			if(File.Exists(startupscriptfilename))
@@ -1229,7 +1237,7 @@ namespace csharp_viewer
 				imageSize = new Size(img.Width, img.Height);
 				img.Dispose();
 			}
-			PostLoad(newimages, imageSize);
+			PostLoad(newimages, imageSize, image_pixel_format == "I24");
 		}
 
 		private void SimulateInSituThread(object parameters)
@@ -1443,9 +1451,13 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			int w = this.ClientSize.Width, h = this.ClientSize.Height;
 #if DISABLE_DATAVIZ
-			SetControlSize(glImageCloud, 0, 0, w, ctrlConsole == null ? h : h - 256);
+			SetControlSize(glImageCloud, 0, 0, w, !consoleVisible || ctrlConsole == null ? h : h - 256);
 			if(ctrlConsole != null)
-				SetControlSize(ctrlConsole, 0, h - 256, w, 256);
+			{
+				ctrlConsole.Visible = consoleVisible;
+				if (consoleVisible)
+					SetControlSize(ctrlConsole, 0, h - 256, w, 256);
+			}
 #else
 			SetControlSize(glImageCloud, 0, 0, (w - 4) / 2, h - 200);
 			if(ctrlConsole != null)
@@ -1457,13 +1469,13 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				SetControlSize(pnlImageControls, 0, h - 200, (w - 4) / 2, 200);
 			SetControlSize(pnlPCView, (w - 208) / 2 + 4, 0, (w - 4) / 2, h);
 #endif
-			// Invalidate all controls
+			/*// Invalidate all controls
 			foreach(Control control in this.Controls)
 				control.Hide();
 			Application.DoEvents();
 			System.Threading.Thread.Sleep(100);
 			foreach(Control control in this.Controls)
-				control.Show();
+				control.Show();*/
 		}
 
 		private void CallSelectionChangedHandlers()
@@ -1652,7 +1664,12 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		private void RenderThread()
 		{
 			glImageCloud.Init();
-			Global.OPENGL_VERSION = decimal.Parse(GL.GetString(StringName.Version).Split(' ')[0]);
+			string openglVersionStr = GL.GetString(StringName.Version);
+			int idx = openglVersionStr.IndexOf('.'); // idx = first occurence of '.'
+			idx = openglVersionStr.IndexOf('.', ++idx); // idx = second occurence of '.'
+			if (idx != -1)
+				openglVersionStr = openglVersionStr.Substring(0, idx); // Turn "X.Y.Z" into "X.Y"
+			Global.OPENGL_VERSION = decimal.Parse(openglVersionStr.Split(' ')[0]);
 
 			//GL.ClearColor(0.8f, 0.8f, 0.8f, 1.0f);
 			//GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f); // Set inside image cload!
@@ -1660,7 +1677,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			GL.Viewport(glImageCloud.Size);
 			GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
 			GL.Enable(EnableCap.Blend);
-			GL.DepthFunc(DepthFunction.Lequal);
+			GL.DepthFunc(DepthFunction.Less); // Should be 'Less', not 'Lequal', to make sure fragment counting results in as many occluded pixels as possible to accurately determine which images are unoccluded
 			//GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
 
 			GL.ClampColor(ClampColorTarget.ClampReadColor, ClampColorMode.False);
@@ -1697,7 +1714,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 //if(cmdline.Length == 1)
 //	LoadDatabaseFromDirectory(cmdline[0], false);
 
-			browser.Init(imageCloud);
+			browser.Init(this, imageCloud);
 			browser.OnLoad();
 
 			// Start timer
@@ -1706,7 +1723,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			float averageDt = 0.0f;
 			int frameCounter = 0;
-			Size glImageCloud_Size = glImageCloud.Size;
+			Size glImageCloud_Size = Size.Empty;
 			while(!form_closing)
 			{
 				if (image_render_mutex.WaitOne(1) == false)
@@ -1839,6 +1856,11 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				break;
 			}
 		}
+		/*protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+		{
+			glImageCloud_KeyDown(glImageCloud, new KeyEventArgs(keyData));
+			return base.ProcessCmdKey(ref msg, keyData);
+		}*/
 
 		private void actMgr_FrameCaptureFinished()
 		{

@@ -1891,3 +1891,66 @@ unload
 load "bunny"
 skip all by #time != (int)(time * 0.5) % 50
 skip all by #time != (int)(time * 0.5) % 50
+hide where #time != 0
+rspread all
+focus all
+clear all
+rspread3d all
+rspread3d all
+clear all
+rspread3d all
+hide where #time != 0
+unload
+load
+load "hobo_mpas"
+load "hobo_mpas"
+load "hobo_mpas"
+load "hobo_mpas"
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+
+load "hobo_mpas"
+animate by #time
+unload
+animate by #time
+unload
+unload
+unloaf
+unload
+load "hobo_mpas"
+unload
+load "bunny"
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 5
+focus all
+clear all
+thetaPhi all by $theta * pi / 180, $phi * pi / 180, 5
+unload
+load "bunny"
+unload
+exit
+unload
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+unload
+unload

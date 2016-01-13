@@ -55,7 +55,7 @@ namespace csharp_viewer
 			sdr_colorModeParam = sdr.GetUniformLocation("ColorMode");
 
 			// Load texture
-			tex = GLTexture2D.FromFile("arrow.png");
+			tex = GLTexture2D.FromFile(Global.EXE_DIR + "arrow.png");
 		}
 
 		public void Draw(Vector3 pos, Matrix4 viewprojmatrix, Matrix4 vieworientmatrix, Vector3 viewpos, float fovx, SizeF backbuffersize)

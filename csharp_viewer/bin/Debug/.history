@@ -2956,3 +2956,84 @@ look all by $theta * pi / 180, $phi * pi / 180
 show all
 hide where $theta != 60 || $phi != 120
 clear all
+spread all
+rspread all
+rspread all
+rspread all
+x all by #filename * 2
+x all by #filename * 2
+animate by #time
+animate by #time
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+load "hobo_mpas"
+a all
+clear all
+rspread3d all
+focus all
+load "hobo_mpas"
+load "hobo_mpas"
+load "hobo_mpas"
+load "hobo_mpas"
+clear all
+skip all by #theta != (int)time % 18
+load "hobo_mpas"
+clear all
+skip all by #theta != (int)time % 18
+load "hobo_mpas"
+animate all by #time
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+load "hobo_mpas"
+skip all by #theta != (int)time % 18
+clear all
+skip all by #theta != (int)time % 18
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+unload
+load "hobo_mpas"
+rspread3d all
+focus all
+unload
+load "hobo_mpas"
+clear all
+rspread3d all
+focus all
+load "hobo_mpas"
+load "hobo_mpas"
+skip all by #time != (int)time % 50

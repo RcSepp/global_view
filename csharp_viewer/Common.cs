@@ -183,7 +183,7 @@ namespace csharp_viewer
 
 			//fontText = new GLTextFont("HelveticaNeueText_12.png", new Vector2(17.0f, 23.0f), meshQuad);
 			//fontText = new GLTextFont2(new System.Drawing.Font("Helvetica Neue", 14.0f));
-			fontText = new GLTextFont("HelveticaNeueText_8.png", new Vector2(10.0f, 17.0f), meshQuad);
+			fontText = new GLTextFont(Global.EXE_DIR + "HelveticaNeueText_8.png", new Vector2(10.0f, 17.0f), meshQuad);
 			if((err = GL.GetError()) != ErrorCode.NoError)
 				throw new Exception(err.ToString());
 			fontText2 = new GLTextFont2(new System.Drawing.Font("Consolas", 12.0f));

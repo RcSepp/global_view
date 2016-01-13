@@ -451,7 +451,7 @@ namespace csharp_viewer
 				ResetColorTableAction = ActionManager.CreateAction("Reset colormap", this, "ResetColorTable");
 
 				// Create colormap
-				colormapTexture = new GLTexture1D(new byte[3 * FINAL_COLORMAP_SIZE], FINAL_COLORMAP_SIZE, false);
+				colormapTexture = new GLTexture1D("colormap", new byte[3 * FINAL_COLORMAP_SIZE], FINAL_COLORMAP_SIZE, false);
 
 				// Create histogram grid as line list mesh
 				List<Vector3> positions = new List<Vector3>();
@@ -477,9 +477,9 @@ namespace csharp_viewer
 				meshLines = new GLMesh(positions.ToArray(), null, null, null, null, null, PrimitiveType.Lines);
 
 				// Create textures
-				texSplitter = GLTexture2D.FromFile("splitter.png", false);
-				texInterjectorLeft = GLTexture2D.FromFile("interjectorLeft.png", false);
-				texInterjectorRight = GLTexture2D.FromFile("interjectorRight.png", false);
+				texSplitter = GLTexture2D.FromFile(Global.EXE_DIR + "splitter.png", false);
+				texInterjectorLeft = GLTexture2D.FromFile(Global.EXE_DIR + "interjectorLeft.png", false);
+				texInterjectorRight = GLTexture2D.FromFile(Global.EXE_DIR + "interjectorRight.png", false);
 
 				// Create number font
 				//font = new GLNumberFont("HelveticaNeue_12.png", new FontDefinition(new int[] {0, 14, 26, 39, 53, 67, 80, 93, 106, 120, 133}, new int[] {0, 19}), Common.meshQuad, true);
@@ -1126,7 +1126,7 @@ namespace csharp_viewer
 			/*ColorMapCreator.Vector3 C0 = new ColorMapCreator.Vector3(58.650f, 76.245f, 192.270f);
 			ColorMapCreator.Vector3 C1 = new ColorMapCreator.Vector3(180.030f, 4.080f, 38.250f);
 			AddColormap(ColorTableFromRange(C0, C1, new Vector3(65.0f / 255.0f, 68.0f / 255.0f, 91.0f / 255.0f), "Moreland cool/warm", "Divergent"));*/
-			AddColormaps(ColorTableFromXml("ColorMaps.xml"));
+			AddColormaps(ColorTableFromXml(Global.EXE_DIR + "ColorMaps.xml"));
 			//AddColormap(NamedColorTable.None);
 
 			ActionManager.Do(HideColormapPickerAction);
@@ -1134,19 +1134,19 @@ namespace csharp_viewer
 
 			// Create buttons
 			buttons = new GLButton[4];
-			buttons[0] = new GLButton("splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateSplitter", "Create colormap splitter");
+			buttons[0] = new GLButton(Global.EXE_DIR + "splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateSplitter", "Create colormap splitter");
 			buttons[0].Click = SplitterButton_Click;
-			buttons[1] = new GLButton("interjectorButton.png", new Rectangle(4, 100 - buttons[0].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateInterjector", "Create colormap interjector");
+			buttons[1] = new GLButton(Global.EXE_DIR + "interjectorButton.png", new Rectangle(4, 100 - buttons[0].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateInterjector", "Create colormap interjector");
 			buttons[1].Click = InterjectorButton_Click;
-			buttons[2] = new GLButton("colorMapButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "ShowColormapPicker", "Show colormap picker");
+			buttons[2] = new GLButton(Global.EXE_DIR + "colorMapButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "ShowColormapPicker", "Show colormap picker");
 			buttons[2].Click = ColorMapButton_Click;
-			buttons[3] = new GLButton("saveColorMapButton.png", new Rectangle(4, 100 - buttons[2].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "SaveColormap", "Save colormap to disk");
+			buttons[3] = new GLButton(Global.EXE_DIR + "saveColorMapButton.png", new Rectangle(4, 100 - buttons[2].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "SaveColormap", "Save colormap to disk");
 			buttons[3].Click = SplitterButton_Click;
 
 			// Create cursors
 			cursors = new GLCursor[2];
-			cursors[0] = new GLCursor("splitterCursor.png", new Point(2, 54));
-			cursors[1] = new GLCursor("interjectorCursor.png", new Point(8, 51));
+			cursors[0] = new GLCursor(Global.EXE_DIR + "splitterCursor.png", new Point(2, 54));
+			cursors[1] = new GLCursor(Global.EXE_DIR + "interjectorCursor.png", new Point(8, 51));
 
 			/*HISTORY_PATH = System.Reflection.Assembly.GetEntryAssembly().Location;
 			HISTORY_PATH = HISTORY_PATH.Substring(0, Math.Max(HISTORY_PATH.LastIndexOf('/'), HISTORY_PATH.LastIndexOf('\\')) + 1);
@@ -1367,7 +1367,7 @@ public static string foo = "";
 			colormapBytes[0] = (byte)(color.R * 255.0f);
 			colormapBytes[1] = (byte)(color.G * 255.0f);
 			colormapBytes[2] = (byte)(color.B * 255.0f);
-			return new NamedColorTable(new GLTexture1D(colormapBytes, 1, false), nanColor, name, "Solid");
+			return new NamedColorTable(new GLTexture1D("colormap_solid", colormapBytes, 1, false), nanColor, name, "Solid");
 		}
 		private static NamedColorTable ColorTableFromRange(ColorMapCreator.Vector3 cmin, ColorMapCreator.Vector3 cmax, Vector3 nanColor, string name, string groupname)
 		{
@@ -1380,7 +1380,7 @@ public static string foo = "";
 				colorTable[3 * x + 1] = (byte)clr.y;
 				colorTable[3 * x + 2] = (byte)clr.z;
 			}
-			return new NamedColorTable(new GLTexture1D(colorTable, COLOR_TABLE_SIZE, false), nanColor, name, groupname);
+			return new NamedColorTable(new GLTexture1D("colormap_range", colorTable, COLOR_TABLE_SIZE, false), nanColor, name, groupname);
 		}
 
 		private static NamedColorTable[] ColorTableFromXml(string filename)
@@ -1464,7 +1464,7 @@ System.Drawing.Imaging.BitmapData data = bmp.LockBits(new Rectangle(Point.Empty,
 System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
 bmp.UnlockBits(data);
 bmp.Save(colorMapName + ".png");*/
-						colorTables.Add(new NamedColorTable(new GLTexture1D(bytes, COLOR_TABLE_SIZE, false), nanColor, colorMapName, colorMapGroupName));
+						colorTables.Add(new NamedColorTable(new GLTexture1D("colormap_xml", bytes, COLOR_TABLE_SIZE, false), nanColor, colorMapName, colorMapGroupName));
 					}
 					break;
 

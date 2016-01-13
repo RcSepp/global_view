@@ -351,7 +351,11 @@ namespace csharp_viewer
 				AnimatePositionAction = ActionManager.CreateAction("Animate View Position", this, "AnimateCam");
 				//ActionManager.Do(MoveAction, new object[] {new Vector3(0.0f, 0.0f, 1.0f), rot});
 				ActionManager.Do(MoveAction, new Vector3(0.0f, 0.0f, 10.0f), rot);
-
+				ActionManager.CreateAction("Move camera to target instantly", "SkipViewAnimation", delegate(object[] parameters) {
+					if(animationTargetPos.X != float.NaN)
+						Move(animationTargetPos, rot);
+					return null;
+				});
 			}
 
 			public void AnimatePosition(float target_x, float target_y, float target_z)
@@ -364,7 +368,7 @@ namespace csharp_viewer
 			}
 			private void AnimateCam(float x, float y, float z)
 			{
-				animationTargetPos = new Vector3(x, y, z); // Stop animation
+				animationTargetPos = new Vector3(x, y, z);
 			}
 
 			public void Translate(Vector3 deltapos)
@@ -581,7 +585,7 @@ namespace csharp_viewer
 			mesh2D = Common.meshQuad2;
 #endif
 
-			texdot = GLTexture2D.FromFile("dot.png", true);
+			texdot = GLTexture2D.FromFile(Global.EXE_DIR + "dot.png", true);
 
 			texstream = new GLTextureStream(256*1024*1024, ReadImageMetaData); // Optimize for 1GB of VRAM
 			//texstream = new GLTextureStream(64*1024*1024, ReadImageMetaData); // Optimize for 256MB of VRAM
@@ -590,8 +594,8 @@ namespace csharp_viewer
 			//texstream = new GLTextureStream(128*1024, ReadImageMetaData); // Optimize for 512KB of VRAM
 
 			#if USE_ARG_IDX
-			//argIndex.Bounds = new Rectangle(200, 10, Width - 200, 16);
-			argIndex.Bounds = new Rectangle(150, 10, Width - 150, 16);
+			argIndex.Bounds = new Rectangle(250, 10, Width - 250, 16);
+			//argIndex.Bounds = new Rectangle(150, 10, Width - 150, 16);
 			argIndex.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 			argIndex.Init();
 			argIndex.SelectionChanged += SelectionChanged;//() => { SelectionChanged(); };
@@ -735,15 +739,16 @@ namespace csharp_viewer
 		public void Unload()
 		{
 			colorTableMgr.Visible = false;
-			images = null;
+			if(texstream != null)
+				texstream.ClearImages();
+			if(images != null)
+			{
+				foreach(TransformedImage image in images)
+					image.Dispose();
+				images = null;
+			}
 			arguments = null;
 			selectionAabb = null;
-			if(texstream != null)
-			{
-				texstream.ClearImages();
-				/*texstream.Free();
-				texstream = null;*/
-			}
 			sdr2D_default = sdr2D_cm = null;
 			sdr3D_default = sdr3D_cm = null;
 			if(mesh3D != null)
@@ -794,6 +799,7 @@ namespace csharp_viewer
 		{
 			texstream.RemoveImages(images);
 		}
+		public bool forceOriginalImageSize { get { return texstream.forceOriginalSize; } set { texstream.forceOriginalSize = value; } }
 
 		private void FocusAABB(AABB aabb, bool animate)
 		{
@@ -1076,14 +1082,15 @@ namespace csharp_viewer
 #endif
 
 				Vector2 invbackbuffersize = new Vector2(1.0f / backbuffersize.Width, 1.0f / backbuffersize.Height);
+				float invNumBackbufferPixels = 1.0f / ((float)backbuffersize.Width * (float)backbuffersize.Height);
 
 				// >>> Perform temporal prefetching
 
 				float _time = Global.time;
 				//Global.time += 0.5f; // Prefetch 0.5 second into the future
-				//Global.time += 1.1f;
+				Global.time += 1.1f;
 				//Global.time += 4.1f;
-				Global.time += 7.1f;
+				//Global.time += 7.1f;
 				// If the prefetching intervall is too short, images aren't loaded on time.
 				// If the prefetching intervall is too long, too much memory is consumed.
 				// Optimally the prefetching intervall should depend on the load time.
@@ -1097,17 +1104,17 @@ namespace csharp_viewer
 
 					iter.Update(dt);
 
-					Matrix4[] transforms;
-					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out transforms))
+					Matrix4[] _transforms;
+					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out _transforms))
 					{
 #if USE_DEPTH_SORTING
 						// >>> Add visible images to depth sorted list
 
-						float dist = Vector3.TransformPerspective(Vector3.Zero, transforms[0]).Z;
+						float dist = Vector3.TransformPerspective(Vector3.Zero, _transforms[0]).Z;
 						if(dist >= freeview.znear && dist <= freeview.zfar)
 						{
 							//dist = -dist;
-							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transforms));
+							renderlist.Add(dist, new TransformedImageAndMatrix(iter, _transforms));
 						}
 #else
 						// >>> Render visible images
@@ -1133,9 +1140,9 @@ namespace csharp_viewer
 					// >>> Render image
 
 					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
-						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, invbackbuffersize, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter);
+						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, invbackbuffersize, invNumBackbufferPixels, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter);
 					else
-						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, invbackbuffersize, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter);
+						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, invbackbuffersize, invNumBackbufferPixels, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter);
 				}
 
 				// >>> Draw frame around selected images
@@ -1223,6 +1230,9 @@ namespace csharp_viewer
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
 			Common.fontText.DrawString(60.0f, 40.0f, GLTextureStream.foo2, backbuffersize);
+
+			if(GLTexture.allocatedTextureCounter > 0)
+				Common.fontText.DrawString(0.0f, 80.0f, GLTexture.allocatedTextureCounter.ToString(), backbuffersize);
 
 			if(texstream != null)
 				texstream.DrawDebugInfo(backbuffersize);
@@ -1667,6 +1677,10 @@ namespace csharp_viewer
 					ActionManager.Do(DisableDepthRenderingAction);
 				else
 					ActionManager.Do(EnableDepthRenderingAction);
+				break;
+
+			case Keys.T:
+				GLTexture.PrintAllocatedTextureNames();
 				break;
 
 			/*case Keys.F:
