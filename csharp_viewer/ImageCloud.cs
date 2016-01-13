@@ -547,9 +547,42 @@ namespace csharp_viewer
 
 		// Options
 
-		public bool showCoordinateSystem = true;
-		public bool showLineGrid = true;
+		public bool showCoordinateSystem = true, showLineGrid = true;
 		public bool enableMouseRect = true;
+		public bool showArgumentIndex
+		{
+			get
+			{
+#if USE_ARG_IDX
+				return argIndex.Visible;
+#else
+				return false;
+#endif
+			}
+			set
+			{
+#if USE_ARG_IDX
+				argIndex.Visible = value;
+#endif
+			}
+		}
+		public bool showParameterIndex
+		{
+			get
+			{
+#if USE_PARAM_IDX
+				return paramIndex.Visible;
+#else
+				return false;
+#endif
+			}
+			set
+			{
+#if USE_PARAM_IDX
+				paramIndex.Visible = value;
+#endif
+			}
+		}
 
 		// Actions
 

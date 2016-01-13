@@ -54,9 +54,9 @@ namespace csharp_viewer
 		Control ctrlConsole = null;
 		ActionManager actMgr = new ActionManager();
 		Control cle_Invoker = null;
-		public static ImageBrowser browser = new SimpleBrowser();
+		//public static ImageBrowser browser = new SimpleBrowser();
 		//public static ImageBrowser browser = new MPASBrowser();
-		//public static ImageBrowser browser = new PhotoBrowser();
+		public static ImageBrowser browser = new PhotoBrowser();
 
 #if !DISABLE_DATAVIZ
 		Panel pnlPCView;
@@ -1703,7 +1703,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			glImageCloud.MouseMove += glImageCloud_MouseMove;
 			glImageCloud.MouseWheel += glImageCloud_MouseWheel;
 			glImageCloud.DoubleClick += glImageCloud_DoubleClick;
-			glImageCloud.KeyDown += glImageCloud_KeyDown;
+			//glImageCloud.KeyDown += glImageCloud_KeyDown;
 
 			ActionManager.Do(AppStartAction);
 
@@ -1856,11 +1856,12 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				break;
 			}
 		}
-		/*protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
 		{
-			glImageCloud_KeyDown(glImageCloud, new KeyEventArgs(keyData));
+			if (glImageCloud.Focused)
+				glImageCloud_KeyDown(glImageCloud, new KeyEventArgs(keyData));
 			return base.ProcessCmdKey(ref msg, keyData);
-		}*/
+		}
 
 		private void actMgr_FrameCaptureFinished()
 		{

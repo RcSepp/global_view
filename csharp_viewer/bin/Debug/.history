@@ -3037,3 +3037,7 @@ focus all
 load "hobo_mpas"
 load "hobo_mpas"
 skip all by #time != (int)time % 50
+ls
+dir
+cd
+exit

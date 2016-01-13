@@ -28,7 +28,7 @@ namespace csharp_viewer
 		// Options
 		protected enum Option
 		{
-			BackColor, ViewControl, ViewRotationCenter, ShowCoordinateSystem, ShowLineGrid, ShowConsole, EnableMouseRect, FullScreen, ForceOriginalImageSize
+			BackColor, ViewControl, ViewRotationCenter, ShowCoordinateSystem, ShowLineGrid, ShowArgumentIndex, ShowParameterIndex, ShowConsole, EnableMouseRect, FullScreen, ForceOriginalImageSize
 		}
 		protected void SetOption(Option option, object value)
 		{
@@ -49,6 +49,12 @@ namespace csharp_viewer
 				break;
 			case Option.ShowLineGrid:
 				imageCloud.showLineGrid = (bool)value;
+				break;
+			case Option.ShowArgumentIndex:
+				imageCloud.showArgumentIndex = (bool)value;
+				break;
+			case Option.ShowParameterIndex:
+				imageCloud.showParameterIndex = (bool)value;
 				break;
 			case Option.ShowConsole:
 				viewer.ConsoleVisible = (bool)value;
@@ -476,6 +482,8 @@ namespace csharp_viewer
 			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			SetOption(Option.ShowCoordinateSystem, false);
 			SetOption(Option.ShowLineGrid, false);
+			SetOption(Option.ShowArgumentIndex, false);
+			SetOption(Option.ShowParameterIndex, false);
 			SetOption(Option.ShowConsole, false);
 			SetOption(Option.EnableMouseRect, false);
 			SetOption(Option.FullScreen, true);

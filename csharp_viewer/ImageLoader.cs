@@ -68,6 +68,7 @@ namespace csharp_viewer
 			if(filename.EndsWith(".im", StringComparison.OrdinalIgnoreCase))
 				return ImImageLoader.Load(filename);
 
+			Dictionary<ExifTags, GLTextureStream.ImageMetaData> exifdict = null;
 			if(filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
 				try
 				{
@@ -76,7 +77,7 @@ namespace csharp_viewer
 						//foreach (ExifTags tag in Enum.GetValues(typeof(ExifTags)))
 						//	ReadExifValue(reader, tag, ref meta);
 
-						ReadExifRational(reader, ExifTags.ExposureTime, ref meta);
+						/*ReadExifRational(reader, ExifTags.ExposureTime, ref meta);
 						ReadExifRational(reader, ExifTags.FNumber, ref meta);
 						ReadExifShort(reader, ExifTags.ExposureProgram, ref meta);
 						ReadExifShort(reader, ExifTags.PhotographicSensitivity, ref meta);
@@ -110,7 +111,30 @@ namespace csharp_viewer
 						ReadExifShort(reader, ExifTags.Saturation, ref meta);
 						ReadExifShort(reader, ExifTags.Sharpness, ref meta);
 						ReadExifRational(reader, ExifTags.LensSpecification, ref meta);
-						ReadExifString(reader, ExifTags.LensModel, ref meta);
+						ReadExifString(reader, ExifTags.LensModel, ref meta);*/
+
+
+						exifdict = new Dictionary<ExifTags,GLTextureStream.ImageMetaData>();
+						foreach (ExifTags tag in Enum.GetValues(typeof(ExifTags)))
+						{
+							if (exifdict.ContainsKey(tag))
+								continue;
+
+							object val;
+							if (reader.GetTagValue(tag, out val))
+							{
+								GLTextureStream.ImageMetaData m;
+								if (val is string)
+									m = new GLTextureStream.ImageMetaData(tag.ToString(), 0.0f, (string)val);
+								else if (val is Array)
+									continue; // Skip arrays
+								else
+									m = new GLTextureStream.ImageMetaData(tag.ToString(), (float)(dynamic)val, val.ToString());
+
+								exifdict.Add(tag, m);
+								meta.Add(m);
+							}
+						}
 
 						/*int[] rational;
 						UInt16 word;
@@ -158,7 +182,23 @@ namespace csharp_viewer
 				}
 
 			try {
-				return (Bitmap)Bitmap.FromFile(filename);
+				Bitmap bmp = (Bitmap)Bitmap.FromFile(filename);
+				GLTextureStream.ImageMetaData orientation;
+				if (exifdict != null && exifdict.TryGetValue(ExifTags.Orientation, out orientation))
+				{
+					switch((byte)orientation.value)
+					{
+						case 1: break;
+						case 2: bmp.RotateFlip(RotateFlipType.RotateNoneFlipX); break;
+						case 3: bmp.RotateFlip(RotateFlipType.Rotate180FlipNone); break;
+						case 4: bmp.RotateFlip(RotateFlipType.RotateNoneFlipY); break;
+						case 5: bmp.RotateFlip(RotateFlipType.Rotate90FlipX); break;
+						case 6: bmp.RotateFlip(RotateFlipType.Rotate90FlipNone); break;
+						case 7: bmp.RotateFlip(RotateFlipType.Rotate90FlipY); break;
+						case 8: bmp.RotateFlip(RotateFlipType.Rotate270FlipNone); break;
+					}
+				}
+				return bmp;
 			}
 			catch
 			{
