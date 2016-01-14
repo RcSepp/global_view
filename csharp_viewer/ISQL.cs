@@ -60,7 +60,7 @@ namespace ISQL
 
 			// Interpret clauses
 			IEnumerable<csharp_viewer.TransformedImage> scope = null;
-			string byExpr = null;
+			string[] byExpr = null;
 			HashSet<int> byExpr_usedArgumentIndices = null;
 			bool byExpr_isTemporal = false;
 			int lastfragment = fragments.Length - 1;
@@ -120,17 +120,28 @@ namespace ISQL
 			output += MethodCall(statement, args.ToArray());
 		}
 
-		private static string ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, HashSet<int> usedArgumentIndices, out bool isTemporal)
+		private static string[] ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, HashSet<int> usedArgumentIndices, out bool isTemporal)
 		{
 			int exprOffset = fragments[firstfragment].startidx;
 			string expr = code.Substring(exprOffset, fragments[lastfragment].endidx - exprOffset);
+			List<string> exprList = new List<string>();
 
 			isTemporal = false;
 
 			// Replace variables in expr with compileable expressions
+			int bracketLevel = 0;
 			for(int j = lastfragment; j >= firstfragment;--j)
 			{
-				if(fragments[j].token == Tokenizer.Token.Var)
+				if(fragments[j].token == Tokenizer.Token.OBr)
+					++bracketLevel;
+				else if(fragments[j].token == Tokenizer.Token.CBr)
+					--bracketLevel;
+				else if(bracketLevel == 0 && fragments[j].token == Tokenizer.Token.Cma)
+				{
+					exprList.Add(expr.Substring(fragments[j].endidx - exprOffset).Trim());
+					expr = expr.Substring(0, fragments[j].startidx - exprOffset);
+				}
+				else if(fragments[j].token == Tokenizer.Token.Var)
 				{
 					string varExpr = fragments[j].GetString(code);
 
@@ -203,13 +214,15 @@ namespace ISQL
 						usedArgumentIndices.Add(argidx);
 				}
 			}
-			return expr;
+			exprList.Add(expr.Trim());
+			exprList.Reverse();
+			return exprList.ToArray();
 		}
 		private static IEnumerable<csharp_viewer.TransformedImage> CompileScopeCondition(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, ref string warnings)
 		{
 			HashSet<int> byExpr_usedArgumentIndices = new HashSet<int>();
 			bool isTemporal;
-			string scopeExpr = ParseExpression(code, fragments, firstfragment, lastfragment, byExpr_usedArgumentIndices, out isTemporal);
+			string scopeExpr = ParseExpression(code, fragments, firstfragment, lastfragment, byExpr_usedArgumentIndices, out isTemporal)[0];
 
 			// Define source code for image enumerator class
 			string source = string.Format(@"
@@ -272,7 +285,7 @@ namespace csharp_viewer
 			{
 				Invalid, Var, Num, Str, // Basic types
 				ArgVal, ArgStr, ArgIdx, // Argument types
-				Add, Sub, Mul, Div, Mod, Eq, NEq, Gr, Sm, GrEq, SmEq, Asn, OBr, CBr, //Opcodes
+				Add, Sub, Mul, Div, Mod, Eq, NEq, Gr, Sm, GrEq, SmEq, Asn, OBr, CBr, Cma, //Opcodes
 				Where, From, By // Clauses
 			}
 			public static bool IsClause(Token token)
@@ -300,7 +313,9 @@ namespace csharp_viewer
 				Asn = Token.Asn, // =
 
 				OBr = Token.OBr, // (
-				CBr = Token.CBr // )
+				CBr = Token.CBr, // )
+
+				Cma = Token.Cma // ,
 			}
 
 			public class Fragment
@@ -386,6 +401,9 @@ namespace csharp_viewer
 							break;
 						case ')':
 							fragment.token = Token.CBr;
+							break;
+						case ',':
+							fragment.token = Token.Cma;
 							break;
 						}
 						break;

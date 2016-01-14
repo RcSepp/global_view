@@ -302,6 +302,18 @@ namespace csharp_viewer
 			}
 			return action;
 		}
+		public static Action CreateAction<T1, T2, T3, T4>(string desc, string method, Action.CallbackActionDelegate func)
+		{
+			Action action = new CallbackAction(method, desc, new Type[] {typeof(T1), typeof(T2), typeof(T3), typeof(T4)}, func);
+			if(mgr != null)
+			{
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name.ToLower()))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
+			}
+			return action;
+		}
 
 		public static string Do(Action action, params object[] parameters)
 		{

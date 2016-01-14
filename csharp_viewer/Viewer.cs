@@ -416,14 +416,11 @@ namespace csharp_viewer
 						transform.SetIndex(i, i);
 					OnTransformationAdded(transform, scope);*/
 
-					string byExpr = "0";
+					string[] byExpr = new string[Global.arguments.Length];
 					HashSet<int> byExpr_usedArgumentIndices = new HashSet<int>();
 					for(int argidx = 0; argidx < Global.arguments.Length; ++argidx)
 					{
-						if(byExpr == "0")
-							byExpr = "2.0f * Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
-						else
-							byExpr += ", 2.0f * Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
+						byExpr[argidx] = "2.0f * Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
 						byExpr_usedArgumentIndices.Add(argidx);
 					}
 
@@ -431,19 +428,24 @@ namespace csharp_viewer
 				}
 				return null;
 			});
-			ActionManager.CreateAction<string, HashSet<int>, bool>("Animate the given argument", "animate", delegate(object[] parameters) {
-				string byExpr = (string)parameters[0];
+			ActionManager.CreateAction<string[], HashSet<int>, bool, IEnumerable<TransformedImage>>("Animate the given argument", "animate", delegate(object[] parameters) {
+				string[] byExpr = (string[])parameters[0];
+				if(byExpr.Length != 2)
+					return "usage: animate SCOPE by VARIABLE, FPS";
 				HashSet<int> indices = (HashSet<int>)parameters[1];
 				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
 				//bool isTemporal = (bool)parameters[2];
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[3];
 				indices_enum.MoveNext();
 				int index = indices_enum.Current;
 
 				if(Global.arguments != null)
 				{
-					string output, warnings;
-					Console_Execute(string.Format("skip all BY " + byExpr + " != (int)(time * 10.0f) % " + Global.arguments[index].values.Length.ToString()), out output, out warnings);
-					return output + warnings;
+					string warnings = "";
+					ImageTransform transform = CompiledTransform.CompileSkipTransform(string.Format("{0} != (int)(Global.time * {1}) % {2}", byExpr[0], byExpr[1], Global.arguments[index].values.Length), true, ref warnings);
+
+					OnTransformationAdded(transform, images);
+					return warnings;
 				}
 				return null;
 			});
@@ -1581,43 +1583,63 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				skipImageExpr = "image.globalargindices.Length <= " + highestIdx + skipImageExpr;
 			return skipImageExpr;
 		}
-		private void CreateTransformX(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		private string CreateTransformX(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
+			if(byExpr.Length != 1)
+				return "usage: x SCOPE by X";
+			
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileTranslationTransform(byExpr, "0.0f", "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform(byExpr[0], "0.0f", "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
+			return warnings;
 		}
-		private void CreateTransformY(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		private string CreateTransformY(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
+			if(byExpr.Length != 1)
+				return "usage: y SCOPE by Y";
+
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", byExpr, "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", byExpr[0], "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
+			return warnings;
 		}
-		private void CreateTransformZ(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		private string CreateTransformZ(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
+			if(byExpr.Length != 1)
+				return "usage: z SCOPE by Z";
+
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", "0.0f", byExpr, GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", "0.0f", byExpr[0], GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
+			return warnings;
 		}
-		private void CreateTransformThetaPhi(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		private string CreateTransformThetaPhi(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
+			if(byExpr.Length != 3)
+				return "usage: thetaPhi SCOPE by THETA, PHI, RADIUS";
+
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr, byExpr_isTemporal, ref warnings);
+			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr[0], byExpr[1], byExpr[2], byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
+			return warnings;
 		}
-		private void CreateTransformStar(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		private string CreateTransformStar(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileStarTransform(byExpr, GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
+			return warnings;
 		}
-		private void CreateTransformLookAt(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		private string CreateTransformLookAt(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
+			if(byExpr.Length != 2)
+				return "usage: look SCOPE by THETA, PHI";
+			
 			string indices = null;
 			foreach(int index in byExpr_usedArgumentIndices)
 				if(indices == null)
@@ -1626,17 +1648,22 @@ foreach(ImageTransform transform in imageCloud.transforms)
 					indices += ", " + index.ToString();
 
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr, indices, byExpr_isTemporal, ref warnings);
+			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr[0], byExpr[1], indices, byExpr_isTemporal, ref warnings);
 
 			transform.OnArgumentsChanged();
 			OnTransformationAdded(transform, images);
+			return warnings;
 		}
-		private void CreateTransformSkip(string byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		private string CreateTransformSkip(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
 		{
+			if(byExpr.Length != 1)
+				return "usage: skip SCOPE by CONDITION";
+			
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr, byExpr_isTemporal, ref warnings);
+			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr[0], byExpr_isTemporal, ref warnings);
 
 			OnTransformationAdded(transform, images);
+			return warnings;
 		}
 
 		private void ClearTransforms()

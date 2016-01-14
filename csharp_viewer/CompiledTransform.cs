@@ -4,7 +4,7 @@ namespace csharp_viewer
 {
 	public static class CompiledTransform
 	{
-		public static ImageTransform CompileTranslationTransform(string x, string y, string z, string skip, bool useTime, ref string warnings)
+		public static ImageTransform CompileTranslationTransform(string xExpr, string yExpr, string zExpr, string skip, bool useTime, ref string warnings)
 		{
 			string source = string.Format(@"
 using System;
@@ -47,12 +47,12 @@ namespace csharp_viewer
 			rand = new Random((int)((Global.time * 1000.0f) % (float)int.MaxValue));
 		}}*/
 	}}
-}}", x, y, z, skip, useTime ? "Temporal" : "Static");
+}}", xExpr, yExpr, zExpr, skip, useTime ? "Temporal" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "TranslationTransform", ref warnings);
 		}
 
-		public static ImageTransform CompilePolarTransform(string tpr/*string theta, string phi, string radius*/, bool useTime, ref string warnings)
+		public static ImageTransform CompilePolarTransform(string thetaExpr, string phiExpr, string radiusExpr, bool useTime, ref string warnings)
 		{
 			string source = string.Format(@"
 using System;
@@ -67,26 +67,26 @@ namespace csharp_viewer
 	{{
 		public PolarTransform()
 		{{
-			locationTransformInterval = UpdateInterval.{1};
+			locationTransformInterval = UpdateInterval.{3};
 		}}
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
-			Vector3 tpr = new Vector3({0});
+			float theta = (float)({0}), phi = (float)({1}), radius = (float)({2}));
 
-			pos = new Vector3(tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Sin(tpr.X)), tpr.Z * (float)Math.Cos(tpr.Y), tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Cos(tpr.X)));
+			pos = new Vector3(radius * (float)(Math.Sin(phi) * Math.Sin(theta)), radius * (float)Math.Cos(phi), radius * (float)(Math.Sin(phi) * Math.Cos(theta)));
 		}}
 
 		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
 		{{
-			Vector3 tpr = new Vector3({0});
+			float theta = (float)({0}), phi = (float)({1}), radius = (float)({2}));
 
-			Vector3 pos = new Vector3(tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Sin(tpr.X)), tpr.Z * (float)Math.Cos(tpr.Y), tpr.Z * (float)(Math.Sin(tpr.Y) * Math.Cos(tpr.X)));
+			Vector3 pos = new Vector3(radius * (float)(Math.Sin(phi) * Math.Sin(theta)), radius * (float)Math.Cos(phi), radius * (float)(Math.Sin(phi) * Math.Cos(theta)));
 
 			return new AABB(pos - new Vector3(0.5f, 0.5f, 0.5f), pos + new Vector3(0.5f, 0.5f, 0.5f));
 		}}
 	}}
-}}", tpr, useTime ? "Temporal" : "Static");
+}}", thetaExpr, phiExpr, radiusExpr, useTime ? "Temporal" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "PolarTransform", ref warnings);
 		}
@@ -120,7 +120,7 @@ namespace csharp_viewer
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "SkipTransform", ref warnings);
 		}
 
-		public static ImageTransform CreateTransformLookAt(string tp, string indices, bool useTime, ref string warnings)
+		public static ImageTransform CreateTransformLookAt(string thetaExpr, string phiExpr, string indices, bool useTime, ref string warnings)
 		{
 			string source = string.Format(@"
 using System;
@@ -135,7 +135,7 @@ namespace csharp_viewer
 	{{
 		public LookAtTransform()
 		{{
-			SkipImageInterval = UpdateInterval.{2};
+			SkipImageInterval = UpdateInterval.{3};
 		}}
 
 		public override void OnArgumentsChanged()
@@ -191,7 +191,8 @@ namespace csharp_viewer
 			}}
 		}}
 		ImageAndAngleArray bestImages = new ImageAndAngleArray();
-		Vector3 viewpos, viewdir;
+		//Vector3 viewpos;
+		Vector3 viewdir;
 
 		private void OnChangeIndex()
 		{{
@@ -206,7 +207,7 @@ namespace csharp_viewer
 
 		public override void OnRender(float dt, ImageCloud.FreeView freeview)
 		{{
-			viewpos = freeview.viewpos;
+			//viewpos = freeview.viewpos;
 			viewdir = -freeview.GetViewDirection();
 			bestImages.Clear();
 		}}
@@ -219,12 +220,12 @@ namespace csharp_viewer
 			viewangle.theta = (float)Math.Atan2(viewdir.X, viewdir.Z) + MathHelper.Pi;
 			viewangle.phi = MathHelper.Pi - (float)Math.Atan2((float)Math.Sqrt(viewdir.X*viewdir.X + viewdir.Z*viewdir.Z), viewdir.Y);
 
-			float[] tp = {{ {1} }};
-			tp[0] += 10.0f * (float)Math.PI;
-			tp[0] %= 2.0f * (float)Math.PI;
-			tp[1] += 10.0f * (float)Math.PI;
-			tp[1] %= 2.0f * (float)Math.PI;
-			float totalangle = AngularDistance(viewangle.theta, tp[0])/*Math.Abs(viewangle.theta - tp[0])*/ + Math.Abs(viewangle.phi - tp[1]);
+			float t = (float)({1}), p = (float)({2});
+			t += 10.0f * (float)Math.PI;
+			t %= 2.0f * (float)Math.PI;
+			p += 10.0f * (float)Math.PI;
+			p %= 2.0f * (float)Math.PI;
+			float totalangle = AngularDistance(viewangle.theta, t)/*Math.Abs(viewangle.theta - t)*/ + Math.Abs(viewangle.phi - p);
 			ImageAndAngle bestImage = bestImages.Get(Global.arguments, imagekey);
 			if(totalangle < bestImage.angle)
 			{{
@@ -237,12 +238,12 @@ namespace csharp_viewer
 			return Math.Min(Math.Abs(a - b), Math.Abs(((a + (float)Math.PI) % (2.0f * (float)Math.PI)) - ((b + (float)Math.PI) % (2.0f * (float)Math.PI))));
 		}}
 	}}
-}}", indices, tp, useTime ? "Temporal" : "Dynamic");
+}}", indices, thetaExpr, phiExpr, useTime ? "Temporal" : "Dynamic");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "LookAtTransform", ref warnings);
 		}
 
-		public static ImageTransform CompileStarTransform(string star, string skip, bool useTime, ref string warnings)
+		public static ImageTransform CompileStarTransform(string[] starExpr, string skip, bool useTime, ref string warnings)
 		{
 			string source = string.Format(@"
 using System;
@@ -349,7 +350,7 @@ namespace csharp_viewer
 			}}
 		}}
 	}}
-}}", star, skip, useTime ? "Temporal" : "Static");
+}}", string.Join(", ", starExpr), skip, useTime ? "Temporal" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "StarTransform", ref warnings);
 		}
