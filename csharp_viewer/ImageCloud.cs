@@ -1873,6 +1873,23 @@ namespace csharp_viewer
 		public ImageTransform RemoveTransform(ImageTransform transform)
 		{
 			transforms.Remove(transform);
+			foreach(TransformedImage image in images)
+			{
+				image.RemoveTransform(transform);
+				//image.skipPosAnimation();
+			}
+			transform.OnCameraMoved(freeview);
+			return transform;
+		}
+		public ImageTransform RemoveTransform(ImageTransform transform, IEnumerable<TransformedImage> images)
+		{
+			foreach(TransformedImage image in images)
+			{
+				image.RemoveTransform(transform);
+				//image.skipPosAnimation();
+			}
+			SelectionChanged();
+			//EDIT: Call transforms.Remove(transform); for all transforms that aren't needed anymore
 			return transform;
 		}
 		public void ClearTransforms()
@@ -1887,7 +1904,7 @@ namespace csharp_viewer
 				//image.skipPosAnimation();
 			}
 			SelectionChanged();
-			//EDIT: Call transforms.Clear(); for all transforms that aren't needed anymore
+			//EDIT: Call transforms.Remove(transform); for all transforms that aren't needed anymore
 		}
 
 		public int Count(IEnumerable<TransformedImage> images)

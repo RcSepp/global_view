@@ -291,6 +291,28 @@ namespace csharp_viewer
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
+			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Count images", "count", delegate(object[] parameters) {
+				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
+				image_render_mutex.WaitOne();
+				string result = imageCloud.Count(scope).ToString();
+				image_render_mutex.ReleaseMutex();
+				return result;
+			});
+			ActionManager.CreateAction<ImageTransform.Id>("Remove image transform by id", "remove", delegate(object[] parameters) {
+				ImageTransform.Id transformId = (ImageTransform.Id)parameters[0];
+				image_render_mutex.WaitOne();
+				foreach(ImageTransform transform in imageCloud.transforms)
+				{
+					if(transform.id == transformId)
+					{
+						imageCloud.RemoveTransform(transform);
+						image_render_mutex.ReleaseMutex();
+						return null;
+					}
+				}
+				image_render_mutex.ReleaseMutex();
+				return string.Format("Transform id {0} not found", transformId);
+			});
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Clear image transforms", "clear", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
@@ -298,12 +320,30 @@ namespace csharp_viewer
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
-			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Count images", "count", delegate(object[] parameters) {
+			ActionManager.CreateAction<IEnumerable<TransformedImage>>("List image transforms", "list", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
 				image_render_mutex.WaitOne();
-				string result = imageCloud.Count(scope).ToString();
+
+				string output = "";
+				if(scope == Viewer.images)
+				{
+					foreach(ImageTransform transform in imageCloud.transforms)
+						output += string.Format("{0}: {1}\n", transform.id, transform.description);
+				}
+				else
+				{
+					SortedDictionary<ImageTransform.Id, ImageTransform> transforms = new SortedDictionary<ImageTransform.Id, ImageTransform>();
+					foreach(TransformedImage image in scope)
+						foreach(ImageTransform transform in image.transforms)
+							if(!transforms.ContainsKey(transform.id))
+								transforms.Add(transform.id, transform);
+
+					foreach(ImageTransform transform in transforms.Values)
+						output += string.Format("{0}: {1}\n", transform.id, transform.description);
+				}
+				
 				image_render_mutex.ReleaseMutex();
-				return result;
+				return output;
 			});
 			ActionManager.CreateAction<string, IEnumerable<TransformedImage>>("Create image group", "form", delegate(object[] parameters) {
 				string groupname = (string)parameters[0];
@@ -330,80 +370,6 @@ namespace csharp_viewer
 				image_render_mutex.ReleaseMutex();
 				return null;
 			});
-
-			/*ActionManager.CreateAction<int>("Apply x transform to %a of selection", "x %a", delegate(object[] parameters) {
-				int argidx = (int)parameters[0];
-				if(argidx < Global.arguments.Length)
-				{
-					XTransform transform = new XTransform();
-					transform.SetArguments(Global.arguments);
-					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform, selection);
-				}
-				return null;
-			});
-			ActionManager.CreateAction<int>("Apply y transform to %a of selection", "y %a", delegate(object[] parameters) {
-				int argidx = (int)parameters[0];
-				if(argidx < Global.arguments.Length)
-				{
-					YTransform transform = new YTransform();
-					transform.SetArguments(Global.arguments);
-					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform, selection);
-				}
-				return null;
-			});
-			ActionManager.CreateAction<int>("Apply z transform to %a of selection", "z %a", delegate(object[] parameters) {
-				int argidx = (int)parameters[0];
-				if(argidx < Global.arguments.Length)
-				{
-					ZTransform transform = new ZTransform();
-					transform.SetArguments(Global.arguments);
-					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform, selection);
-				}
-				return null;
-			});
-
-			ActionManager.CreateAction<int>("Animate %a of selection", "animate %a", delegate(object[] parameters) {
-				int argidx = (int)parameters[0];
-				if(argidx < Global.arguments.Length)
-				{
-					ImageTransform transform = new AnimationTransform();
-					transform.SetArguments(Global.arguments);
-					transform.SetIndex(0, argidx);
-					OnTransformationAdded(transform, selection);
-				}
-				return null;
-			});
-
-			ActionManager.CreateAction<int, int>("Apply theta-phi-view transform", "theta-phi-view %a %a", delegate(object[] parameters) {
-				int thetaidx = (int)parameters[0];
-				int phiidx = (int)parameters[1];
-				if(thetaidx < Global.arguments.Length && phiidx < Global.arguments.Length)
-				{
-					ImageTransform transform = new ThetaPhiViewTransform();
-					transform.SetArguments(Global.arguments);
-					transform.SetIndex(0, thetaidx);
-					transform.SetIndex(1, phiidx);
-					OnTransformationAdded(transform, selection);
-				}
-				return null;
-			});
-
-			ActionManager.CreateAction<int, int>("Apply theta-phi transform", "theta-phi %a %a", delegate(object[] parameters) {
-				int thetaidx = (int)parameters[0];
-				int phiidx = (int)parameters[1];
-				if(thetaidx < Global.arguments.Length && phiidx < Global.arguments.Length)
-				{
-					ImageTransform transform = new ThetaPhiTransform();
-					transform.SetArguments(Global.arguments);
-					transform.SetIndex(0, thetaidx);
-					transform.SetIndex(1, phiidx);
-					OnTransformationAdded(transform, selection);
-				}
-				return null;
-			});*/
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread out all dimensions", "spread", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
@@ -436,6 +402,7 @@ namespace csharp_viewer
 				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
 				//bool isTemporal = (bool)parameters[2];
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[3];
+
 				indices_enum.MoveNext();
 				int index = indices_enum.Current;
 
@@ -443,6 +410,8 @@ namespace csharp_viewer
 				{
 					string warnings = "";
 					ImageTransform transform = CompiledTransform.CompileSkipTransform(string.Format("{0} != (int)(Global.time * {1}) % {2}", byExpr[0], byExpr[1], Global.arguments[index].values.Length), true, ref warnings);
+					if(ActionManager.activeCmdString != null)
+						transform.description = ActionManager.activeCmdString;
 
 					OnTransformationAdded(transform, images);
 					return warnings;
@@ -617,17 +586,17 @@ namespace csharp_viewer
 		{
 			ISQL.Compiler.Execute(command, compiler_MethodCall, TransformCompiled, out output, out warnings);
 		}
-		private string compiler_MethodCall(string method, object[] args)
+		private string compiler_MethodCall(string method, object[] args, string isqlString)
 		{
 			string stdout;
 			if(cle_Invoker != null)
 			{
-				IAsyncResult invokeResult = cle_Invoker.BeginInvoke(new ISQL.Compiler.MethodCallDelegate(actMgr.Invoke), new object[] { method, args });
+				IAsyncResult invokeResult = cle_Invoker.BeginInvoke(new ISQL.Compiler.MethodCallDelegate(actMgr.Invoke), new object[] { method, args, isqlString });
 				invokeResult.AsyncWaitHandle.WaitOne();
 				stdout = (string)cle_Invoker.EndInvoke(invokeResult);
 			}
 			else
-				stdout = actMgr.Invoke(method, args);
+				stdout = actMgr.Invoke(method, args, isqlString);
 			return stdout;
 		}
 
@@ -1434,7 +1403,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			return true;
 		}
 
-		private void Exit()
+		private void Exit(string isqlCommand)
 		{
 #if USE_STD_IO
 			Global.cle.Close();
@@ -1449,7 +1418,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		}
 		private void this_SizeChanged(object sender, EventArgs e)
 		{
-			// >>> Apply UI logic manually since anchors and docking are useless on Mono Forms for OsX
+			// >>> Apply UI logic manually since anchors and docking aren't working on Mono Forms for OsX
 
 			int w = this.ClientSize.Width, h = this.ClientSize.Height;
 #if DISABLE_DATAVIZ
@@ -1535,7 +1504,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			if(selection != null)
 				ActionManager.Do(OnTransformationAddedAction, newtransform, selection);
 		}
-		private string TransformCompiled(ImageTransform transform, IEnumerable<TransformedImage> images)
+		private string TransformCompiled(ImageTransform transform, IEnumerable<TransformedImage> images, string isqlString)
 		{
 			ActionManager.Do(OnTransformationAddedAction, transform, selection);
 			return "";
@@ -1590,6 +1559,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileTranslationTransform(byExpr[0], "0.0f", "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
 
 			OnTransformationAdded(transform, images);
 			return warnings;
@@ -1601,6 +1572,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", byExpr[0], "0.0f", GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
 
 			OnTransformationAdded(transform, images);
 			return warnings;
@@ -1612,6 +1585,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileTranslationTransform("0.0f", "0.0f", byExpr[0], GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
 
 			OnTransformationAdded(transform, images);
 			return warnings;
@@ -1623,6 +1598,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr[0], byExpr[1], byExpr[2], byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
 
 			OnTransformationAdded(transform, images);
 			return warnings;
@@ -1631,6 +1608,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		{
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileStarTransform(byExpr, GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
 
 			OnTransformationAdded(transform, images);
 			return warnings;
@@ -1649,6 +1628,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr[0], byExpr[1], indices, byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
 
 			transform.OnArgumentsChanged();
 			OnTransformationAdded(transform, images);
@@ -1661,6 +1642,8 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr[0], byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
 
 			OnTransformationAdded(transform, images);
 			return warnings;

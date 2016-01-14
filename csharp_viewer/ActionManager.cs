@@ -16,12 +16,14 @@ namespace csharp_viewer
 		private struct PerformedAction
 		{
 			public readonly double time;
+			public readonly string cmdString;
 			public readonly Action action;
 			public readonly object[] parameters;
 
-			public PerformedAction(double time, Action action, object[] parameters)
+			public PerformedAction(double time, string cmdString, Action action, object[] parameters)
 			{
 				this.time = time;
+				this.cmdString = cmdString;
 				this.action = action;
 				this.parameters = parameters;
 			}
@@ -76,7 +78,7 @@ namespace csharp_viewer
 					do
 					{
 						try {
-							playback_next_action.Current.action.Do(playback_next_action.Current.parameters);
+							playback_next_action.Current.action.Do(playback_next_action.Current.parameters, playback_next_action.Current.cmdString);
 						} catch(Exception ex) {
 							playing = false;
 							if(ex.InnerException != null)
@@ -314,11 +316,23 @@ namespace csharp_viewer
 			}
 			return action;
 		}
+		public static Action CreateAction<T1, T2, T3, T4, T5>(string desc, string method, Action.CallbackActionDelegate func)
+		{
+			Action action = new CallbackAction(method, desc, new Type[] {typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5)}, func);
+			if(mgr != null)
+			{
+				string name = action.name.ToLower();
+				if(mgr.registered_actions.ContainsKey(name.ToLower()))
+					mgr.registered_actions.Remove(name);
+				mgr.registered_actions.Add(name, action);
+			}
+			return action;
+		}
 
 		public static string Do(Action action, params object[] parameters)
 		{
 			if(!mgr.playing)
-				mgr.actions.AddLast(new PerformedAction(mgr.time, action, parameters));
+				mgr.actions.AddLast(new PerformedAction(mgr.time, null, action, parameters));
 			return action.Do(parameters);
 		}
 
@@ -402,19 +416,12 @@ namespace csharp_viewer
 			return -1;
 		}
 
-		/*public void Invoke(string action_name)
-		{
-			Action action;
-			if(registered_actions.TryGetValue(action_name.ToLower(), out action))
-				action.Do();
-		}
-		public void Invoke(string action_name, object[] args)
-		{
-			Action action;
-			if(registered_actions.TryGetValue(action_name.ToLower(), out action))
-				action.Do(args);
-		}*/
-		public string Invoke(string action_name, object[] args)
+		/// <summary>
+		/// Call a registered action
+		/// </summary>
+		/// <param name="action_name">Action name</param>
+		/// <param name="args">List of arguments</param>
+		public string Invoke(string action_name, object[] args, string cmdString = null)
 		{
 			string stdout = "";
 
@@ -501,8 +508,11 @@ namespace csharp_viewer
 
 				// Perform action
 				try {
-					//action.Do(args);
-					string output = Do(action, args);
+					
+					//string output = Do(action, args);
+					if(!playing)
+						actions.AddLast(new PerformedAction(time, cmdString, action, args));
+					string output = action.Do(args, cmdString);
 					if(output != null)
 						stdout += output;
 				} catch(Exception ex) {
@@ -518,6 +528,7 @@ namespace csharp_viewer
 			return (object)(T)(dynamic)o;
 		}
 
+		public static string activeCmdString = null;
 
 		private class InvokeAction : Action
 		{
@@ -532,7 +543,13 @@ namespace csharp_viewer
 				this._undo = _undo;
 			}
 
-			public override string Do(object[] parameters = null) { return (string)_do.Invoke(instance, parameters != null ? parameters : new object[] {}); }
+			public override string Do(object[] parameters = null, string cmdString = null)
+			{
+				activeCmdString = cmdString;
+				string result = (string)_do.Invoke(instance, parameters != null ? parameters : new object[] {});
+				activeCmdString = null;
+				return result;
+			}
 			public override void Undo(object[] parameters = null) { _undo.Invoke(instance, parameters != null ? parameters : new object[] {}); }
 			public override bool CanUndo() { return _undo != null; }
 		}
@@ -547,7 +564,13 @@ namespace csharp_viewer
 				this.cbk = func;
 			}
 
-			public override string Do(object[] parameters = null) { return cbk(parameters); }
+			public override string Do(object[] parameters = null, string cmdString = null)
+			{
+				activeCmdString = cmdString;
+				string result = cbk(parameters);
+				activeCmdString = null;
+				return result;
+			}
 		}
 	}
 
@@ -565,7 +588,7 @@ namespace csharp_viewer
 			this.argtypes = argtypes;
 		}
 
-		public abstract string Do(params object[] parameters);
+		public abstract string Do(object[] parameters, string cmdString = null);
 		public virtual void Undo(object[] parameters = null) {}
 		public virtual bool CanUndo() { return false; }
 	}

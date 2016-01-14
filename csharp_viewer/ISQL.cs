@@ -12,8 +12,8 @@ namespace ISQL
 	{
 		// A simple interpreter for the Image-SQL
 
-		public delegate string MethodCallDelegate(string method, object[] args);
-		public delegate string TransformCompiledDelegate(ImageTransform transform, IEnumerable<TransformedImage> images);
+		public delegate string MethodCallDelegate(string method, object[] args, string isqlString);
+		public delegate string TransformCompiledDelegate(ImageTransform transform, IEnumerable<TransformedImage> images, string isqlString);
 
 		private static Dictionary<string, int> transformCreators = new Dictionary<string, int>() {
 			{"x", 0}
@@ -93,8 +93,12 @@ namespace ISQL
 
 			List<object> args = new List<object>();
 			for(int i = 1; i <= lastfragment; ++i)
+			{
 				if(fragments[i].token == Tokenizer.Token.Str)
 					args.Add(((string)fragments[i].value).Replace("\\\"", "\""));
+				if(fragments[i].token == Tokenizer.Token.TfId)
+					args.Add(fragments[i].value);
+			}
 			if(args.Count == 0 && lastfragment >= 1)
 			{
 				CompilerErrorCollection errors;
@@ -116,8 +120,8 @@ namespace ISQL
 			}
 			if(scope != null)
 				args.Add(scope);
-
-			output += MethodCall(statement, args.ToArray());
+			
+			output += MethodCall(statement, args.ToArray(), code);
 		}
 
 		private static string[] ParseExpression(string code, Tokenizer.Fragment[] fragments, int firstfragment, int lastfragment, HashSet<int> usedArgumentIndices, out bool isTemporal)
@@ -284,7 +288,7 @@ namespace csharp_viewer
 			public enum Token
 			{
 				Invalid, Var, Num, Str, // Basic types
-				ArgVal, ArgStr, ArgIdx, // Argument types
+				ArgVal, ArgStr, ArgIdx, TfId, // Specialized types
 				Add, Sub, Mul, Div, Mod, Eq, NEq, Gr, Sm, GrEq, SmEq, Asn, OBr, CBr, Cma, //Opcodes
 				Where, From, By // Clauses
 			}
@@ -338,6 +342,8 @@ namespace csharp_viewer
 						return string.Format("ArgVal({0})", (string)value);
 					case Token.ArgIdx:
 						return string.Format("ArgIdx({0})", (string)value);
+					case Token.TfId:
+						return string.Format("TfId({0})", (ImageTransform.Id)value);
 					default:
 						return token.ToString();
 					}
@@ -462,6 +468,12 @@ namespace csharp_viewer
 							fragment.value = strtoken.Substring(1);
 						}
 						break;
+					}
+					ImageTransform.Id tfId;
+					if(ImageTransform.Id.TryParse(strtoken, out tfId))
+					{
+						fragment.token = Token.TfId;
+						fragment.value = tfId;
 					}
 					if(fragment.token != Token.Invalid)
 						continue;

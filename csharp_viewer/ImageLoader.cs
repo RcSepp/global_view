@@ -195,6 +195,7 @@ namespace csharp_viewer
 				{
 				}
 
+		reattempt_load2:
 			try {
 				Bitmap bmp = (Bitmap)Bitmap.FromFile(filename);
 				GLTextureStream.ImageMetaData orientation;
@@ -213,6 +214,10 @@ namespace csharp_viewer
 					}
 				}
 				return bmp;
+			}
+			catch(OutOfMemoryException) {
+				GC.WaitForPendingFinalizers();
+				goto reattempt_load2;
 			}
 			catch
 			{

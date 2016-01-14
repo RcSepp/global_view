@@ -8,6 +8,50 @@ namespace csharp_viewer
 	//[Serializable]
 	public abstract class ImageTransform
 	{
+		public struct Id : IComparable<Id>, IEquatable<Id>
+		{
+			private static int nextFreeId = 1;
+			private int id;
+
+			public static Id Generate()
+			{
+				return new Id(nextFreeId++);
+			}
+			private Id(int id)
+			{
+				this.id = id;
+			}
+
+			public override string ToString()
+			{
+				return "T" + id;
+			}
+
+			public static bool TryParse(string str, out Id id)
+			{
+				int _id;
+				if(str.StartsWith("T") && int.TryParse(str.Substring("T".Length), out _id))
+				{
+					id = new Id(_id);
+					return true;
+				}
+				else
+				{
+					id = new Id(-1);
+					return false;
+				}
+			}
+
+			int IComparable<Id>.CompareTo(Id other) { return this.id - other.id; }
+			public bool Equals(Id other) { return this.id == other.id; }
+			public static bool operator==(Id a, Id b) { return a.id == b.id; }
+			public static bool operator!=(Id a, Id b) { return a.id != b.id; }
+			public override bool Equals(object other) { return this.id == ((Id)other).id; }
+			public override int GetHashCode() { return id.GetHashCode(); }
+		}
+		public Id id = Id.Generate();
+		public string description = "";
+
 		public virtual void OnArgumentsChanged() {}
 
 		//[NonSerializedAttribute]

@@ -616,15 +616,6 @@ namespace csharp_viewer
 					string ext = Path.GetExtension(layer.imagepath);
 					layer.imagepath = layer.imagepath.Substring(0, layer.imagepath.Length - ext.Length);
 
-					/*// Insert argument names
-					for(int i = 0; i < store.arguments.Length; ++i)
-					{
-						if(layer.imagepath.Contains("{" + store.arguments[i].name + "}"))
-							layer.imagepath = layer.imagepath.Replace("{" + store.arguments[i].name + "}", store.arguments[i].strValues[argidx[i]]);
-						else
-							layer.imagepath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
-					}*/
-
 					// Up to this point depth-path == luminance-path == image-path
 					layer.imageDepthPath = layer.imageLumPath = layer.imagepath;
 
@@ -634,6 +625,9 @@ namespace csharp_viewer
 					bool done;
 					do {
 						LayerDescription _layer = new LayerDescription(layer);
+						List<string> pathAdditions = new List<string>();
+						List<string> depthPathAdditions = new List<string>();
+						List<string> lumPathAdditions = new List<string>();
 
 						for(int i = 0; i < store.parameters.Length; ++i)
 							paramvalid[i] = true;
@@ -689,23 +683,25 @@ namespace csharp_viewer
 							}
 							else
 							{
-								_layer.imagepath += Path.DirectorySeparatorChar + parameter.name + "=" + parameter.strValues[paramidx[p]];
-								int defaultIndex;
-								if(parameter.types != null && (defaultIndex = Array.IndexOf<string>(parameter.strValues, strValue)) != -1 && parameter.types[defaultIndex] == "value")
+								if(parameter.types != null && parameter.types[paramidx[p]] == "value")
 									_layer.isFloatImage = true;
+								//_layer.imagepath += Path.DirectorySeparatorChar + parameter.name + "=" + parameter.strValues[paramidx[p]];
+								pathAdditions.Add(parameter.name + "=" + parameter.strValues[paramidx[p]]);
 
 								if(parameter.depthValue != null)
 									hasDepth = true;
-								_layer.imageDepthPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.depthValue != null ? parameter.depthValue : strValue);
+								//_layer.imageDepthPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.depthValue != null ? parameter.depthValue : strValue);
+								depthPathAdditions.Add(parameter.name + "=" + (parameter.depthValue != null ? parameter.depthValue : strValue));
 
 								if(parameter.lumValue != null)
 									hasLum = true;
-								_layer.imageLumPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : strValue);
+								//_layer.imageLumPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : strValue);
+								lumPathAdditions.Add(parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : strValue));
 							}
 							++p;
 						}
 
-						// Insert argument names //EDIT arguments and parameters have to be interlaced alphabetically. Going through arguments after parameters works only for hobo_mpas (because "layermpas" comes after the other parameters when sorted alphabetically)
+						// Insert argument names
 						for(int i = 0; i < store.arguments.Length; ++i)
 						{
 							DependencyMap dependencyMap;
@@ -720,16 +716,23 @@ namespace csharp_viewer
 							}
 							else
 							{
-								_layer.imagepath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
-								_layer.imageDepthPath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
-								_layer.imageLumPath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
+								//_layer.imagepath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
+								pathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
+								//_layer.imageDepthPath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
+								depthPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
+								//_layer.imageLumPath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
+								lumPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
 							}
 						}
 
+						pathAdditions.Sort();
+						depthPathAdditions.Sort();
+						lumPathAdditions.Sort();
+
 						// Assemble final paths (relative to Cinema database directory)
-						_layer.imagepath = "image/" + _layer.imagepath + ext;
-						_layer.imageDepthPath = hasDepth ? "image/" + _layer.imageDepthPath + ".im" : null;
-						_layer.imageLumPath = hasLum ? "image/" + _layer.imageLumPath + ext : null;
+						_layer.imagepath = "image/" + _layer.imagepath + (pathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), pathAdditions) : "") + ext;
+						_layer.imageDepthPath = hasDepth ? "image/" + _layer.imageDepthPath + (depthPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), depthPathAdditions) : "") + ".im" : null;
+						_layer.imageLumPath = hasLum ? "image/" + _layer.imageLumPath + (lumPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), lumPathAdditions) : "") + ext : null;
 						_layer.paramidx = new int[paramidx.Length];
 						Array.Copy(paramidx, _layer.paramidx, paramidx.Length);
 						_layer.paramvalid = new bool[paramvalid.Length];

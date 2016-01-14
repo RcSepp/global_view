@@ -494,7 +494,7 @@ namespace csharp_viewer
 		public delegate void LocationChangedDelegate();
 		public event LocationChangedDelegate LocationChanged;
 
-		private List<ImageTransform> transforms = new List<ImageTransform>();
+		public List<ImageTransform> transforms = new List<ImageTransform>();
 
 		//public int originalWidth = 0, originalHeight = 0;
 		//public float originalAspectRatio = 1.0f;
