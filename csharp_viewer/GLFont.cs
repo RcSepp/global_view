@@ -53,13 +53,13 @@ namespace csharp_viewer
 	public abstract class GLFont
 	{
 		protected abstract void DrawString(float x, float y, float w, string text, System.Drawing.Size backbufferSize, Color4 color);
-		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color)
+		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, Color4 color, float depth_offset = 0.0f)
 		{
-			DrawString(x, y, 0.0f, text, backbufferSize, color);
+			DrawString(x, y, depth_offset, text, backbufferSize, color);
 		}
-		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize)
+		public void DrawString(float x, float y, string text, System.Drawing.Size backbufferSize, float depth_offset = 0.0f)
 		{
-			DrawString(x, y, 0.0f, text, backbufferSize, Color4.White);
+			DrawString(x, y, depth_offset, text, backbufferSize, Color4.White);
 		}
 		public void DrawStringAt(Vector3 pos, Matrix4 worldviewprojmatrix, string text, Size backbuffersize, Color4 color)
 		{

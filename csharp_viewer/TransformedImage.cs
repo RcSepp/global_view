@@ -306,10 +306,11 @@ namespace csharp_viewer
 			// Get framebuffer dimensions
 			int framebufferWidth = 0, framebufferHeight = 0;
 			foreach(ImageLayer layer in activelayers)
-			{
-				framebufferWidth = Math.Max(framebufferWidth, layer.renderWidth);
-				framebufferHeight = Math.Max(framebufferHeight, layer.renderWidth);
-			}
+				if(layer.bmp != null)
+				{
+					framebufferWidth = Math.Max(framebufferWidth, layer.bmp.Width);
+					framebufferHeight = Math.Max(framebufferHeight, layer.bmp.Height);
+				}
 			if(framebufferWidth == 0 || framebufferHeight == 0)
 				return false; // None of the active layers has been created so far
 
@@ -550,10 +551,10 @@ namespace csharp_viewer
 
 		public bool IsVisible()
 		{
-			// Compute dynamic visibility and check if dynamic location updates are required
+			// Compute dynamic visibility
 			bool visible_dynamic = visible_static;
 			foreach(ImageTransform t in transforms)
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
+				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
 			return visible_dynamic;
 		}
@@ -564,9 +565,9 @@ namespace csharp_viewer
 			bool hasDynamicLocationTransform = locationInvalid;
 			foreach(ImageTransform t in this.transforms)
 			{
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
+				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
-				if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic)
+				if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic || t.locationTransformInterval == ImageTransform.UpdateInterval.Temporal)
 					hasDynamicLocationTransform = true;
 			}
 
@@ -641,19 +642,20 @@ namespace csharp_viewer
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
 			bool visible_dynamic = visible_static;
-			bool hasDynamicSkipTransform = false, hasDynamicLocationTransform = false;
+			bool hasTemporalSkipTransform = false, hasTemporalLocationTransform = false;
 			foreach(ImageTransform t in this.transforms)
 			{
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
+				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
 				{
-					hasDynamicSkipTransform = true;
+					if(t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
+						hasTemporalSkipTransform = true;
 					visible_dynamic &= !t.SkipImage(key, this);
 				}
-				//if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic) //EDIT: Compute location locally
-				//	hasDynamicLocationTransform = true; //EDIT: Compute location locally
+				//if(t.locationTransformInterval == ImageTransform.UpdateInterval.Temporal) //EDIT: Compute location locally
+				//	hasTemporalLocationTransform = true; //EDIT: Compute location locally
 			}
 
-			if(!hasDynamicSkipTransform && !hasDynamicLocationTransform) // If neither location nor skipping is time variant
+			if(!hasTemporalSkipTransform && !hasTemporalLocationTransform) // If neither location nor skipping is time variant
 				return; // Don't prefetch
 
 			Matrix4[] transforms = new Matrix4[activelayers.Count];
@@ -661,7 +663,7 @@ namespace csharp_viewer
 				transforms[i] = invview; //Matrix4.Identity
 			if(visible_dynamic)
 			{
-				//if(hasDynamicLocationTransform) //EDIT: Compute location locally
+				//if(hasTemporalLocationTransform) //EDIT: Compute location locally
 				//	ComputeLocation(); //EDIT: Compute location locally
 
 				for(int i = 0; i < transforms.Length; ++i)
@@ -710,32 +712,6 @@ namespace csharp_viewer
 
 			foreach(ImageTransform t in this.transforms)
 				t.RenderImage(key, this, freeview);
-
-			/*return;
-
-			for(int i = 0; i < transforms.Length; ++i)
-			{
-				ImageLayer layer = activelayers[i];
-				bool texloaded = layer.CreateIfLoaded();
-				ImageCloud.RenderShader sdr = layer.isFloatImage ? sdr_float : sdr_default;
-
-				Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-
-				//texloaded = true;
-				sdr.Bind(transforms[i], clr, texloaded, layer.tex_depth != null, layer.tex_lum != null, invbackbuffersize, depthscale);
-
-				mesh.Bind(sdr, layer.tex, layer.tex_depth, layer.tex_lum);//mesh.Bind(sdr, tex.tex, tex.depth_tex);
-				//GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
-				mesh.Draw();
-				//GL.EndQuery(QueryTarget.SamplesPassed);
-
-				//int numfragments;
-				//GL.GetQueryObject(fragmentcounter, GetQueryObjectParam.QueryResult, out numfragments);
-				//renderPriority = numfragments;
-			}
-
-			foreach(ImageTransform t in this.transforms)
-				t.RenderImage(key, this, freeview);*/
 		}
 
 		public Matrix4 GetWorldMatrix(Matrix4 invvieworient)
@@ -772,7 +748,7 @@ namespace csharp_viewer
 			// Compute dynamic visibility
 			bool visible_dynamic = visible_static;
 			foreach(ImageTransform t in transforms)
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic)
+				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
 			if(!visible_dynamic)
 				return float.MaxValue;

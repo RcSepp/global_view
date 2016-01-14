@@ -17,10 +17,16 @@ namespace csharp_viewer
 			tex = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture2D, tex);
 
-			BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-
-			GL.TexImage2D(TextureTarget.Texture2D, 0, destformat, bmpdata.Width, bmpdata.Height, 0, sourceformat, sourcetype, bmpdata.Scan0);
-			bmp.UnlockBits(bmpdata);
+		reattempt_load:
+			try {
+				BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+				GL.TexImage2D(TextureTarget.Texture2D, 0, destformat, bmpdata.Width, bmpdata.Height, 0, sourceformat, sourcetype, bmpdata.Scan0);
+				bmp.UnlockBits(bmpdata);
+			}
+			catch(OutOfMemoryException) {
+				GC.WaitForPendingFinalizers();
+				goto reattempt_load;
+			}
 
 			if(genmipmaps)
 			{

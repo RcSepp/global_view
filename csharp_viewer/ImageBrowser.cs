@@ -301,10 +301,11 @@ namespace csharp_viewer
 		public override void OnLoad()
 		{
 			SetOption(Option.BackColor, Color4.LightSlateGray);
-			//SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
+			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			SetOption(Option.ShowCoordinateSystem, false);
+			SetOption(Option.ShowLineGrid, false);
 
-			SetOption(Option.ForceOriginalImageSize, true);
+			//SetOption(Option.ForceOriginalImageSize, true);
 
 			cmImage = new ImageContextMenu.MenuGroup("");
 			cmImage.controls.Add(new ImageContextMenu.MenuButton("test"));

@@ -26,6 +26,8 @@ namespace csharp_viewer
 		private Cinema.CinemaStore.Parameter[] parameters;
 		private GLMesh meshBorders, meshTick, meshCheck;
 
+		private Action ParameterChangedAction;
+
 		private class CheckBar
 		{
 			public string label = "";
@@ -154,6 +156,14 @@ namespace csharp_viewer
 			meshTick = new GLMesh(tick_positions, null, null, null, null, null, PrimitiveType.Lines);
 
 			meshCheck = new GLMesh(new Vector3[] {new Vector3(-1.0f, -0.1f, 0.0f), new Vector3(-1.0f, 1.15f, 0.0f), new Vector3(1.0f, 1.15f, 0.0f), new Vector3(1.0f, -0.1f, 0.0f)}, null, null, null, null, null, PrimitiveType.TriangleFan);
+
+			ParameterChangedAction = ActionManager.CreateAction<int, bool[]>("Called when the checked states of the values of a parameter have changed", "", delegate(object[] p) {
+				int paramidx = (int)p[0];
+				bool[] isChecked = (bool[])p[1];
+				Array.Copy(isChecked, parameters[paramidx].isChecked, isChecked.Length);
+				ParameterChanged(parameters[paramidx], paramidx);
+				return null;
+			});
 		}
 
 		public void Load()
@@ -163,12 +173,20 @@ namespace csharp_viewer
 
 			// Create check bars for each parameter
 			checkbars.Clear();
+			int paramidx = 0;
 			foreach(Cinema.CinemaStore.Parameter parameter in parameters)
 			{
 				CheckBar newcheckbar = new CheckBar(parameter, meshBorders, meshTick, meshCheck);
 				newcheckbar.label = parameter.label;
 				newcheckbar.multicheck = parameter.type == "option";
 				checkbars.Add(newcheckbar);
+
+				if(ParameterChanged != null)
+				{
+					bool[] initialIsChecked = new bool[parameter.isChecked.Length];
+					Array.Copy(parameter.isChecked, initialIsChecked, initialIsChecked.Length);
+					ActionManager.Do(ParameterChangedAction, paramidx++, initialIsChecked);
+				}
 			}
 		}
 
@@ -236,21 +254,27 @@ namespace csharp_viewer
 			Point tick;
 			if(TickFromMousePosition(e.Location, out tick))
 			{
+				bool[] newIsChecked = new bool[parameters[tick.Y].isChecked.Length];
+
 				if(tick.X == -1)
 				{
 					for(int i = 0; i < parameters[tick.Y].values.Length; ++i)
-						parameters[tick.Y].isChecked[i] = true;
+						newIsChecked[i] = true;
 					capturedTick = null;
 				}
 				else
 				{
 					if(InputDevices.kbstate.IsKeyUp(OpenTK.Input.Key.LControl))
 						for(int i = 0; i < parameters[tick.Y].values.Length; ++i)
-							parameters[tick.Y].isChecked[i] = false;
-					parameters[tick.Y].isChecked[tick.X] = true;
+							newIsChecked[i] = false;
+					else
+						for(int i = 0; i < parameters[tick.Y].values.Length; ++i)
+							newIsChecked[i] = parameters[tick.Y].isChecked[i];
+					newIsChecked[tick.X] = true;
 				}
+
 				if(ParameterChanged != null)
-					ParameterChanged(parameters[tick.Y], tick.Y);
+					ActionManager.Do(ParameterChangedAction, tick.Y, newIsChecked);
 				return true;
 			}
 			capturedTick = null;

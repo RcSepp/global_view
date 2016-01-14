@@ -1954,3 +1954,209 @@ load "hobo_mpas"
 unload
 unload
 unload
+y all by #layermpas
+focus all
+clear all
+y all by #layermpas
+hide where $phi != 80
+count visible
+x all by #theta * 1.3
+x all by time / 10.0
+x all by - time / 10.0
+x all by - time / 100.0
+focus all
+count selected
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+spread all by #theta * 1.2, #layermpas
+star all by #theta * 1.2, #layermpas
+star all by #theta * 1.2f, #layermpas
+focus where #theta == 0
+x all by - time / 10
+StartLoader
+focus all
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+star all by #theta * 1.2, #layermpas
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+x all by - time / 10
+focus where #theta == 0
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+x all by - time * 0.1
+focus where #theta == 0 && #layermpas == 0
+focus where #theta == 0 && #layermpas == 3
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+x all by - time * 0.1
+focus where #theta == 0 && #layermpas == 0
+focus where #theta == 0 && #layermpas == 3
+x all by time * 0.1
+focus all
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+x all by - time * 0.1
+focus where #theta == 0 && #layermpas == 0
+focus where #theta == 0 && #layermpas == 3
+x all by time * 0.1
+focus all
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+focus all
+StartLoader
+StopLoader
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+exit
+StopLoader
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+StartLoader
+star all by #theta * 1.2f, #layermpas
+clear all
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+StartLoader
+star all by #theta * 1.2f, #layermpas
+focus all
+x all by - time * 0.2
+focus where #theta == 0 && #layermpas == 0
+focus where #theta == 0 && #layermpas == 3
+x all by   time * 0.2
+focus all
+StopLoader
+StopLoader
+count visible
+hide where #time != 0 || $phi != 80
+hide where #time != 0 || $phi != 80
+count visible
+StartLoader
+star all by #theta * 1.2f, #layermpas
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+x all by   time * 0.2
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+StartLoader
+focus all
+x all by - time * 0.2
+focus where #theta == 0 && #layermpas == 0
+focus where #theta == 0 && #layermpas == 3
+x all by   time * 0.2
+focus all
+SetViewControl ImageCloud.ViewControl.TwoDimensional
+StopLoader
+clear all
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+StartLoader
+focus all
+x all by - time * 0.2
+focus where #theta == 0 && #layermpas == 0
+focus where #theta == 0 && #layermpas == 2
+x all by time * 0.2
+focus all
+focus all
+StopLoader
+clear all
+count visible
+hide where #time != 0 || #theta != 0
+count visible
+star all by #theta * 1.2, #layermpas
+star all by #theta * 1.2f, #layermpas
+focus all
+exit
+StopLoader
+clear all
+count visible
+hide where #time != 0 || #theta != 0
+count visible
+star all by #theta * 1.2, #layermpas
+star all by #theta * 1.2f, #layermpas
+focus all
+exit
+StopLoader
+clear all
+count visible
+hide where #time != 0 || #theta != 0
+exit
+StopLoader
+clear all
+SetViewControl ImageCloud.ViewControl.TwoDimensional
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+StopLoader
+clear all
+SetViewControl ImageCloud.ViewControl.TwoDimensional
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+focus where #theta == 0
+focus all
+StopLoader
+clear all
+SetViewControl ImageCloud.ViewControl.TwoDimensional
+count visible
+hide where #time != 0 || $phi != 80
+count visible
+star all by #theta * 1.2f, #layermpas
+focus all
+StartLoader
+focus where #theta == 0
+focus all

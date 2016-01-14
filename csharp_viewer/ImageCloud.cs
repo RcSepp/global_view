@@ -1077,10 +1077,6 @@ namespace csharp_viewer
 			foreach(ImageTransform transform in transforms)
 				transform.OnRender(dt, freeview);
 
-			if(images != null)
-				foreach(TransformedImage image in Viewer.visible)
-					image.PrepareRender();
-
 			Matrix4 vieworient = freeview.viewmatrix, invvieworient;
 			vieworient.M41 = vieworient.M42 = vieworient.M43 = 0.0f;
 			invvieworient = vieworient;
@@ -1113,6 +1109,9 @@ namespace csharp_viewer
 #if USE_DEPTH_SORTING
 				SortedList<TransformedImageAndMatrix> renderlist = new SortedList<TransformedImageAndMatrix>();
 #endif
+
+				foreach(TransformedImage iter in Viewer.visible)
+					iter.PrepareRender();
 
 				Vector2 invbackbuffersize = new Vector2(1.0f / backbuffersize.Width, 1.0f / backbuffersize.Height);
 				float invNumBackbufferPixels = 1.0f / ((float)backbuffersize.Width * (float)backbuffersize.Height);

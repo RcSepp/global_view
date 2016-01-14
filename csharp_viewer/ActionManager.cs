@@ -370,6 +370,7 @@ namespace csharp_viewer
 			playback_framecounter = 0;
 			playing_captureframes = true;
 			playing = true;
+			System.IO.Directory.CreateDirectory("frames" + System.IO.Path.DirectorySeparatorChar);
 		}
 
 		public void SaveScreenshot(string filename = "screenshot.png")

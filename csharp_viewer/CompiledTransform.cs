@@ -6,12 +6,6 @@ namespace csharp_viewer
 	{
 		public static ImageTransform CompileTranslationTransform(string x, string y, string z, string skip, bool useTime, ref string warnings)
 		{
-			string timeCode = useTime ? @"
-		public TranslationTransform()
-		{
-			locationTransformInterval = UpdateInterval.Dynamic;
-		}" : "";
-
 			string source = string.Format(@"
 using System;
 using System.Collections;
@@ -23,6 +17,11 @@ namespace csharp_viewer
 {{
 	public class TranslationTransform : ImageTransform
 	{{
+		public TranslationTransform()
+		{{
+			locationTransformInterval = UpdateInterval.{4};
+		}}
+
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
 			if({3})
@@ -47,22 +46,14 @@ namespace csharp_viewer
 		{{
 			rand = new Random((int)((Global.time * 1000.0f) % (float)int.MaxValue));
 		}}*/
-		
-		{4}
 	}}
-}}", x, y, z, skip, timeCode);
+}}", x, y, z, skip, useTime ? "Temporal" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "TranslationTransform", ref warnings);
 		}
 
 		public static ImageTransform CompilePolarTransform(string tpr/*string theta, string phi, string radius*/, bool useTime, ref string warnings)
 		{
-			string timeCode = useTime ? @"
-		public PolarTransform()
-		{
-			locationTransformInterval = UpdateInterval.Dynamic;
-		}" : "";
-
 			string source = string.Format(@"
 using System;
 using System.Collections;
@@ -74,6 +65,11 @@ namespace csharp_viewer
 {{
 	public class PolarTransform : ImageTransform
 	{{
+		public PolarTransform()
+		{{
+			locationTransformInterval = UpdateInterval.{1};
+		}}
+
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
 			Vector3 tpr = new Vector3({0});
@@ -89,10 +85,8 @@ namespace csharp_viewer
 
 			return new AABB(pos - new Vector3(0.5f, 0.5f, 0.5f), pos + new Vector3(0.5f, 0.5f, 0.5f));
 		}}
-		
-		{1}
 	}}
-}}", tpr, timeCode);
+}}", tpr, useTime ? "Temporal" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "PolarTransform", ref warnings);
 		}
@@ -110,23 +104,23 @@ namespace csharp_viewer
 {{
 	public class SkipTransform : ImageTransform
 	{{
-		public override bool SkipImage(int[] imagekey, TransformedImage image)
-		{{
-			return {0};
-		}}
-		
 		public SkipTransform()
 		{{
 			locationTransformInterval = UpdateInterval.Never;
 			SkipImageInterval = UpdateInterval.{1};
 		}}
+
+		public override bool SkipImage(int[] imagekey, TransformedImage image)
+		{{
+			return {0};
+		}}
 	}}
-}}", skip, useTime ? "Dynamic" : "Static");
+}}", skip, useTime ? "Temporal" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "SkipTransform", ref warnings);
 		}
 
-		public static ImageTransform CreateTransformLookAt(string tp, string indices, ref string warnings)
+		public static ImageTransform CreateTransformLookAt(string tp, string indices, bool useTime, ref string warnings)
 		{
 			string source = string.Format(@"
 using System;
@@ -139,6 +133,11 @@ namespace csharp_viewer
 {{
 	public class LookAtTransform : ImageTransform
 	{{
+		public LookAtTransform()
+		{{
+			SkipImageInterval = UpdateInterval.{2};
+		}}
+
 		public override void OnArgumentsChanged()
 		{{
 			OnChangeIndex();
@@ -194,11 +193,6 @@ namespace csharp_viewer
 		ImageAndAngleArray bestImages = new ImageAndAngleArray();
 		Vector3 viewpos, viewdir;
 
-		public LookAtTransform()
-		{{
-			SkipImageInterval = UpdateInterval.Dynamic;
-		}}
-
 		private void OnChangeIndex()
 		{{
 			bestImages.Alloc(Global.arguments, new System.Collections.Generic.HashSet<int>() {{ {0} }});
@@ -243,19 +237,13 @@ namespace csharp_viewer
 			return Math.Min(Math.Abs(a - b), Math.Abs(((a + (float)Math.PI) % (2.0f * (float)Math.PI)) - ((b + (float)Math.PI) % (2.0f * (float)Math.PI))));
 		}}
 	}}
-}}", indices, tp);
+}}", indices, tp, useTime ? "Temporal" : "Dynamic");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "LookAtTransform", ref warnings);
 		}
 
 		public static ImageTransform CompileStarTransform(string star, string skip, bool useTime, ref string warnings)
 		{
-			string timeCode = useTime ? @"
-		public StarTransform()
-		{
-			locationTransformInterval = UpdateInterval.Dynamic;
-		}" : "";
-
 			string source = string.Format(@"
 using System;
 using System.Collections;
@@ -319,6 +307,11 @@ namespace csharp_viewer
 			new Vector3( 0.0f,         1.0f,        0.0f),
 			new Vector3(-(float)Math.Sqrt(0.75), -0.5f, 0.0f)
 		}}*/
+
+		public StarTransform()
+		{{
+			locationTransformInterval = UpdateInterval.{2};
+		}}
 		
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
@@ -355,10 +348,8 @@ namespace csharp_viewer
 				}}
 			}}
 		}}
-		
-		{2}
 	}}
-}}", star, skip, timeCode);
+}}", star, skip, useTime ? "Temporal" : "Static");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "StarTransform", ref warnings);
 		}

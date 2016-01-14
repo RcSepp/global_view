@@ -663,7 +663,7 @@ namespace csharp_viewer
 			private readonly GLTexture2D texFileNotFound;
 
 			private Thread loaderThread;
-			private bool closeLoaderThread, loaderThreadClosed;
+			private bool closeLoaderThread, loaderThreadClosed = true;
 
 			public List<Image> prioritySortedImages; //EDIT: Make private
 			private Mutex addImageMutex;
@@ -684,24 +684,24 @@ namespace csharp_viewer
 
 				prioritySortedImages = new List<Image>();
 				addImageMutex = new Mutex();
-				/*prioritySortedImages = new List<Image>(images.Count);
-				foreach(TransformedImage image in images)
-					prioritySortedImages.Add(new Image(image));*/
 
+				Start();
+			}
+
+			public void Start()
+			{
 				closeLoaderThread = loaderThreadClosed = false;
 				loaderThread = new Thread(LoaderThread);
 				loaderThread.Start();
 			}
-
-			public void CloseThread()
+			public void Stop(bool blocking = false)
 			{
 				closeLoaderThread = true;
+				if(blocking)
+					while(!loaderThreadClosed)
+						Thread.Sleep(1);
 			}
-			public void WaitForThreadClose()
-			{
-				while(!loaderThreadClosed)
-					Thread.Sleep(1);
-			}
+			public bool Running { get { return !loaderThreadClosed; } }
 
 			public void AddImage(TransformedImage image)
 			{
@@ -843,22 +843,6 @@ namespace csharp_viewer
 					addImageMutex.ReleaseMutex();
 				}
 
-				// Free memory
-				foreach(Image image in prioritySortedImages)
-				{
-					if(image.image.bmp != null)
-					{
-						image.image.bmp.Dispose();
-						image.image.bmp = null;
-					}
-
-					/*if(image.image.tex != null  && !image.image.texIsStatic) //EDIT: Do this in main threat
-					{
-						GL.DeleteTexture(image.image.tex.tex);
-						image.image.tex = null;
-					}*/
-				}
-
 				loaderThreadClosed = true;
 			}
 		}
@@ -913,14 +897,27 @@ namespace csharp_viewer
 			texFileNotFound = new GLTexture2D("texFileNotFound", bmpFileNotFound, true);
 
 			loader = new AsyncImageLoader(memorysize, texFileNotFound, ReadImageMetaData);
+
+			ActionManager.CreateAction("Start image loader thread", "StartLoader", delegate(object[] parameters) { Enabled = true; return null; });
+			ActionManager.CreateAction("Stop image loader thread", "StopLoader", delegate(object[] parameters) { Enabled = false; return null; });
 		}
 		public void Free()
 		{
-			loader.CloseThread();
+			loader.Stop(blocking: true);
+			loader.ClearImages();
+		}
 
-			// Free local resources ...
-
-			loader.WaitForThreadClose();
+		public bool Enabled
+		{
+			get {
+				return loader.Running;
+			}
+			set {
+				if(value == true && loader.Running == false)
+					loader.Start();
+				else if(value == false && loader.Running == true)
+					loader.Stop(blocking: false);
+			}
 		}
 
 		public void AddImage(TransformedImage image)

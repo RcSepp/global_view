@@ -35,7 +35,17 @@ namespace csharp_viewer
 
 		public enum UpdateInterval
 		{
-			Never, Static, Dynamic
+			/// <summary> The behaviour isn't used </summary>
+			Never,
+
+			/// <summary> The behaviour never changes </summary>
+			Static,
+
+			/// <summary> The behaviour changes every frame (not checked during temporal prefetching) </summary>
+			Dynamic,
+
+			/// <summary> The behaviour changes with time (checked during temporal prefetching) </summary>
+			Temporal
 		};
 		public UpdateInterval locationTransformInterval, SkipImageInterval;
 

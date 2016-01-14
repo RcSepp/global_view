@@ -54,9 +54,9 @@ namespace csharp_viewer
 		Control ctrlConsole = null;
 		ActionManager actMgr = new ActionManager();
 		Control cle_Invoker = null;
-		//public static ImageBrowser browser = new SimpleBrowser();
+		public static ImageBrowser browser = new SimpleBrowser();
 		//public static ImageBrowser browser = new MPASBrowser();
-		public static ImageBrowser browser = new PhotoBrowser();
+		//public static ImageBrowser browser = new PhotoBrowser();
 
 #if !DISABLE_DATAVIZ
 		Panel pnlPCView;
@@ -1626,7 +1626,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 					indices += ", " + index.ToString();
 
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr, indices, ref warnings);
+			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr, indices, byExpr_isTemporal, ref warnings);
 
 			transform.OnArgumentsChanged();
 			OnTransformationAdded(transform, images);

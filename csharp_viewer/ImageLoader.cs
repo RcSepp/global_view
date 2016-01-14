@@ -11,8 +11,15 @@ namespace csharp_viewer
 	{
 		public static Bitmap Load(string filename)
 		{
-			if(filename.EndsWith(".im", StringComparison.OrdinalIgnoreCase))
-				return ImImageLoader.Load(filename);
+		reattempt_load:
+			try {
+				if(filename.EndsWith(".im", StringComparison.OrdinalIgnoreCase))
+					return ImImageLoader.Load(filename);
+			}
+			catch(OutOfMemoryException) {
+				GC.WaitForPendingFinalizers();
+				goto reattempt_load;
+			}
 
 			try {
 				return (Bitmap)Bitmap.FromFile(filename);
@@ -65,8 +72,15 @@ namespace csharp_viewer
 		}
 		public static Bitmap Load(string filename, List<GLTextureStream.ImageMetaData> meta)
 		{
-			if(filename.EndsWith(".im", StringComparison.OrdinalIgnoreCase))
-				return ImImageLoader.Load(filename);
+		reattempt_load:
+			try {
+				if(filename.EndsWith(".im", StringComparison.OrdinalIgnoreCase))
+					return ImImageLoader.Load(filename);
+			}
+			catch(OutOfMemoryException) {
+				GC.WaitForPendingFinalizers();
+				goto reattempt_load;
+			}
 
 			Dictionary<ExifTags, GLTextureStream.ImageMetaData> exifdict = null;
 			if(filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))

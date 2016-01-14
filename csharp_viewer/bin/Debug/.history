@@ -3041,3 +3041,43 @@ ls
 dir
 cd
 exit
+load "bunny"
+skip all by #time != (int)time % 50
+skip all by #time != (int)time % 50
+skip all by #time != (int)time % 50
+skip all by #time != (int)(time / 5.0) % 50
+skip all by #time != (int)(time / 5.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+skip all by #time != (int)(time / 10.0) % 50
+StopLoader
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+StartLoader
+skip all by #time != (int)(time / 1.0) % 50
+StopLoader
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+skip all by #time != (int)(time * 5.0) % 50
+StartLoader
+StopLoader
+clear all
+look all by $theta * pi / 180, $phi * pi / 180
+skip all by #time != (int)(time * 4.0) % 50
+StartLoader
+skip all by #time != (int)(time * 3.0) % 50
+skip all by #time != (int)(time / 2.0) % 50
+skip all by #time != (int)(time / 2.0) % 50
+y all by #layermpas * 2
+y all by #layermpas * 2
+focus all
+y all by #layermpas

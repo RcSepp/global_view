@@ -1,26 +1,28 @@
 ﻿<Properties StartupItem="csharp_viewer/csharp_viewer.csproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/TransformedImage.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/ParameterIndex.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="123" Column="17" />
-      <File FileName="csharp_viewer/ImageBrowser.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="573" Column="53" />
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="382" Column="4" />
-      <File FileName="csharp_viewer/ImageLoader.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageBrowser.cs" Line="288" Column="23" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="310" Column="6" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="600" Column="21" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="135" Column="6" />
       <File FileName="csharp_viewer/Common.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ColorTableManager.cs" Line="314" Column="6" />
       <File FileName="csharp_viewer/CoordinateSystem.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ISQL.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTextureStream.cs" Line="704" Column="5" />
       <File FileName="csharp_viewer/GLTexture.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/GLTexture2D.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/GLTexture1D.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLFont.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/CompiledTransform.cs" Line="359" Column="1" />
+      <File FileName="csharp_viewer/ImageTransform.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageLoader.cs" Line="79" Column="4" />
+      <File FileName="csharp_viewer/GLControls.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Cinema.cs" Line="691" Column="9" />
+      <File FileName="csharp_viewer/ActionManager.cs" Line="371" Column="33" />
+      <File FileName="csharp_viewer/ParameterIndex.cs" Line="221" Column="76" />
     </Files>
-    <Pads>
-      <Pad Id="MonoDevelop.Debugger.WatchPad">
-        <State />
-      </Pad>
-    </Pads>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore>
@@ -29,8 +31,8 @@
       <Breakpoint file="/Users/sklaassen/Desktop/work/csharp_viewer/csharp_viewer/Viewer.cs" line="422" column="16" />
       <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/ActionManager.cs" line="114" column="1" />
       <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/ActionManager.cs" line="112" column="1" />
-      <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/Cinema.cs" line="740" column="1" />
-      <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/Cinema.cs" line="747" column="1" />
+      <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/Cinema.cs" line="687" column="1" />
+      <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/Cinema.cs" line="694" column="1" />
       <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/GLTextureStream.cs" line="396" column="1" />
       <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/GLTextureStream.cs" line="411" column="1" />
       <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/GLTextureStream.cs" line="425" column="1" />
@@ -42,6 +44,7 @@
       <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/Viewer.cs" line="151" column="1" />
       <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/Viewer.cs" line="704" column="1" />
       <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/Viewer.cs" line="1692" column="1" />
+      <FunctionBreakpoint line="19" column="1" function="malloc_error_break" language="C#" />
     </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />

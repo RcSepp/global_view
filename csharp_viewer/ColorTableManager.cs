@@ -289,6 +289,8 @@ namespace csharp_viewer
 			{
 				GL.Enable(EnableCap.ScissorTest);
 				GL.Scissor(bounds.Left, backbuffersize.Height - bounds.Bottom, bounds.Width, bounds.Height);
+				GL.Enable(EnableCap.DepthTest);
+				GL.DepthFunc(DepthFunction.Always);
 
 				// Draw solid color background
 				Matrix4 trans = Matrix4.Identity;
@@ -307,7 +309,46 @@ namespace csharp_viewer
 					label_x = cell_x + 2 * COLORMAP_LEFT + (int)Math.Ceiling(COLORMAP_RELATIVE_WIDTH * width);
 
 					// Draw table header
-					font.DrawString((float)cell_x, (float)y, group.name, bounds.Size, new Color4(52, 52, 52, 255));
+					//font.DrawString((float)cell_x, (float)y, group.name, bounds.Size, new Color4(52, 52, 52, 255));
+					y += HEADER_HEIGHT;
+
+					trans = Matrix4.Identity;
+					trans *= Matrix4.CreateScale(2.0f * COLORMAP_RELATIVE_WIDTH * width / backbuffersize.Width, (2.0f * (float)COLORMAP_HEIGHT - 4.0f) / backbuffersize.Height, 1.0f);
+					trans *= Matrix4.CreateTranslation(-1.0f + 2.0f * ((float)(cell_x + COLORMAP_LEFT) + 0.5f) / backbuffersize.Width, 1.0f - 2.0f * ((float)(y + COLORMAP_TOP + COLORMAP_HEIGHT) - 0.5f) / backbuffersize.Height, 0.0f);
+
+					// Draw cells
+					foreach(NamedColorTable colormap in group.colormaps)
+					{
+						if(colormap != highlightedColormap)
+						{
+							// Draw colormap name
+							//font.DrawString((float)label_x, (float)y + 1.0f, colormap.name, backbuffersize, new Color4(38, 38, 38, 255));
+						}
+
+						// Draw colormap
+						cmpreviewshader.Bind(colormap == highlightedColormap ? Matrix4.CreateScale(3.0f, 1.0f, 1.0f) * trans : trans);
+						Common.meshQuad.Bind(cmpreviewshader, colormap.tex);
+						Common.meshQuad.Draw();
+
+						// Advance to next row
+						y += ROW_HEIGHT;
+						trans *= Matrix4.CreateTranslation(0.0f, -2.0f * (float)ROW_HEIGHT / backbuffersize.Height, 0.0f);
+					}
+
+					// Advance to next column
+					cell_x += (int)Math.Ceiling(width);
+					y = bounds.Top;
+				}
+
+				cell_x = bounds.Left; y = bounds.Top;
+				foreach(ColorMapGroup group in groups.Values)
+				{
+					// Compute scaled group width and label x
+					float width = (float)group.width * (float)backbuffersize.Width / (float)totalwidth;
+					label_x = cell_x + 2 * COLORMAP_LEFT + (int)Math.Ceiling(COLORMAP_RELATIVE_WIDTH * width);
+
+					// Draw table header
+					font.DrawString((float)cell_x, (float)y, group.name, bounds.Size, new Color4(52, 52, 52, 255), 0.9f);
 					y += HEADER_HEIGHT;
 
 					trans = Matrix4.Identity;
@@ -323,10 +364,10 @@ namespace csharp_viewer
 							font.DrawString((float)label_x, (float)y + 1.0f, colormap.name, backbuffersize, new Color4(38, 38, 38, 255));
 						}
 
-						// Draw colormap
-						cmpreviewshader.Bind(colormap == highlightedColormap ? Matrix4.CreateScale(3.0f, 1.0f, 1.0f) * trans : trans);
-						Common.meshQuad.Bind(cmpreviewshader, colormap.tex);
-						Common.meshQuad.Draw();
+						//// Draw colormap
+						//cmpreviewshader.Bind(colormap == highlightedColormap ? Matrix4.CreateScale(3.0f, 1.0f, 1.0f) * trans : trans);
+						//Common.meshQuad.Bind(cmpreviewshader, colormap.tex);
+						//Common.meshQuad.Draw();
 
 						// Advance to next row
 						y += ROW_HEIGHT;
