@@ -72,14 +72,14 @@ namespace csharp_viewer
 
 		public override void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl)
 		{{
-			float theta = (float)({0}), phi = (float)({1}), radius = (float)({2}));
+			float theta = (float)({0}), phi = (float)({1}), radius = (float)({2});
 
 			pos = new Vector3(radius * (float)(Math.Sin(phi) * Math.Sin(theta)), radius * (float)Math.Cos(phi), radius * (float)(Math.Sin(phi) * Math.Cos(theta)));
 		}}
 
 		public override AABB GetImageBounds(int[] imagekey, TransformedImage image)
 		{{
-			float theta = (float)({0}), phi = (float)({1}), radius = (float)({2}));
+			float theta = (float)({0}), phi = (float)({1}), radius = (float)({2});
 
 			Vector3 pos = new Vector3(radius * (float)(Math.Sin(phi) * Math.Sin(theta)), radius * (float)Math.Cos(phi), radius * (float)(Math.Sin(phi) * Math.Cos(theta)));
 

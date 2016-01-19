@@ -620,9 +620,9 @@ namespace csharp_viewer
 
 			texdot = GLTexture2D.FromFile(Global.EXE_DIR + "dot.png", true);
 
-			texstream = new GLTextureStream(256*1024*1024, ReadImageMetaData); // Optimize for 1GB of VRAM
+			//texstream = new GLTextureStream(256*1024*1024, ReadImageMetaData); // Optimize for 1GB of VRAM
 			//texstream = new GLTextureStream(64*1024*1024, ReadImageMetaData); // Optimize for 256MB of VRAM
-			//texstream = new GLTextureStream(8*1024*1024, ReadImageMetaData); // Optimize for 32MB of VRAM
+			texstream = new GLTextureStream(8*1024*1024, ReadImageMetaData); // Optimize for 32MB of VRAM
 			//texstream = new GLTextureStream(1024*1024, ReadImageMetaData); // Optimize for 4MB of VRAM
 			//texstream = new GLTextureStream(128*1024, ReadImageMetaData); // Optimize for 512KB of VRAM
 
