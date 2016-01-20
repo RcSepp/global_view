@@ -47,36 +47,37 @@ namespace csharp_viewer
 			";
 		}
 
-		public class ImageLayer
+		public class ImageLayer : GLTextureStream.ImageReference
 		{
-			public TransformedImage image;
-			public ImageLayer(TransformedImage image)
+			public TransformedImage _image;
+			public ImageLayer(TransformedImage image, string filename, string depth_filename = null, string lum_filename = null, bool isFloatImage = false)
+				: base(filename, depth_filename, lum_filename, isFloatImage)
 			{
-				this.image = image;
+				this._image = image;
 			}
 
-			public string filename;
-			public string depth_filename, lum_filename;
+			//public string filename;
+			//public string depth_filename, lum_filename;
 
 			public int[] key;
 			public bool[] keymask;
 			public Cinema.CinemaStore.Parameter[] parameters;
 			public int[] globalparamindices;
 
-			public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
-			public System.Drawing.Bitmap bmp = null, bmp_depth = null, bmp_lum = null;
-			private System.Drawing.Bitmap oldbmp = null;
-			public bool texIsStatic = false;
-			public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
-			public int originalWidth = 0, originalHeight = 0;
-			public float originalAspectRatio = 1.0f;
-			public int renderWidth, renderHeight;
-			public float renderPriority = 0;
+			//public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
+			//public System.Drawing.Bitmap bmp = null, bmp_depth = null, bmp_lum = null;
+			//private System.Drawing.Bitmap oldbmp = null;
+			//public bool texIsStatic = false;
+			//public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
+			//public int originalWidth = 0, originalHeight = 0;
+			//public float originalAspectRatio = 1.0f;
+			//public int renderWidth, renderHeight;
+			//public float renderPriority = 0;
 
-			public bool isFloatImage = false;
+			//public bool isFloatImage = false;
 			public bool HasDepthInfo { get {return depth_filename != null;} }
 
-			public void RemoveIfUnloaded()
+			/*public void RemoveIfUnloaded()
 			{
 				if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
 				{
@@ -103,6 +104,9 @@ namespace csharp_viewer
 
 			public void TriggerReload()
 			{
+				if(texIsStatic)
+					return;
+
 				if (tex != null)
 				{
 					tex.Dispose();
@@ -157,6 +161,15 @@ namespace csharp_viewer
 				}
 
 				return false;
+			}*/
+
+			public override void OnTextureLoaded()
+			{
+				_image.FreeAssembledImage();
+			}
+			public override void OnTextureUnloaded()
+			{
+				_image.FreeAssembledImage();
 			}
 		}
 		public List<ImageLayer> inactivelayers = new List<ImageLayer>(), activelayers = new List<ImageLayer>();
@@ -286,7 +299,7 @@ namespace csharp_viewer
 				finalTexLum = null;
 				return false;
 			case 1:
-				if(!activelayers[0].CreateIfLoaded())
+				if(!activelayers[0].ReadyForRendering())
 					return false;
 
 				finalTexHasDefaultComponent = !activelayers[0].isFloatImage;
@@ -297,7 +310,7 @@ namespace csharp_viewer
 				return false;
 			}
 			foreach(ImageLayer layer in activelayers)
-				if(!layer.CreateIfLoaded())
+				if(!layer.ReadyForRendering())
 					return false;
 
 			if(sdrImageAssembly == null)
@@ -306,11 +319,10 @@ namespace csharp_viewer
 			// Get framebuffer dimensions
 			int framebufferWidth = 0, framebufferHeight = 0;
 			foreach(ImageLayer layer in activelayers)
-				if(layer.bmp != null)
-				{
-					framebufferWidth = Math.Max(framebufferWidth, layer.bmp.Width);
-					framebufferHeight = Math.Max(framebufferHeight, layer.bmp.Height);
-				}
+			{
+				framebufferWidth = Math.Max(framebufferWidth, layer.loadedWidth);
+				framebufferHeight = Math.Max(framebufferHeight, layer.loadedHeight);
+			}
 			if(framebufferWidth == 0 || framebufferHeight == 0)
 				return false; // None of the active layers has been created so far
 
@@ -327,7 +339,7 @@ namespace csharp_viewer
 			finalTexHasDefaultComponent = finalTexHasFloatComponent = false;
 			foreach(ImageLayer layer in activelayers)
 			{
-				bool texloaded = layer.CreateIfLoaded();
+				bool texloaded = layer.ReadyForRendering();
 				if(!texloaded)
 					continue;
 
@@ -398,7 +410,8 @@ namespace csharp_viewer
 			FreeAssembledImage();
 			foreach(ImageLayer layer in activelayers)
 			{
-				if(layer.tex != null)
+				layer.Dispose();
+				/*if(layer.tex != null)
 				{
 					layer.tex.Dispose();
 					layer.tex = null;
@@ -414,11 +427,13 @@ namespace csharp_viewer
 				{
 					layer.tex_lum.Dispose();
 					layer.tex_lum = null;
-				}
+				}*/
 			}
+			activelayers.Clear();
 			foreach(ImageLayer layer in inactivelayers)
 			{
-				if(layer.tex != null)
+				layer.Dispose();
+				/*if(layer.tex != null)
 				{
 					layer.tex.Dispose();
 					layer.tex = null;
@@ -434,8 +449,9 @@ namespace csharp_viewer
 				{
 					layer.tex_lum.Dispose();
 					layer.tex_lum = null;
-				}
+				}*/
 			}
+			inactivelayers.Clear();
 		}
 
 		public void OnParameterChanged(Cinema.CinemaStore.Parameter parameter, int paramidx)
@@ -495,16 +511,6 @@ namespace csharp_viewer
 		public event LocationChangedDelegate LocationChanged;
 
 		public List<ImageTransform> transforms = new List<ImageTransform>();
-
-		//public int originalWidth = 0, originalHeight = 0;
-		//public float originalAspectRatio = 1.0f;
-		//public int renderWidth, renderHeight;
-		//public float renderPriority = 0;
-		//public System.Drawing.Bitmap bmp = null, bmp_depth = null, bmp_lum = null;
-		//private System.Drawing.Bitmap oldbmp = null;
-		//public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
-		//public bool texIsStatic = false;
-		//public bool isFloatImage = false;
 
 		private float prefetchHoldTime = 0.0f; // To avoid images to be unloaded between prefetching and rendering, prefetchHoldTime gets set to the expected render time inside PrefetchRenderPriority()
 
@@ -571,27 +577,8 @@ namespace csharp_viewer
 					hasDynamicLocationTransform = true;
 			}
 
-			foreach(ImageLayer layer in activelayers)
-				layer.RemoveIfUnloaded();
-			/*if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
-			{
-				// Unload texture
-				tex.Dispose();
-				tex = null;
-
-				if(tex_depth != null)
-				{
-					tex_depth.Dispose();
-					tex_depth = null;
-				}
-
-				if(tex_lum != null)
-				{
-					tex_lum.Dispose();
-					tex_lum = null;
-				}
-			}
-			oldbmp = bmp;*/
+			//foreach(ImageLayer layer in activelayers)
+			//	layer.RemoveIfUnloaded();
 
 			transforms = new Matrix4[activelayers.Count];
 			for(int i = 0; i < transforms.Length; ++i)
@@ -692,7 +679,7 @@ namespace csharp_viewer
 		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assembled, Vector2 invbackbuffersize, float invNumBackbufferPixels, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter)
 		{
 			foreach(ImageLayer layer in activelayers)
-				layer.CreateIfLoaded();
+				layer.ReadyForRendering();
 
 			AssembleImage();
 			ImageCloud.RenderShader _sdr = sdr_assembled;

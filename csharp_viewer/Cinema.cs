@@ -291,20 +291,25 @@ namespace csharp_viewer
 						// Create CinemaArgument from JToken
 						parameter = null;
 						carg = new CinemaArgument();
-						store.argumentMap.Add(argumentMeta.Key, carg);
+
 						carg.name = argumentMeta.Key;
 						carg.label = argumentMeta.Value["label"].ToObject<string>();
 						carg.strValues = argumentMeta.Value["values"].ToObject<string[]>();
+						carg.defaultStrValue = argumentMeta.Value["default"].ToObject<string>();
+
+						store.argumentMap.Add(argumentMeta.Key, carg);
 					} else if(type == "option" || type == "hidden")
 					{
 						// argumentMeta describes option
 						carg = parameter = new Parameter();
+
 						parameter.name = argumentMeta.Key;
-						parameter.defaultStrValue = (string)argumentMeta.Value["default"];
+						parameter.label = argumentMeta.Value["label"].ToObject<string>();
+						parameter.strValues = argumentMeta.Value["values"].ToObject<string[]>();
+						parameter.defaultStrValue = argumentMeta.Value["default"].ToObject<string>();
+
 						parameter.isField = (string)argumentMeta.Value["isfield"] == "yes" ? true : false;
 						parameter.isLayer = (string)argumentMeta.Value["islayer"] == "yes" ? true : false;
-						parameter.label = (string)argumentMeta.Value["label"];
-						parameter.strValues = (string[])argumentMeta.Value["values"].ToObject<string[]>();
 						parameter.type = (string)argumentMeta.Value["type"];
 						try { parameter.types = (string[])argumentMeta.Value["types"].ToObject<string[]>(); } catch {}
 						parameter.isChecked = new bool[parameter.strValues.Length];
@@ -704,15 +709,26 @@ namespace csharp_viewer
 						// Insert argument names
 						for(int i = 0; i < store.arguments.Length; ++i)
 						{
+							string argStr = "{" + store.arguments[i].name + "}";
+
 							DependencyMap dependencyMap;
 							if(store.associations.TryGetValue(store.arguments[i], out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid))
-								continue; // Dependencies not satisfied for store.arguments[i]
-
-							if(_layer.imagepath.Contains("{" + store.arguments[i].name + "}"))
 							{
-								_layer.imagepath = _layer.imagepath.Replace("{" + store.arguments[i].name + "}", store.arguments[i].strValues[argidx[i]]);
-								_layer.imageDepthPath = _layer.imageDepthPath.Replace("{" + store.arguments[i].name + "}", store.arguments[i].strValues[argidx[i]]);
-								_layer.imageLumPath = _layer.imageLumPath.Replace("{" + store.arguments[i].name + "}", store.arguments[i].strValues[argidx[i]]);
+								// Dependencies not satisfied for store.arguments[i]
+								if(_layer.imagepath.Contains(argStr))
+								{
+									_layer.imagepath = _layer.imagepath.Replace(argStr, store.arguments[i].defaultStrValue);
+									_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, store.arguments[i].defaultStrValue);
+									_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, store.arguments[i].defaultStrValue);
+								}
+								continue;
+							}
+
+							if(_layer.imagepath.Contains(argStr))
+							{
+								_layer.imagepath = _layer.imagepath.Replace(argStr, store.arguments[i].strValues[argidx[i]]);
+								_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, store.arguments[i].strValues[argidx[i]]);
+								_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, store.arguments[i].strValues[argidx[i]]);
 							}
 							else
 							{

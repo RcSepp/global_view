@@ -558,7 +558,7 @@ namespace csharp_viewer
 
 				case Keys.Y:
 					{
-						IEnumerator<TransformedImage> imageenum = Viewer.selection.GetEnumerator();
+						/*IEnumerator<TransformedImage> imageenum = Viewer.selection.GetEnumerator();
 						if (!imageenum.MoveNext())
 							break;
 						TransformedImage.ImageLayer layer = imageenum.Current.FirstLayer;
@@ -566,7 +566,7 @@ namespace csharp_viewer
 						layer.TriggerReload();
 						layer.originalWidth = layer.bmp.Width;
 						layer.originalHeight = layer.bmp.Height;
-						layer.originalAspectRatio = (float)layer.originalWidth / (float)layer.originalHeight;
+						layer.originalAspectRatio = (float)layer.originalWidth / (float)layer.originalHeight;*/
 					}
 					break;
 

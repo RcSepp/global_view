@@ -669,12 +669,12 @@ namespace csharp_viewer
 
 			if(imageCloud != null)
 			{
-				try {
+				//try {
 					imageCloud.Load(newimages, valuerange, imageSize, hasFloatImages/*image_pixel_format != null && image_pixel_format.Equals("I24")*/, false/*depth_name_pattern != null*/);
-				} catch(Exception ex) {
+				/*} catch(Exception ex) {
 					MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 					throw ex;
-				}
+				}*/
 
 				/*// >>> Define heuristic to choose transformations based on argument names
 
@@ -930,11 +930,17 @@ namespace csharp_viewer
 
 					foreach(Cinema.CinemaStore.LayerDescription layerdesc in store.iterateLayers(argidx, dependentAssociations))
 					{
-						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
-						layer.filename = filename + layerdesc.imagepath;
-						layer.depth_filename = layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath;
-						layer.lum_filename = layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath;
-						layer.isFloatImage = useOnlyFloatImages || layerdesc.isFloatImage;
+						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(
+							cimg,
+							filename + layerdesc.imagepath,
+							layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath,
+							layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath,
+							useOnlyFloatImages || layerdesc.isFloatImage
+						);
+						//layer.filename = filename + layerdesc.imagepath;
+						//layer.depth_filename = layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath;
+						//layer.lum_filename = layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath;
+						//layer.isFloatImage = useOnlyFloatImages || layerdesc.isFloatImage;
 						useFloatImages |= layer.isFloatImage;
 						layer.key = layerdesc.paramidx;
 						layer.keymask = layerdesc.paramvalid;
@@ -1145,11 +1151,11 @@ namespace csharp_viewer
 				cimg.args = newargs;
 				cimg.globalargindices = newargindices;
 
-				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
-				layer.filename = imagepath;
-				layer.depth_filename = null;
-				layer.lum_filename = null;
-				layer.isFloatImage = false;
+				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg, imagepath);
+				//layer.filename = imagepath;
+				//layer.depth_filename = null;
+				//layer.lum_filename = null;
+				//layer.isFloatImage = false;
 				cimg.AddLayer(layer);
 
 				Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
@@ -1271,8 +1277,8 @@ namespace csharp_viewer
 				cimg.strValues = imagestrvalues;
 				cimg.args = Global.arguments;
 
-				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg);
-				layer.filename = imagepath;
+				TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(cimg, imagepath);
+				//layer.filename = imagepath;
 				cimg.AddLayer(layer);
 
 				/*for(int i = 0; i < Global.arguments.Length; ++i)

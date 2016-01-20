@@ -1,5 +1,6 @@
 ﻿//#define DEBUG_GLTEXTURESTREAM
-//#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory // Warning: Tradeoff doesn't work with prefetching!
+#define ENABLE_TRADEOFF // Tradeoff scales image size by relative remaining memory // Warning: Tradeoff doesn't work with prefetching!
+//#define ENABLE_SIZE_PRIORISATION // Include factor 'originalWidth / width;' into priorisation
 
 using System;
 using System.IO;
@@ -34,58 +35,362 @@ namespace csharp_viewer
 
 		private int currentmemorysize, memorysizelimit;
 
-		private class AsyncImageLoader
+		public class ImageReference
 		{
+			public AsyncImageLoader.Image image = null;
+
+			public virtual void OnTextureLoaded() {}
+			public virtual void OnTextureUnloaded() {}
+
+			public readonly string filename, depth_filename, lum_filename;
+			public readonly bool isFloatImage;
+			public ImageReference(string filename, string depth_filename = null, string lum_filename = null, bool isFloatImage = false)
+			{
+				this.filename = filename;
+				this.depth_filename = depth_filename;
+				this.lum_filename = lum_filename;
+				this.isFloatImage = isFloatImage;
+			}
+
+			private float _renderPriority;
+			public float renderPriority
+			{
+				get {
+					return _renderPriority;
+				}
+				set {
+					if(value < _renderPriority)
+					{
+						_renderPriority = value;
+						if(image != null)
+							image.OnRenderPriorityDecreased();
+					}
+					else if(value > _renderPriority)
+					{
+						_renderPriority = value;
+						if(image != null)
+							image.OnRenderPriorityIncreased(value);
+					}
+				}
+			}
+
+			private int _renderWidth;
+			public int renderWidth
+			{
+				get {
+					return _renderWidth;
+				}
+				set {
+					if(value < _renderWidth)
+					{
+						_renderWidth = value;
+						if(image != null)
+							image.OnRenderWidthDecreased();
+					}
+					else if(value > _renderWidth)
+					{
+						_renderWidth = value;
+						if(image != null)
+							image.OnRenderWidthIncreased(value);
+					}
+				}
+			}
+
+			private int _renderHeight;
+			public int renderHeight
+			{
+				get {
+					return _renderHeight;
+				}
+				set {
+					if(value < _renderHeight)
+					{
+						_renderHeight = value;
+						if(image != null)
+							image.OnRenderHeightDecreased();
+					}
+					else if(value > _renderHeight)
+					{
+						_renderHeight = value;
+						if(image != null)
+							image.OnRenderHeightIncreased(value);
+					}
+				}
+			}
+
+			public GLTexture2D tex { get { return image.tex; } }
+			public GLTexture2D tex_depth { get { return image.tex_depth; } }
+			public GLTexture2D tex_lum { get { return image.tex_lum; } }
+			public int originalWidth { get { return image != null ? image.originalWidth : 0; } }
+			public int originalHeight { get { return image != null ? image.originalHeight : 0; } }
+			public float originalAspectRatio { get { return image != null ? image.originalAspectRatio : 1.0f; } }
+			public int loadedWidth { get { return image != null && image.bmp != null ? image.bmp.Width : 0; } }
+			public int loadedHeight { get { return image != null && image.bmp != null ? image.bmp.Height : 0; } }
+
+			public void TriggerReload()
+			{
+				if(image != null)
+					image.TriggerReload();
+			}
+
+			public bool ReadyForRendering()
+			{
+				return image != null ? image.ReadyForRendering() : false;
+			}
+
+			public void Dispose()
+			{
+				if(image != null)
+					image.RemoveReference(this);
+			}
+		}
+
+		public class AsyncImageLoader
+		{
+			const float MIN_TRADEOFF_FACTOR = 0.2f; // Minimum size still considered worth rendering [% of render width]
+
 			public class Image : IComparable<Image> //EDIT: Make private
 			{
-				public TransformedImage.ImageLayer image; //EDIT: Make private
-				private int width, height;
-				public float sizePriority; //EDIT: Make private
-				public int memory; //EDIT: Make private
-				private bool metadataLoaded;
-
-				public Image(TransformedImage.ImageLayer image)
+				public readonly string filename, depth_filename, lum_filename;
+				public readonly bool isFloatImage;
+				public Image(string filename, string depth_filename = null, string lum_filename = null, bool isFloatImage = false)
 				{
-					this.image = image;
+					this.filename = filename;
+					this.depth_filename = depth_filename;
+					this.lum_filename = lum_filename;
+					this.isFloatImage = isFloatImage;
+
+					#if ENABLE_SIZE_PRIORISATION
 					sizePriority = 1.0f;
+					#endif
 					memory = 0;
 					metadataLoaded = false;
 				}
+
+				public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
+				private float renderPriority = 0.0f; // == Maximum of render priorities of all references
+				public int renderWidth = 0, renderHeight = 0; // == Maximum of render dimensions of all references
+				private System.Drawing.Bitmap oldbmp = null;
+				public void OnRenderPriorityDecreased()
+				{
+					renderPriority = 0.0f;
+					foreach(ImageReference reference in references)
+						renderPriority = Math.Max(reference.renderPriority, renderPriority);
+					if(renderPriority > 0.0f)
+						return;
+
+					if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
+					{
+						// Unload texture
+						tex.Dispose();
+						tex = null;
+
+						if(tex_depth != null)
+						{
+							tex_depth.Dispose();
+							tex_depth = null;
+						}
+
+						if(tex_lum != null)
+						{
+							tex_lum.Dispose();
+							tex_lum = null;
+						}
+
+						foreach(ImageReference reference in references)
+							reference.OnTextureUnloaded();
+					}
+					oldbmp = bmp;
+				}
+				public void OnRenderWidthDecreased()
+				{
+					renderWidth = 0;
+					foreach(ImageReference reference in references)
+						renderWidth = Math.Max(reference.renderWidth, renderWidth);
+				}
+				public void OnRenderHeightDecreased()
+				{
+					renderHeight = 0;
+					foreach(ImageReference reference in references)
+						renderHeight = Math.Max(reference.renderHeight, renderHeight);
+				}
+
+				public void OnRenderPriorityIncreased(float newRenderPriority)
+				{
+					renderPriority = Math.Max(renderPriority, newRenderPriority);
+					if(renderPriority > 0.0f)
+						return;
+				}
+				public void OnRenderWidthIncreased(int newRenderWidth)
+				{
+					renderWidth = Math.Max(renderWidth, newRenderWidth);
+				}
+				public void OnRenderHeightIncreased(int newRenderHeight)
+				{
+					renderHeight = Math.Max(renderHeight, newRenderHeight);
+				}
+
+				public void TriggerReload()
+				{
+					if (tex != null && !texIsStatic)
+					{
+						tex.Dispose();
+						tex = null;
+
+						if (tex_depth != null)
+						{
+							tex_depth.Dispose();
+							tex_depth = null;
+						}
+
+						if (tex_lum != null)
+						{
+							tex_lum.Dispose();
+							tex_lum = null;
+						}
+
+						foreach(ImageReference reference in references)
+							reference.OnTextureUnloaded();
+					}
+				}
+
+				public bool ReadyForRendering()
+				{
+					if(texIsStatic)
+						return true; // Texture static (doesn't get loaded or unloaded)
+					if(bmp == null)
+						return false; // No image loaded
+					if(tex != null && bmp == oldbmp)
+						return true; // Texture loaded and unchanged
+
+					if(renderMutex.WaitOne(0))
+					{
+						if(bmp == null) // Repeate check with locked mutex
+						{
+							renderMutex.ReleaseMutex();
+							return false; // No image loaded
+						}
+
+						if(tex == null || bmp != oldbmp) // Repeate check with locked mutex
+						{
+							tex = new GLTexture2D("layer_tex", bmp, false, !isFloatImage);
+							oldbmp = bmp;
+
+							if(bmp_depth != null)
+								tex_depth = new GLTexture2D("layer_depthtex", bmp_depth, false, false, OpenTK.Graphics.OpenGL.PixelFormat.Red, PixelInternalFormat.R32f, PixelType.Float);
+							if(bmp_lum != null)
+								tex_lum = new GLTexture2D("layer_lumtex", bmp_lum, false, true);
+
+							foreach(ImageReference reference in references)
+								reference.OnTextureLoaded();
+						}
+						renderMutex.ReleaseMutex();
+						return true; // Texture loaded
+					}
+
+					return false; // Mutex could not be aquired
+				}
+
+
+				public List<ImageReference> references = new List<ImageReference>();
+				public void AddReference(ImageReference reference)
+				{
+					references.Add(reference);
+					reference.image = this;
+					OnRenderPriorityIncreased(renderPriority);
+					OnRenderWidthIncreased(renderWidth);
+					OnRenderHeightIncreased(renderHeight);
+				}
+				public void RemoveReference(ImageReference reference)
+				{
+					references.Remove(reference);
+					reference.image = null;
+					if(references.Count != 0)
+						return;
+
+					if(tex != null)
+					{
+						tex.Dispose();
+						tex = null;
+					}
+
+					if(tex_depth != null)
+					{
+						tex_depth.Dispose();
+						tex_depth = null;
+					}
+
+					if(tex_lum != null)
+					{
+						tex_lum.Dispose();
+						tex_lum = null;
+					}
+				}
+
+				public System.Drawing.Bitmap bmp = null, bmp_depth = null, bmp_lum = null;
+				public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
+				private bool texIsStatic = false;
+				public int originalWidth = 0, originalHeight = 0;
+				public float originalAspectRatio = 1.0f;
+
+
+				//public TransformedImage.ImageLayer image; //EDIT: Make private
+				private int width, height;
+				#if ENABLE_SIZE_PRIORISATION
+				public float sizePriority; //EDIT: Make private
+				#endif
+				public int memory; //EDIT: Make private
+				private bool metadataLoaded;
+
+				/*public Image(TransformedImage.ImageLayer image)
+				{
+					this.image = image;
+					#if ENABLE_SIZE_PRIORISATION
+					sizePriority = 1.0f;
+					#endif
+					memory = 0;
+					metadataLoaded = false;
+				}*/
+
+				public bool renderPriorityIsZero() { return renderPriority <= 0; }
 
 				public int RequiredMemory(float tradeoffRenderSizeFactor, bool forceOriginalSize)
 				{
 					// Returns (guessed) memory required for Load()
 
-					if(image.renderPriority <= 0 || image.texIsStatic) // If image doesn't need to be loaded
+					if(renderPriority <= 0 || texIsStatic) // If image doesn't need to be loaded
 					{
 						return -memory; // Return memory gain achieved by unloading this image
 					}
 
-					int factor = 1 + (image.depth_filename != null ? 1 : 0) + (image.lum_filename != null ? 1 : 0);
+					int factor = 1 + (depth_filename != null ? 1 : 0) + (lum_filename != null ? 1 : 0);
+
+					int adjustedRenderWidth = (int)((float)renderWidth * tradeoffRenderSizeFactor);
+					int adjustedRenderHeight = (int)((float)renderHeight * tradeoffRenderSizeFactor);
 
 					if(memory > 0) // If image already loaded
 					{
 						// Recompute image size
 						int newwidth, newheight;
-						if (forceOriginalSize || image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
+						if (forceOriginalSize || adjustedRenderWidth >= originalWidth || adjustedRenderHeight >= originalHeight)
 						{
-							newwidth = image.originalWidth;
-							newheight = image.originalHeight;
+							newwidth = originalWidth;
+							newheight = originalHeight;
 						}
 						else
 						{
-							float fw = (float)image.renderWidth / (float)image.originalWidth;
-							float fh = (float)image.renderHeight / (float)image.originalHeight;
+							float fw = (float)adjustedRenderWidth / (float)originalWidth;
+							float fh = (float)adjustedRenderHeight / (float)originalHeight;
 
 							if(fw > fh)
 							{
-								newwidth = image.renderWidth;
-								newheight = (int)((float)image.originalHeight * fw);
+								newwidth = adjustedRenderWidth;
+								newheight = (int)((float)originalHeight * fw);
 							}
 							else
 							{
-								newheight = image.renderHeight;
-								newwidth = (int)((float)image.originalWidth * fh);
+								newheight = adjustedRenderHeight;
+								newwidth = (int)((float)originalWidth * fh);
 							}
 						}
 
@@ -97,33 +402,30 @@ namespace csharp_viewer
 						return 0; // Image considered unchanged. Return no extra memory required
 					}
 
-					int renderWidth = (int)((float)image.renderWidth * tradeoffRenderSizeFactor);
-					int renderHeight = (int)((float)image.renderHeight * tradeoffRenderSizeFactor);
-
-					if(image.originalWidth == 0) // If original size is unknown (because image hasn't been loaded so far)
-						return renderWidth * renderHeight * factor;
+					if(originalWidth == 0) // If original size is unknown (because image hasn't been loaded so far)
+						return adjustedRenderWidth * adjustedRenderHeight * factor;
 
 					// Compute image size
 					int width, height; // width and height are only computed locally
-					if (forceOriginalSize || renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
+					if (forceOriginalSize || adjustedRenderWidth >= originalWidth || adjustedRenderHeight >= originalHeight)
 					{
-						width = image.originalWidth;
-						height = image.originalHeight;
+						width = originalWidth;
+						height = originalHeight;
 					}
 					else
 					{
-						float fw = (float)renderWidth / (float)image.originalWidth;
-						float fh = (float)renderHeight / (float)image.originalHeight;
+						float fw = (float)adjustedRenderWidth / (float)originalWidth;
+						float fh = (float)adjustedRenderHeight / (float)originalHeight;
 
 						if(fw > fh)
 						{
-							width = renderWidth;
-							height = (int)((float)image.originalHeight * fw);
+							width = adjustedRenderWidth;
+							height = (int)((float)originalHeight * fw);
 						}
 						else
 						{
-							height = renderHeight;
-							width = (int)((float)image.originalWidth * fh);
+							height = adjustedRenderHeight;
+							width = (int)((float)originalWidth * fh);
 						}
 					}
 
@@ -131,24 +433,27 @@ namespace csharp_viewer
 				}
 				public bool MemoryDisposable()
 				{
-					return memory > 0 && image.renderPriority <= 0;
+					return memory > 0 && renderPriority <= 0;
 				}
-				public bool MemoryShrinkable(bool forceOriginalSize)
+				public bool MemoryShrinkable(float tradeoffRenderSizeFactor)
 				{
 					if(memory > 0)
 					{
+						int adjustedRenderWidth = (int)((float)renderWidth * tradeoffRenderSizeFactor);
+						int adjustedRenderHeight = (int)((float)renderHeight * tradeoffRenderSizeFactor);
+
 						int newwidth;
-						if (forceOriginalSize || image.renderWidth >= image.originalWidth || image.renderHeight >= image.originalHeight)
-							newwidth = image.originalWidth;
+						if (adjustedRenderWidth >= originalWidth || adjustedRenderHeight >= originalHeight)
+							newwidth = originalWidth;
 						else
 						{
-							float fw = (float)image.renderWidth / (float)image.originalWidth;
-							float fh = (float)image.renderHeight / (float)image.originalHeight;
+							float fw = (float)adjustedRenderWidth / (float)originalWidth;
+							float fh = (float)adjustedRenderHeight / (float)originalHeight;
 
 							if(fw > fh)
-								newwidth = image.renderWidth;
+								newwidth = adjustedRenderWidth;
 							else
-								newwidth = (int)((float)image.originalWidth * fh);
+								newwidth = (int)((float)originalWidth * fh);
 						}
 
 						float size_diff_factor = (float)newwidth / (float)this.width;
@@ -160,69 +465,75 @@ namespace csharp_viewer
 
 				public int Load(float tradeoffRenderSizeFactor, bool forceOriginalSize, GLTexture2D texFileNotFound, ReadImageMetaDataDelegate ReadImageMetaData)
 				{
-					if(image.texIsStatic || !File.Exists(image.filename))
+					if(texIsStatic || !File.Exists(filename))
 					{
-						Global.cle.PrintOutput("File not found: " + image.filename);
-						image.tex = texFileNotFound;
-						image.texIsStatic = true;
+						Global.cle.PrintOutput("File not found: " + filename);
+						tex = texFileNotFound;
+						texIsStatic = true;
 						return memory = 0;
 					}
 
-					int renderWidth, renderHeight;
+					int adustedRenderWidth, adustedRenderHeight;
 
-					if(image.bmp != null) // If an image is already loaded
+					if(bmp != null) // If an image is already loaded
 					{
 						// Compute requested dimensions
-						renderWidth = (int)((float)image.renderWidth * tradeoffRenderSizeFactor);
-						renderHeight = (int)((float)image.renderHeight * tradeoffRenderSizeFactor);
+						adustedRenderWidth = (int)((float)renderWidth * tradeoffRenderSizeFactor);
+						adustedRenderHeight = (int)((float)renderHeight * tradeoffRenderSizeFactor);
 
 						// Compute width & height
-						if (forceOriginalSize || renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
+						if (forceOriginalSize || adustedRenderWidth >= originalWidth || adustedRenderHeight >= originalHeight)
 						{
-							width = image.originalWidth;
-							height = image.originalHeight;
+							width = originalWidth;
+							height = originalHeight;
 						}
 						else
 						{
-							float fw = (float)renderWidth / (float)image.originalWidth;
-							float fh = (float)renderHeight / (float)image.originalHeight;
+							float fw = (float)adustedRenderWidth / (float)originalWidth;
+							float fh = (float)adustedRenderHeight / (float)originalHeight;
 
 							if(fw > fh)
 							{
-								width = renderWidth;
-								height = (int)((float)image.originalHeight * fw);
+								width = adustedRenderWidth;
+								height = (int)((float)originalHeight * fw);
 							}
 							else
 							{
-								height = renderHeight;
-								width = (int)((float)image.originalWidth * fh);
+								height = adustedRenderHeight;
+								width = (int)((float)originalWidth * fh);
 							}
 						}
 
-						if(image.bmp != null && width < image.bmp.Width && height < image.bmp.Height) // If requested image is downscaled version of current image
+						/*if(bmp != null && width == bmp.Width && height == bmp.Height)
 						{
-							image.renderMutex.WaitOne();
+							int abc = 0;
+						}*/
+						System.Diagnostics.Debug.Assert(bmp == null || width != bmp.Width || height != bmp.Height);
 
-							if(image.bmp != null && width < image.bmp.Width && height < image.bmp.Height) // If condition still applies after locking
+						if(bmp != null && width < bmp.Width && height < bmp.Height) // If requested image is downscaled version of current image
+						{
+							renderMutex.WaitOne();
+
+							if(bmp != null && width < bmp.Width && height < bmp.Height) // If condition still applies after locking
 							{
 								// >>> Optimization: Downscale images instead of reloading them
 
-								Bitmap originalBmp = image.bmp;
-								image.bmp = new Bitmap(width, height, originalBmp.PixelFormat);
-								Graphics gfx = Graphics.FromImage(image.bmp);
+								Bitmap originalBmp = bmp;
+								bmp = new Bitmap(width, height, originalBmp.PixelFormat);
+								Graphics gfx = Graphics.FromImage(bmp);
 								gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
 								gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-								gfx.InterpolationMode = image.isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+								gfx.InterpolationMode = isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 								gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
 								gfx.Flush();
 								originalBmp.Dispose();
 								originalBmp = null;
 
-								if(image.depth_filename != null)
+								if(depth_filename != null)
 								{
-									originalBmp = image.bmp_depth;
-									image.bmp_depth = new Bitmap(width, height, originalBmp.PixelFormat);
-									gfx = Graphics.FromImage(image.bmp_depth);
+									originalBmp = bmp_depth;
+									bmp_depth = new Bitmap(width, height, originalBmp.PixelFormat);
+									gfx = Graphics.FromImage(bmp_depth);
 									gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
 									gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
 									gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
@@ -232,11 +543,11 @@ namespace csharp_viewer
 									originalBmp = null;
 								}
 
-								if(image.lum_filename != null)
+								if(lum_filename != null)
 								{
-									originalBmp = image.bmp_lum;
-									image.bmp_lum = new Bitmap(width, height, originalBmp.PixelFormat);
-									gfx = Graphics.FromImage(image.bmp_lum);
+									originalBmp = bmp_lum;
+									bmp_lum = new Bitmap(width, height, originalBmp.PixelFormat);
+									gfx = Graphics.FromImage(bmp_lum);
 									gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
 									gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
 									gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
@@ -246,18 +557,20 @@ namespace csharp_viewer
 									originalBmp = null;
 								}
 
-								image.renderMutex.ReleaseMutex();
+								renderMutex.ReleaseMutex();
 
-								sizePriority = (float)image.originalWidth / (float)width;
+								#if ENABLE_SIZE_PRIORISATION
+								sizePriority = (float)originalWidth / (float)width;
+								#endif
 
-								int _factor = 1 + (image.depth_filename != null ? 1 : 0) + (image.lum_filename != null ? 1 : 0);
+								int _factor = 1 + (depth_filename != null ? 1 : 0) + (lum_filename != null ? 1 : 0);
 
 								int _memorydiff = width * height * _factor - memory;
 								memory = width * height * _factor;
 								return _memorydiff;
 							}
 
-							image.renderMutex.ReleaseMutex();
+							renderMutex.ReleaseMutex();
 						}
 					}
 
@@ -267,26 +580,26 @@ namespace csharp_viewer
 					{
 						List<ImageMetaData> meta = new List<ImageMetaData>();
 
-						newbmp = ImageLoader.Load(image.filename, meta);
+						newbmp = ImageLoader.Load(filename, meta);
 						if(newbmp == null)
 						{
-							Global.cle.PrintOutput("File not readable: " + image.filename);
-							image.tex = texFileNotFound;
-							image.texIsStatic = true;
+							Global.cle.PrintOutput("File not readable: " + filename);
+							tex = texFileNotFound;
+							texIsStatic = true;
 							return memory = 0;
 						}
 
-						if(meta.Count == 0 || ReadImageMetaData(image.image, meta.ToArray()))
-							metadataLoaded = true;
+						//if(meta.Count == 0 || ReadImageMetaData(image, meta.ToArray()))
+						//	metadataLoaded = true;
 					}
 					else
 					{
-						newbmp = ImageLoader.Load(image.filename);
+						newbmp = ImageLoader.Load(filename);
 						if(newbmp == null)
 						{
-							Global.cle.PrintOutput("File not readable: " + image.filename);
-							image.tex = texFileNotFound;
-							image.texIsStatic = true;
+							Global.cle.PrintOutput("File not readable: " + filename);
+							tex = texFileNotFound;
+							texIsStatic = true;
 							return memory = 0;
 						}
 					}
@@ -294,9 +607,9 @@ namespace csharp_viewer
 
 					// Load depth image from disk
 					Bitmap newbmp_depth = null;
-					if(image.depth_filename != null)
+					if(depth_filename != null)
 					{
-						if(!File.Exists(image.depth_filename) || (newbmp_depth = ImageLoader.Load(image.depth_filename)) == null)
+						if(!File.Exists(depth_filename) || (newbmp_depth = ImageLoader.Load(depth_filename)) == null)
 						{
 							if(newbmp != null)
 							{
@@ -304,9 +617,9 @@ namespace csharp_viewer
 								newbmp = null;
 							}
 
-							Global.cle.PrintOutput((File.Exists(image.depth_filename) ? "File not readable: " : "File not found: ") + image.depth_filename);
-							image.tex = texFileNotFound;
-							image.texIsStatic = true;
+							Global.cle.PrintOutput((File.Exists(depth_filename) ? "File not readable: " : "File not found: ") + depth_filename);
+							tex = texFileNotFound;
+							texIsStatic = true;
 							return memory = 0;
 						}
 						++GLTextureStream.foo;
@@ -314,9 +627,9 @@ namespace csharp_viewer
 
 					// Load luminance image from disk
 					Bitmap newbmp_lum = null;
-					if(image.lum_filename != null)
+					if(lum_filename != null)
 					{
-						if(!File.Exists(image.lum_filename) || (newbmp_lum = ImageLoader.Load(image.lum_filename)) == null)
+						if(!File.Exists(lum_filename) || (newbmp_lum = ImageLoader.Load(lum_filename)) == null)
 						{
 							if(newbmp != null)
 							{
@@ -329,69 +642,69 @@ namespace csharp_viewer
 								newbmp_depth = null;
 							}
 
-							Global.cle.PrintOutput((File.Exists(image.lum_filename) ? "File not readable: " : "File not found: ") + image.lum_filename);
-							image.tex = texFileNotFound;
-							image.texIsStatic = true;
+							Global.cle.PrintOutput((File.Exists(lum_filename) ? "File not readable: " : "File not found: ") + lum_filename);
+							tex = texFileNotFound;
+							texIsStatic = true;
 							return memory = 0;
 						}
 						++GLTextureStream.foo;
 					}
 
 					// Compute original dimensions
-					image.originalWidth = newbmp.Width;
-					image.originalHeight = newbmp.Height;
-					image.originalAspectRatio = (float)image.originalWidth / (float)image.originalHeight;
+					originalWidth = newbmp.Width;
+					originalHeight = newbmp.Height;
+					originalAspectRatio = (float)originalWidth / (float)originalHeight;
 
 					// Compute requested dimensions
 					if(memory > 0)
 					{
-						renderWidth = image.renderWidth;
-						renderHeight = image.renderHeight;
+						adustedRenderWidth = renderWidth;
+						adustedRenderHeight = renderHeight;
 					}
 					else
 					{
-						renderWidth = (int)((float)image.renderWidth * tradeoffRenderSizeFactor);
-						renderHeight = (int)((float)image.renderHeight * tradeoffRenderSizeFactor);
+						adustedRenderWidth = (int)((float)renderWidth * tradeoffRenderSizeFactor);
+						adustedRenderHeight = (int)((float)renderHeight * tradeoffRenderSizeFactor);
 					}
 
 					// Compute width & height
-					if (forceOriginalSize || renderWidth >= image.originalWidth || renderHeight >= image.originalHeight)
+					if (forceOriginalSize || adustedRenderWidth >= originalWidth || adustedRenderHeight >= originalHeight)
 					{
-						width = image.originalWidth;
-						height = image.originalHeight;
+						width = originalWidth;
+						height = originalHeight;
 					}
 					else
 					{
-						float fw = (float)renderWidth / (float)image.originalWidth;
-						float fh = (float)renderHeight / (float)image.originalHeight;
+						float fw = (float)adustedRenderWidth / (float)originalWidth;
+						float fh = (float)adustedRenderHeight / (float)originalHeight;
 
 						if(fw > fh)
 						{
-							width = renderWidth;
-							height = (int)((float)image.originalHeight * fw);
+							width = adustedRenderWidth;
+							height = (int)((float)originalHeight * fw);
 						}
 						else
 						{
-							height = renderHeight;
-							width = (int)((float)image.originalWidth * fh);
+							height = adustedRenderHeight;
+							width = (int)((float)originalWidth * fh);
 						}
 					}
 
 					// Downscale image from originalWidth/originalHeight to width/height
-					if(width != image.originalWidth || height != image.originalHeight)
+					if(width != originalWidth || height != originalHeight)
 					{
 						Bitmap originalBmp = newbmp;
 						newbmp = new Bitmap(width, height, originalBmp.PixelFormat);
 						Graphics gfx = Graphics.FromImage(newbmp);
 						gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
 						gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-						gfx.InterpolationMode = image.isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+						gfx.InterpolationMode = isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 						gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
 						gfx.Flush();
 						originalBmp.Dispose();
 						originalBmp = null;
 
-						if(image.depth_filename != null)
+						if(depth_filename != null)
 						{
 							originalBmp = newbmp_depth;
 							newbmp_depth = new Bitmap(width, height, originalBmp.PixelFormat);
@@ -405,7 +718,7 @@ namespace csharp_viewer
 							originalBmp = null;
 						}
 
-						if(image.lum_filename != null)
+						if(lum_filename != null)
 						{
 							originalBmp = newbmp_lum;
 							newbmp_lum = new Bitmap(width, height, originalBmp.PixelFormat);
@@ -427,46 +740,48 @@ namespace csharp_viewer
 					gfxDebug.Flush();
 					#endif
 
-					image.renderMutex.WaitOne();
+					renderMutex.WaitOne();
 
-					if(image.bmp != null) // If image already loaded (resize required)
+					if(bmp != null) // If image already loaded (resize required)
 					{
 						// Unload old image
-						image.bmp.Dispose();
-						image.bmp = null;
+						bmp.Dispose();
+						bmp = null;
 						--GLTextureStream.foo;
 					}
-					image.bmp = newbmp;
+					bmp = newbmp;
 
-					if(image.depth_filename != null)
+					if(depth_filename != null)
 					{
-						if(image.bmp_depth != null)
+						if(bmp_depth != null)
 						{
 							// Unload old image
-							image.bmp_depth.Dispose();
-							image.bmp_depth = null;
+							bmp_depth.Dispose();
+							bmp_depth = null;
 							--GLTextureStream.foo;
 						}
-						image.bmp_depth = newbmp_depth;
+						bmp_depth = newbmp_depth;
 					}
 
-					if(image.lum_filename != null)
+					if(lum_filename != null)
 					{
-						if(image.bmp_lum != null)
+						if(bmp_lum != null)
 						{
 							// Unload old image
-							image.bmp_lum.Dispose();
-							image.bmp_lum = null;
+							bmp_lum.Dispose();
+							bmp_lum = null;
 							--GLTextureStream.foo;
 						}
-						image.bmp_lum = newbmp_lum;
+						bmp_lum = newbmp_lum;
 					}
 
-					image.renderMutex.ReleaseMutex();
+					renderMutex.ReleaseMutex();
 
-					sizePriority = (float)image.originalWidth / (float)width;
+					#if ENABLE_SIZE_PRIORISATION
+					sizePriority = (float)originalWidth / (float)width;
+					#endif
 
-					int factor = 1 + (image.depth_filename != null ? 1 : 0) + (image.lum_filename != null ? 1 : 0);
+					int factor = 1 + (depth_filename != null ? 1 : 0) + (lum_filename != null ? 1 : 0);
 
 					int memorydiff = width * height * factor - memory;
 					memory = width * height * factor;
@@ -475,38 +790,40 @@ namespace csharp_viewer
 
 				public int Unload()
 				{
-					if(image.texIsStatic)
+					if(texIsStatic)
 						return 0;
 
-					if(image.bmp == null)
+					if(bmp == null)
 						throw new Exception("assert(bmp != null) triggered inside Unload()");
 
-					image.renderMutex.WaitOne();
+					renderMutex.WaitOne();
 
 					// Unload image
-					image.bmp.Dispose();
-					image.bmp = null;
+					bmp.Dispose();
+					bmp = null;
 					--GLTextureStream.foo;
 
-					if(image.bmp_depth != null)
+					if(bmp_depth != null)
 					{
 						// Unload old image
-						image.bmp_depth.Dispose();
-						image.bmp_depth = null;
+						bmp_depth.Dispose();
+						bmp_depth = null;
 						--GLTextureStream.foo;
 					}
 						
-					if(image.bmp_lum != null)
+					if(bmp_lum != null)
 					{
 						// Unload old image
-						image.bmp_lum.Dispose();
-						image.bmp_lum = null;
+						bmp_lum.Dispose();
+						bmp_lum = null;
 						--GLTextureStream.foo;
 					}
 
-					image.renderMutex.ReleaseMutex();
+					renderMutex.ReleaseMutex();
 
+					#if ENABLE_SIZE_PRIORISATION
 					sizePriority = 1.0f;
+					#endif
 					width = height = 0;
 
 					int m = memory;
@@ -516,7 +833,11 @@ namespace csharp_viewer
 
 				public int CompareTo(Image other)
 				{
-					return image.renderPriority == other.image.renderPriority ? sizePriority.CompareTo(other.sizePriority) : image.renderPriority.CompareTo(other.image.renderPriority);
+					#if ENABLE_SIZE_PRIORISATION
+					return renderPriority == other.renderPriority ? sizePriority.CompareTo(other.sizePriority) : renderPriority.CompareTo(other.renderPriority);
+					#else
+					return renderPriority.CompareTo(other.renderPriority);
+					#endif
 				}
 			}
 
@@ -529,6 +850,7 @@ namespace csharp_viewer
 			private bool closeLoaderThread, loaderThreadClosed = true;
 
 			public List<Image> prioritySortedImages; //EDIT: Make private
+			public Dictionary<string, Image> imageMap; // Mapping filenames to images
 			private Mutex addImageMutex;
 
 			private float tradeoffRenderSizeFactor = 1.0f;
@@ -546,6 +868,7 @@ namespace csharp_viewer
 				foo = 0;
 
 				prioritySortedImages = new List<Image>();
+				imageMap = new Dictionary<string, Image>();
 				addImageMutex = new Mutex();
 
 				Start();
@@ -566,62 +889,119 @@ namespace csharp_viewer
 			}
 			public bool Running { get { return !loaderThreadClosed; } }
 
-			public void AddImage(TransformedImage image)
+			public void AddImage(TransformedImage ti)
 			{
 				addImageMutex.WaitOne();
-				foreach(TransformedImage.ImageLayer layer in image.activelayers)
-					prioritySortedImages.Add(new Image(layer));
-				foreach(TransformedImage.ImageLayer layer in image.inactivelayers)
-					prioritySortedImages.Add(new Image(layer));
-				addImageMutex.ReleaseMutex();
-			}
-			public void AddImages(IEnumerable<TransformedImage> images)
-			{
-				addImageMutex.WaitOne();
-				foreach(TransformedImage image in images)
+				Image image;
+				foreach(TransformedImage.ImageLayer layer in ti.activelayers)
 				{
-					foreach(TransformedImage.ImageLayer layer in image.activelayers)
-						prioritySortedImages.Add(new Image(layer));
-					foreach(TransformedImage.ImageLayer layer in image.inactivelayers)
-						prioritySortedImages.Add(new Image(layer));
+					string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
+					if(!imageMap.TryGetValue(key, out image))
+					{
+						image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+						imageMap.Add(key, image);
+						prioritySortedImages.Add(image);
+					}
+					image.AddReference(layer);
+				}
+				foreach(TransformedImage.ImageLayer layer in ti.inactivelayers)
+				{
+					string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
+					if(!imageMap.TryGetValue(key, out image))
+					{
+						image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+						imageMap.Add(key, image);
+						prioritySortedImages.Add(image);
+					}
+					image.AddReference(layer);
 				}
 				addImageMutex.ReleaseMutex();
 			}
-			public void RemoveImage(TransformedImage image) // O(n)
+			public void AddImages(IEnumerable<TransformedImage> tis)
 			{
 				addImageMutex.WaitOne();
+				Image image;
+				foreach(TransformedImage ti in tis)
+				{
+					foreach(TransformedImage.ImageLayer layer in ti.activelayers)
+					{
+						string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
+						if(!imageMap.TryGetValue(key, out image))
+						{
+							image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+							imageMap.Add(key, image);
+							prioritySortedImages.Add(image);
+						}
+						image.AddReference(layer);
+					}
+					foreach(TransformedImage.ImageLayer layer in ti.inactivelayers)
+					{
+						string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
+						if(!imageMap.TryGetValue(key, out image))
+						{
+							image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+							imageMap.Add(key, image);
+							prioritySortedImages.Add(image);
+						}
+						image.AddReference(layer);
+					}
+				}
+				addImageMutex.ReleaseMutex();
+			}
+			public void RemoveImage(TransformedImage ti) // O(n)
+			{
+				//EDIT: Untested
+				addImageMutex.WaitOne();
+				Image image;
+				foreach(TransformedImage.ImageLayer layer in ti.activelayers)
+				{
+					string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
+					if(imageMap.TryGetValue(key, out image))
+					{
+						image.RemoveReference(layer);
+						if(image.references.Count == 0)
+						{
+							availablememory += image.Unload();
+							imageMap.Remove(key);
+							prioritySortedImages.Remove(image);
+						}
+						//EDIT: Update things like renderPriority and call Unload() if renderPriority <= 0, ... ( Maybe do some of this inside RemoveReference()? )
+					}
+				}
+
+				/*image.RemoveReference(ti);
 				prioritySortedImages.RemoveAll(delegate(Image img) {
 					if(image.activelayers.Contains(img.image) || image.inactivelayers.Contains(img.image))
 					{
-						if(img.image.bmp != null)
+						if(img.bmp != null)
 							availablememory += img.Unload();
 						return true;
 					}
 					else
 						return false;
 				});
-				addImageMutex.ReleaseMutex();
+				addImageMutex.ReleaseMutex();*/ //EDIT
 			}
 			public void RemoveImages(IEnumerable<TransformedImage> images) // O(n^2)
 			{
-				addImageMutex.WaitOne();
+				/*addImageMutex.WaitOne();
 				prioritySortedImages.RemoveAll(delegate(Image img) {
 					foreach(TransformedImage image in images)
 						if(image.activelayers.Contains(img.image) || image.inactivelayers.Contains(img.image))
 						{
-							if(img.image.bmp != null)
+							if(img.bmp != null)
 								availablememory += img.Unload();
 							return true;
 						}
 					return false;
 				});
-				addImageMutex.ReleaseMutex();
+				addImageMutex.ReleaseMutex();*/ //EDIT
 			}
 			public void ClearImages()
 			{
 				addImageMutex.WaitOne();
 				foreach(Image image in prioritySortedImages)
-					if(image.image.bmp != null)
+					if(image.bmp != null)
 						availablememory += image.Unload();
 				prioritySortedImages.Clear();
 				addImageMutex.ReleaseMutex();
@@ -631,7 +1011,7 @@ namespace csharp_viewer
 			{
 				while(!closeLoaderThread)
 				{
-					//Thread.Sleep(10);
+					//Thread.Sleep(100);
 					Thread.Sleep(1);
 
 					addImageMutex.WaitOne();
@@ -658,6 +1038,7 @@ namespace csharp_viewer
 							// Unload lower priority images to regain memory and retry loading img
 							bool imageLoaded = false;
 							for(; unloadidx < len; ++unloadidx)
+							//for(; unloadidx < loadidx; ++unloadidx)
 							{
 								Image u_img = prioritySortedImages[unloadidx];
 								if(u_img.MemoryDisposable()) // If image is loaded, but doesn't need to be (renderPriority <= 0)
@@ -670,7 +1051,7 @@ namespace csharp_viewer
 										break; // Done
 									}
 								}
-								else if(u_img.MemoryShrinkable(forceOriginalSize)) // If image is loaded, but can be shrinked
+								else if(!forceOriginalSize && u_img.MemoryShrinkable(tradeoffRenderSizeFactor)) // If image is loaded, but can be shrinked
 								{
 									availablememory -= u_img.Load(tradeoffRenderSizeFactor, forceOriginalSize, texFileNotFound, ReadImageMetaData); // Reload image and update available memory
 									if(requiredmemory <= availablememory) // If we now have enough memory to load img
@@ -693,10 +1074,10 @@ namespace csharp_viewer
 					#if ENABLE_TRADEOFF
 					int theoreticalusedmemory = 0;
 					foreach(Image img in prioritySortedImages)
-						if(img.image.renderPriority > 0)
+						if(!img.renderPriorityIsZero())
 							theoreticalusedmemory += img.memory;
 
-					tradeoffRenderSizeFactor = Math.Max(0.1f, (float)(memorysize - theoreticalusedmemory) / (float)memorysize);
+					tradeoffRenderSizeFactor = Math.Max(MIN_TRADEOFF_FACTOR, (float)(memorysize - theoreticalusedmemory) / (float)memorysize);
 					//tradeoffRenderSizeFactor = (float)availablememory / (float)memorysize;
 					GLTextureStream.foo2 = tradeoffRenderSizeFactor.ToString();
 					#else
@@ -826,7 +1207,7 @@ namespace csharp_viewer
 			for(int i = 0; i < loader.prioritySortedImages.Count; ++i)
 			{
 				//lblDebug[i].Text = loader.prioritySortedImages[i].memory.ToString();
-				lblDebug[i].Text = loader.prioritySortedImages[i].image.strValues[0] + ": " + loader.prioritySortedImages[i].image.renderPriority.ToString();
+				lblDebug[i].Text = loader.prioritySortedImages[i].image.strValues[0] + ": " + loader.prioritySortedImages[i].renderPriority.ToString();
 				lblDebug[i].Draw(0.0f);
 			}
 		}
