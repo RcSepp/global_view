@@ -361,6 +361,7 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Create theta-phi transform", "thetaPhi", this, "CreateTransformThetaPhi");
 			ActionManager.CreateAction("Create star-coordinates transform", "star", this, "CreateTransformStar");
 			ActionManager.CreateAction("Create transform that only shows the image whose view angle most closly matches the cameras view angle", "look", this, "CreateTransformLookAt");
+			ActionManager.CreateAction("Create transform that only shows the image whose view angle most closly matches a view angle modified by dragging with the mouse", "sphere", this, "CreateTransformSphericalView");
 			ActionManager.CreateAction("Create skip transform", "skip", this, "CreateTransformSkip");
 
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
@@ -1634,6 +1635,27 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CreateTransformLookAt(byExpr[0], byExpr[1], indices, byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
+
+			transform.OnArgumentsChanged();
+			OnTransformationAdded(transform, images);
+			return warnings;
+		}
+		private string CreateTransformSphericalView(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		{
+			if(byExpr.Length != 2)
+				return "usage: sphere SCOPE by THETA, PHI";
+
+			string indices = null;
+			foreach(int index in byExpr_usedArgumentIndices)
+				if(indices == null)
+					indices = index.ToString();
+				else
+					indices += ", " + index.ToString();
+
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CreateTransformSphericalView(byExpr[0], byExpr[1], indices, byExpr_isTemporal, ref warnings);
 			if( ActionManager.activeCmdString != null)
 				transform.description = ActionManager.activeCmdString;
 

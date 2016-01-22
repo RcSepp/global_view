@@ -1340,7 +1340,7 @@ namespace csharp_viewer
 			defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOrigin);
 		}
 
-		private TransformedImage dragImage;
+		private TransformedImage dragImage, mouseDownImage;
 		private Vector3 dragImageOffset;
 		private Plane dragImagePlane;
 		private Vector2 mouseDownPos;
@@ -1432,18 +1432,29 @@ namespace csharp_viewer
 				Vector3 vdir = (vfar - vnear).Normalized();
 
 				float dist, closest_dist = float.MaxValue;
+				Vector2 uv, closest_uv = Vector2.Zero;
 				TransformedImage closest_image = default(TransformedImage);
 				foreach(TransformedImage image in images.ReverseValues)
-					if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient)) < closest_dist)
+					if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient, out uv)) < closest_dist)
 					{
 						closest_dist = dist;
+						closest_uv = uv;
+						//Global.cle.PrintOutput(closest_uv.ToString());
 						closest_image = image;
 					}
 
 				if(closest_dist < float.MaxValue)
 				{
+					mouseDownImage = closest_image;
+
 					bool enableDrag;
-					Viewer.browser.OnImageMouseDown(closest_image, out enableDrag);
+					Viewer.browser.OnImageMouseDown(e.Button, closest_image, closest_uv, out enableDrag);
+					foreach(ImageTransform transform in closest_image.transforms)
+					{
+						bool transformAllowsDrag;
+						transform.OnImageMouseDown((ImageTransform.MouseButtons)e.Button, closest_image, closest_uv, out transformAllowsDrag);
+						enableDrag &= transformAllowsDrag;
+					}
 
 					if(enableDrag)
 					{
@@ -1459,7 +1470,7 @@ namespace csharp_viewer
 				}
 				else if(e.Button == MouseButtons.Left)
 				{
-					dragImage = null;
+					dragImage = mouseDownImage = null;
 
 					Viewer.browser.OnNonImageMouseDown();
 				}
@@ -1485,14 +1496,14 @@ namespace csharp_viewer
 			if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 2)
 			{
 				if(e.Button == MouseButtons.Left)
-					Viewer.browser.OnImageClick(dragImage);
+					Viewer.browser.OnImageClick(mouseDownImage);
 				else if(e.Button == MouseButtons.Right)
-					Viewer.browser.OnImageRightClick(dragImage);
+					Viewer.browser.OnImageRightClick(mouseDownImage);
 			}
 			else if(!ContextMenu.MouseUp(sender, e, backbuffersize) && colorTableMgr.Visible)
 				colorTableMgr.MouseUp(e);
 
-			dragImage = null;
+			dragImage = mouseDownImage = null;
 			mouseRect = null;
 		}
 
@@ -1536,6 +1547,24 @@ namespace csharp_viewer
 				return;
 
 			Vector2 mousePos = new Vector2(2.0f * e.X / backbuffersize.Width - 1.0f, 1.0f - 2.0f * e.Y / backbuffersize.Height);
+
+			if(mouseDownImage != null)
+			{
+				Matrix4 invvieworient = freeview.viewmatrix;
+				invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
+				invvieworient.Transpose();
+
+				Vector3 vnear = new Vector3(mousePos.X, mousePos.Y, 0.0f);
+				Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
+				Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+				vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
+				vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
+				Vector3 vdir = (vfar - vnear).Normalized();
+
+				Vector2 uv = mouseDownImage.GetIntersectionUV(vnear, vdir, invvieworient);
+				foreach(ImageTransform transform in mouseDownImage.transforms)
+					transform.OnImageMouseMove((ImageTransform.MouseButtons)e.Button, mouseDownImage, uv);
+			}
 
 			if(dragImage != null)
 			{
@@ -1591,6 +1620,20 @@ namespace csharp_viewer
 					mouseRect.min.Y = Math.Min(mouseDownPos.Y, mousePos.Y);
 					mouseRect.max.X = Math.Max(mouseDownPos.X, mousePos.X);
 					mouseRect.max.Y = Math.Max(mouseDownPos.Y, mousePos.Y);
+
+					// Ensure mouse rect is at least 1 pixel wide/high (for correct frustum computation)
+					float pixelSizeX = 2.0f / (float)backbuffersize.Width;
+					float pixelSizeY = 2.0f / (float)backbuffersize.Height;
+					if(mouseRect.max.X - mouseRect.min.X < pixelSizeX)
+					{
+						mouseRect.min.X = (mouseRect.min.X + mouseRect.max.X + pixelSizeX) / 2.0f;
+						mouseRect.max.X = mouseRect.min.X + pixelSizeX;
+					}
+					if(mouseRect.max.Y - mouseRect.min.Y < pixelSizeY)
+					{
+						mouseRect.min.Y = (mouseRect.min.Y + mouseRect.max.Y + pixelSizeY) / 2.0f;
+						mouseRect.max.Y = mouseRect.min.Y + pixelSizeY;
+					}
 
 					// >>> Perform frustum intersection with all images
 
@@ -1657,17 +1700,19 @@ namespace csharp_viewer
 			Vector3 vdir = (vfar - vnear).Normalized();
 
 			float dist, closest_dist = float.MaxValue;
+			Vector2 uv, closest_uv;
 			TransformedImage closest_image = default(TransformedImage);
 			foreach(TransformedImage image in images.ReverseValues)
-				if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient)) < closest_dist)
+				if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient, out uv)) < closest_dist)
 				{
 					closest_dist = dist;
+					closest_uv = uv;
 					closest_image = image;
 				}
 
 			if(closest_dist < float.MaxValue)
 			{
-				dragImage = closest_image;
+				dragImage = mouseDownImage = closest_image;
 				dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
 
 				// dragImagePlane = plane parallel to screen, going through point of intersection

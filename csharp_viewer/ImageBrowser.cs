@@ -83,7 +83,7 @@ namespace csharp_viewer
 
 		// Event handlers
 		public virtual void OnLoad() {}
-		public virtual void OnImageMouseDown(TransformedImage image, out bool enableDrag) { enableDrag = false; }
+		public virtual void OnImageMouseDown(MouseButtons button, TransformedImage image, Vector2 uv, out bool enableDrag) { enableDrag = false; }
 		public virtual void OnNonImageMouseDown() {}
 		public virtual void OnImageClick(TransformedImage image) {}
 		public virtual void OnImageRightClick(TransformedImage image) {}
@@ -300,7 +300,7 @@ namespace csharp_viewer
 
 		public override void OnLoad()
 		{
-			SetOption(Option.BackColor, Color4.LightSlateGray);
+			SetOption(Option.BackColor, new Color4(83, 82, 78, 255));
 			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			SetOption(Option.ShowCoordinateSystem, false);
 			SetOption(Option.ShowLineGrid, false);
@@ -314,9 +314,9 @@ namespace csharp_viewer
 			//ExecuteISQL(string.Format("x all BY #theta * 3.0f"));
 		}
 
-		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
+		public override void OnImageMouseDown(MouseButtons button, TransformedImage image, Vector2 uv, out bool enableDrag)
 		{
-			if(Control.MouseButtons == MouseButtons.Left)
+			if(button == MouseButtons.Left)
 			{
 				enableDrag = true;
 
@@ -399,11 +399,11 @@ namespace csharp_viewer
 			Focus(Viewer.images, false);
 		}
 
-		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
+		public override void OnImageMouseDown(MouseButtons button, TransformedImage image, Vector2 uv, out bool enableDrag)
 		{
 			enableDrag = false;
 
-			if(Control.MouseButtons != MouseButtons.Left || image.selected == true)
+			if(button != MouseButtons.Left || image.selected == true)
 				return;
 
 			int timeidx = Array.IndexOf(image.args[0].values, image.values[0]);
@@ -501,9 +501,9 @@ namespace csharp_viewer
 			ActionManager.mgr.Invoke("SkipViewAnimation", new object[] { });
 		}
 
-		public override void OnImageMouseDown(TransformedImage image, out bool enableDrag)
+		public override void OnImageMouseDown(System.Windows.Forms.MouseButtons button, TransformedImage image, Vector2 uv, out bool enableDrag)
 		{
-			enableDrag = Control.MouseButtons == MouseButtons.Left;
+			enableDrag = button == MouseButtons.Left;
 		}
 		public override void OnNonImageMouseDown()
 		{

@@ -33,13 +33,16 @@ namespace csharp_viewer
 				void main()
 				{
 					vec4 color = vec4(texture2D(Texture, uv));
-					float depth = texture2D(Texture2, uv).r / 512.0; //EDIT: Set with a uniform representing global max depth
+					float depth = texture2D(Texture2, uv).r / 1024.0;//512.0; //EDIT: Set with a uniform representing global max depth
 					vec4 lum = vec4(texture2D(Texture3, uv));
 
 					if(depth > gl_FragCoord.z)
 						discard;
+
+if(depth > 0.22) //EDIT: Temporary fix!!!
+	discard; //EDIT: Temporary fix!!!
 					
-					gl_FragData[0] = color;
+					gl_FragData[0] = color;//vec4(depth, depth, depth, 1.0);
 					gl_FragData[1] = vec4(0.0, 0.0, 0.0, 1.0);
 					gl_FragData[2] = HasLuminance != 0 ? vec4(lum.rgb, 1.0) : vec4(1.0, 1.0, 1.0, 1.0);
 					gl_FragDepth = depth;
@@ -262,7 +265,7 @@ namespace csharp_viewer
 				GL.DepthFunc(DepthFunction.Lequal);
 				GL.BlendEquation(BlendEquationMode.FuncAdd);
 				GL.DrawBuffers(3, new DrawBuffersEnum[] {DrawBuffersEnum.ColorAttachment0, DrawBuffersEnum.ColorAttachment1, DrawBuffersEnum.ColorAttachment2});
-				GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+				GL.ClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 				GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 				GL.Viewport(0, 0, framebufferSize.Width, framebufferSize.Height);
 
@@ -298,7 +301,7 @@ namespace csharp_viewer
 				finalTexFloat = null;
 				finalTexLum = null;
 				return false;
-			case 1:
+			/*case 1:
 				if(!activelayers[0].ReadyForRendering())
 					return false;
 
@@ -307,7 +310,7 @@ namespace csharp_viewer
 				finalTex = activelayers[0].tex;
 				finalTexFloat = activelayers[0].tex;
 				finalTexLum = activelayers[0].tex_lum;
-				return false;
+				return false;*/
 			}
 			foreach(ImageLayer layer in activelayers)
 				if(!layer.ReadyForRendering())
@@ -727,7 +730,7 @@ namespace csharp_viewer
 							   0.0f, 0.0f, 0.0f, 1.0f);
 		}
 
-		public float CastRay(Vector3 from, Vector3 dir, Matrix4 invvieworient)
+		public float CastRay(Vector3 from, Vector3 dir, Matrix4 invvieworient, out Vector2 uv)
 		{
 			//if(tex == null)
 			//	return float.MaxValue;
@@ -738,21 +741,39 @@ namespace csharp_viewer
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
 			if(!visible_dynamic)
+			{
+				uv = Vector2.Zero;
 				return float.MaxValue;
+			}
 
 			Matrix4 invworldmatrix = GetWorldMatrix(invvieworient);
 			invworldmatrix.Invert();
 			from = Vector3.TransformPerspective(from, invworldmatrix); //TransformPosition
 			if(from.Z < 0.0f)
+			{
+				uv = Vector2.Zero;
 				return float.MaxValue;
+			}
 			dir = Vector3.TransformNormal(dir, invworldmatrix);
 
 			Vector3 dest = from - dir * (from.Z / dir.Z);
+			uv = new Vector2(0.5f + dest.X / FirstLayer.originalAspectRatio, 0.5f - dest.Y);
 
 			//System.Windows.Forms.MessageBox.Show(dest.ToString());
 
-			float halfwidth = 0.5f * FirstLayer.originalAspectRatio, halfheight = 0.5f;
-			return -halfwidth < dest.X && dest.X < halfwidth && -halfheight < dest.Y && dest.Y < halfheight ? from.Z : float.MaxValue;
+			//float halfwidth = 0.5f * FirstLayer.originalAspectRatio, halfheight = 0.5f;
+			//return -halfwidth < dest.X && dest.X < halfwidth && -halfheight < dest.Y && dest.Y < halfheight ? from.Z : float.MaxValue;
+			return 0.0f < uv.X && uv.X < 1.0f && 0.0f < uv.Y && uv.Y < 1.0f ? from.Z : float.MaxValue;
+		}
+		public Vector2 GetIntersectionUV(Vector3 from, Vector3 dir, Matrix4 invvieworient)
+		{
+			Matrix4 invworldmatrix = GetWorldMatrix(invvieworient);
+			invworldmatrix.Invert();
+			from = Vector3.TransformPerspective(from, invworldmatrix); //TransformPosition
+			dir = Vector3.TransformNormal(dir, invworldmatrix);
+
+			Vector3 dest = from - dir * (from.Z / dir.Z);
+			return new Vector2(0.5f + dest.X / FirstLayer.originalAspectRatio, 0.5f - dest.Y);
 		}
 
 		public void AddTransform(ImageTransform transform)

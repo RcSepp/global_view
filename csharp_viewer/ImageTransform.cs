@@ -8,6 +8,16 @@ namespace csharp_viewer
 	//[Serializable]
 	public abstract class ImageTransform
 	{
+		public enum MouseButtons
+		{
+			None = 0,
+			Left = 1048576,
+			Right = 2097152,
+			Middle = 4194304,
+			XButton1 = 8388608,
+			XButton2 = 16777216
+		}
+
 		public struct Id : IComparable<Id>, IEquatable<Id>
 		{
 			private static int nextFreeId = 1;
@@ -53,6 +63,8 @@ namespace csharp_viewer
 		public string description = "";
 
 		public virtual void OnArgumentsChanged() {}
+		public virtual void OnImageMouseDown(MouseButtons button, TransformedImage image, Vector2 uv, out bool allowDrag) { allowDrag = true; }
+		public virtual void OnImageMouseMove(MouseButtons button, TransformedImage image, Vector2 uv) {}
 
 		//[NonSerializedAttribute]
 		private AABB transformAabb = new AABB();
