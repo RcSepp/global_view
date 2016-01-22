@@ -540,12 +540,12 @@ namespace csharp_viewer
 					if(sectionEnum.MoveNext())
 					{
 						byte[] colormapBytes = colormapTexture.Lock();
-						for(int x = Math.Max(0, (int)Math.Floor(colormapUpdateStart * colormapTexture.width)), end = Math.Min(colormapTexture.width - 1, (int)Math.Ceiling(colormapUpdateEnd * colormapTexture.width)); x < end; ++x)
+						for(int x = Math.Max(0, (int)Math.Floor(colormapUpdateStart * colormapTexture.width)), end = Math.Min(colormapTexture.width, (int)Math.Ceiling(colormapUpdateEnd * colormapTexture.width)); x < end; ++x)
 						{
 							float xr = ((float)x + 0.5f) / (float)colormapTexture.width;
 
-							/*if(xr >= sectionEnum.Current.end.pos && !sectionEnum.MoveNext())
-							break;*/
+							//if(xr >= sectionEnum.Current.end.pos && !sectionEnum.MoveNext())
+							//break;
 							sectionEnum = sections.GetEnumerator();
 							sectionEnum.MoveNext();
 							while(xr < sectionEnum.Current.start.pos || xr >= sectionEnum.Current.end.pos)
@@ -558,7 +558,6 @@ namespace csharp_viewer
 						endColormapCreation:
 						colormapTexture.Unlock();
 					}
-					colormapTexture.Unlock();
 
 					// Reset colormap update region
 					colormapUpdateStart = float.MaxValue;

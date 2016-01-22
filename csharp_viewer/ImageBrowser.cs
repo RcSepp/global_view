@@ -300,7 +300,7 @@ namespace csharp_viewer
 
 		public override void OnLoad()
 		{
-			SetOption(Option.BackColor, new Color4(83, 82, 78, 255));
+			SetOption(Option.BackColor, new Color4(102, 101, 96, 255));
 			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			SetOption(Option.ShowCoordinateSystem, false);
 			SetOption(Option.ShowLineGrid, false);
