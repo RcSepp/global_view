@@ -492,7 +492,7 @@ namespace csharp_viewer
 				ResetColorTableAction = ActionManager.CreateAction("Reset colormap", this, "ResetColorTable");
 
 				// Create colormap
-				colormapTexture = new GLTexture1D("colormap", new byte[3 * FINAL_COLORMAP_SIZE], FINAL_COLORMAP_SIZE, false);
+				colormapTexture = new GLTexture1D("colormap", new byte[4 * FINAL_COLORMAP_SIZE], FINAL_COLORMAP_SIZE, PixelFormat.Rgba, false);
 
 				// Create histogram grid as line list mesh
 				List<Vector3> positions = new List<Vector3>();
@@ -553,7 +553,9 @@ namespace csharp_viewer
 									goto endColormapCreation;
 
 							xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
-							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 3 + 0], out colormapBytes[x * 3 + 1], out colormapBytes[x * 3 + 2]);
+							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 4 + 0], out colormapBytes[x * 4 + 1], out colormapBytes[x * 4 + 2]);
+							colormapBytes[x * 4 + 3] = (byte)(xr*xr * 255.0f);
+							//colormapBytes[x * 4 + 3] = (byte)(((float)colormapBytes[x * 4 + 0] + (float)colormapBytes[x * 4 + 1] + (float)colormapBytes[x * 4 + 2]) * 255.0f / 3.0f);//(byte)(xr * 255.0f);
 						}
 						endColormapCreation:
 						colormapTexture.Unlock();
@@ -1407,7 +1409,7 @@ public static string foo = "";
 			colormapBytes[0] = (byte)(color.R * 255.0f);
 			colormapBytes[1] = (byte)(color.G * 255.0f);
 			colormapBytes[2] = (byte)(color.B * 255.0f);
-			return new NamedColorTable(new GLTexture1D("colormap_solid", colormapBytes, 1, false), nanColor, name, "Solid");
+			return new NamedColorTable(new GLTexture1D("colormap_solid", colormapBytes, 1, PixelFormat.Rgb, false), nanColor, name, "Solid");
 		}
 		private static NamedColorTable ColorTableFromRange(ColorMapCreator.Vector3 cmin, ColorMapCreator.Vector3 cmax, Vector3 nanColor, string name, string groupname)
 		{
@@ -1420,7 +1422,7 @@ public static string foo = "";
 				colorTable[3 * x + 1] = (byte)clr.y;
 				colorTable[3 * x + 2] = (byte)clr.z;
 			}
-			return new NamedColorTable(new GLTexture1D("colormap_range", colorTable, COLOR_TABLE_SIZE, false), nanColor, name, groupname);
+			return new NamedColorTable(new GLTexture1D("colormap_range", colorTable, COLOR_TABLE_SIZE, PixelFormat.Rgb, false), nanColor, name, groupname);
 		}
 
 		private static NamedColorTable[] ColorTableFromXml(string filename)
@@ -1504,7 +1506,7 @@ System.Drawing.Imaging.BitmapData data = bmp.LockBits(new Rectangle(Point.Empty,
 System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
 bmp.UnlockBits(data);
 bmp.Save(colorMapName + ".png");*/
-						colorTables.Add(new NamedColorTable(new GLTexture1D("colormap_xml", bytes, COLOR_TABLE_SIZE, false), nanColor, colorMapName, colorMapGroupName));
+						colorTables.Add(new NamedColorTable(new GLTexture1D("colormap_xml", bytes, COLOR_TABLE_SIZE, PixelFormat.Rgb, false), nanColor, colorMapName, colorMapGroupName));
 					}
 					break;
 

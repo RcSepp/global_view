@@ -259,6 +259,17 @@ namespace csharp_viewer
 		public SphericalViewTransform()
 		{{
 			SkipImageInterval = UpdateInterval.{3};
+
+			rotateViewAction = ActionManager.CreateAction<Id, float, float>(""Rotate view of spherical view transform"", ""RotateView_"" + Guid.NewGuid().ToString(), delegate(object[] parameters) {{
+				dynamic transform = GetTransformById((Id)parameters[0]);
+				transform.SetViewAngle((float)parameters[1], (float)parameters[2]);
+				return null;
+			}});
+			ActionManager.Do(rotateViewAction, new object[] {{ id, 0.0f, (float)Math.PI / 2.0f }});
+		}}
+		public void SetViewAngle(float theta, float phi)
+		{{
+			viewangle = new Selection<float> {{ theta= theta, phi= phi }};
 		}}
 
 		public override void OnArgumentsChanged()
@@ -314,9 +325,10 @@ namespace csharp_viewer
 			}}
 		}}
 		ImageAndAngleArray bestImages = new ImageAndAngleArray();
-		Selection<float> viewangle = new Selection<float> {{ theta= 0.0f, phi= (float)Math.PI / 2.0f }};
+		Selection<float> viewangle;
 		Vector2 mdown_uv;
 		Selection<float> mdown_viewangle;
+		Action rotateViewAction;
 
 		private void OnChangeIndex()
 		{{
@@ -343,8 +355,9 @@ namespace csharp_viewer
 		{{
 			if(button == MouseButtons.Left)
 			{{
-				viewangle.theta = mdown_viewangle.theta - (uv.X - mdown_uv.X) * (float)Math.PI;
-				viewangle.phi = mdown_viewangle.phi - (uv.Y - mdown_uv.Y) * (float)Math.PI;
+				//viewangle.theta = mdown_viewangle.theta - (uv.X - mdown_uv.X) * (float)Math.PI;
+				//viewangle.phi = mdown_viewangle.phi - (uv.Y - mdown_uv.Y) * (float)Math.PI;
+				ActionManager.Do(rotateViewAction, new object[] {{ id, mdown_viewangle.theta - (uv.X - mdown_uv.X) * (float)Math.PI, mdown_viewangle.phi - (uv.Y - mdown_uv.Y) * (float)Math.PI }});
 			}}
 		}}
 		public override void PrepareImage(int[] imagekey, TransformedImage image)

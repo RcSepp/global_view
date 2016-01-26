@@ -20,16 +20,31 @@ namespace csharp_viewer
 
 		public struct Id : IComparable<Id>, IEquatable<Id>
 		{
-			private static int nextFreeId = 1;
+			//private static int nextFreeId = 1;
+			private static System.Collections.Generic.Dictionary<int, ImageTransform> usedIds = new System.Collections.Generic.Dictionary<int, ImageTransform>();
 			private int id;
 
-			public static Id Generate()
+			public static Id Generate(ImageTransform transform)
 			{
-				return new Id(nextFreeId++);
+				//return new Id(nextFreeId++);
+				int newid = 0;
+				while(usedIds.ContainsKey(++newid)) { }
+				usedIds.Add(newid, transform);
+				return new Id(newid);
 			}
 			private Id(int id)
 			{
 				this.id = id;
+			}
+			public void Remove()
+			{
+				usedIds.Remove(id);
+			}
+			public static ImageTransform GetTransformById(Id id)
+			{
+				ImageTransform transform;
+				usedIds.TryGetValue(id.id, out transform);
+				return transform;
 			}
 
 			public override string ToString()
@@ -59,7 +74,7 @@ namespace csharp_viewer
 			public override bool Equals(object other) { return this.id == ((Id)other).id; }
 			public override int GetHashCode() { return id.GetHashCode(); }
 		}
-		public Id id = Id.Generate();
+		public Id id;
 		public string description = "";
 
 		public virtual void OnArgumentsChanged() {}
@@ -70,6 +85,19 @@ namespace csharp_viewer
 		private AABB transformAabb = new AABB();
 
 		private System.Collections.Generic.HashSet<TransformedImage> updateImageSet = new System.Collections.Generic.HashSet<TransformedImage>();
+
+		public ImageTransform()
+		{
+			id = Id.Generate(this);
+		}
+		public void Dispose()
+		{
+			id.Remove();
+		}
+		public static ImageTransform GetTransformById(Id id)
+		{
+			return Id.GetTransformById(id);
+		}
 
 		public void OnAddTransform(int[] imagekey, TransformedImage img)
 		{

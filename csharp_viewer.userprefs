@@ -1,21 +1,23 @@
 ﻿<Properties StartupItem="csharp_viewer/csharp_viewer.csproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/ColorTableManager.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/TransformedImage.cs">
     <Files>
-      <File FileName="csharp_viewer/Viewer.cs" Line="21" Column="45" />
-      <File FileName="csharp_viewer/CompiledTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="32" Column="1" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/Viewer.cs" Line="1657" Column="25" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="212" Column="29" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="190" Column="63" />
       <File FileName="csharp_viewer/CoordinateSystem.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ISQL.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ActionManager.cs" Line="145" Column="20" />
+      <File FileName="csharp_viewer/ISQL.cs" Line="283" Column="1" />
       <File FileName="csharp_viewer/ParameterIndex.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTextureStream.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/ImageLoader.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ColorTableManager.cs" Line="22" Column="25" />
-      <File FileName="csharp_viewer/ImageBrowser.cs" Line="303" Column="55" />
-      <File FileName="csharp_viewer/ImageTransform.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/GLTexture1D.cs" Line="22" Column="51" />
+      <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ImageBrowser.cs" Line="304" Column="16" />
+      <File FileName="csharp_viewer/GLTexture1D.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLShader.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLTexture2D.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLTextureStream.cs" Line="274" Column="33" />
+      <File FileName="csharp_viewer/CompiledTransform.cs" Line="343" Column="1" />
+      <File FileName="csharp_viewer/ImageTransform.cs" Line="44" Column="5" />
+      <File FileName="csharp_viewer/ActionManager.cs" Line="65" Column="30" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
@@ -38,6 +40,8 @@
       <Breakpoint enabled="false" file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/GLTextureStream.cs" line="470" column="1" />
       <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/ActionManager.cs" line="114" column="1" />
       <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/ActionManager.cs" line="116" column="1" />
+      <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/ActionManager.cs" line="85" column="1" />
+      <Breakpoint file="/Users/sklaassen/Desktop/work/global_view/csharp_viewer/csharp_viewer/ActionManager.cs" line="87" column="1" />
     </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />

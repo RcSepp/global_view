@@ -12,14 +12,16 @@ namespace csharp_viewer
 	public class GLTexture1D : GLTexture
 	{
 		private byte[] bytes;
+		OpenTK.Graphics.OpenGL.PixelFormat sourceformat;
 
-		public GLTexture1D(string name, byte[] bytes, int width, bool genmipmaps = false)
+		public GLTexture1D(string name, byte[] bytes, int width, OpenTK.Graphics.OpenGL.PixelFormat sourceformat, bool genmipmaps = false)
 			: base(name, TextureTarget.Texture1D, width, 1)
 		{
 			this.bytes = bytes;
+			this.sourceformat = sourceformat;
 			tex = GL.GenTexture();
 			GL.BindTexture(TextureTarget.Texture1D, tex);
-			GL.TexImage1D<byte>(TextureTarget.Texture1D, 0, PixelInternalFormat.Rgba, width, 0, OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, bytes);
+			GL.TexImage1D<byte>(TextureTarget.Texture1D, 0, PixelInternalFormat.Rgba, width, 0, sourceformat, PixelType.UnsignedByte, bytes);
 
 			if(genmipmaps)
 			{
@@ -42,7 +44,7 @@ namespace csharp_viewer
 		public void Unlock()
 		{
 			GL.BindTexture(TextureTarget.Texture1D, tex);
-			GL.TexImage1D<byte>(TextureTarget.Texture1D, 0, PixelInternalFormat.Rgba, width, 0, OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelType.UnsignedByte, bytes);
+			GL.TexImage1D<byte>(TextureTarget.Texture1D, 0, PixelInternalFormat.Rgba, width, 0, sourceformat, PixelType.UnsignedByte, bytes);
 		}
 
 		public void Interpolate(float x, out byte r, out byte g, out byte b)

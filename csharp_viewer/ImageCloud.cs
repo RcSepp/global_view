@@ -174,59 +174,82 @@ namespace csharp_viewer
 				const float MAX = 1.0;//0.85;
 
 				// Get float value (valueS) from RGB data
-				vec3 rgb = texture2D(sampler, uv).rgb;
-				float alpha = texture2D(sampler, uv).a;
-				int valueI = int(rgb.r * 255.0) * 0x10000 + int(rgb.g * 255.0) * 0x100 + int(rgb.b * 255.0);
+				vec4 rgba = texture2D(sampler, uv);
+				int valueI = int(rgba.r * 255.0) * 0x10000 + int(rgba.g * 255.0) * 0x100 + int(rgba.b * 255.0);
 				if(valueI == 0)
 					return vec4(NanColor, alpha);
 				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
 				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
 
-				return vec4(texture1D(Colormap, valueS).rgb, alpha);
+				return texture1D(Colormap, valueS) * vec4(1.0, 1.0, 1.0, rgba.a);
 			}
 		";
+		public const string FS_ASSEMBLE_IMAGE = @"
+				varying vec2 uv;
+				uniform sampler2D Texture, Texture2, Texture3, Texture4;
+				uniform int IsFloatTexture, HasLuminance, HasLastDepthPass;
+				varying float alpha;
+
+				vec4 shade_default(sampler2D sampler, in vec2 uv)
+				{
+					return texture2D(Texture, uv);
+				}
+				
+				uniform sampler1D Colormap;
+				uniform vec3 NanColor;
+
+				vec4 shade_float(sampler2D sampler, in vec2 uv)
+				{
+					//const vec3 COLOR_NAN = vec3(65.0, 68.0, 91.0) / 255.0;
+					const float MIN = 0.0;//0.35;
+					const float MAX = 1.0;//0.85;
+
+					// Get float value (valueS) from RGB data
+					vec4 rgba = texture2D(sampler, uv);
+					int valueI = int(rgba.r * 255.0) * 0x10000 + int(rgba.g * 255.0) * 0x100 + int(rgba.b * 255.0);
+					if(valueI == 0)
+						return vec4(NanColor, alpha);
+					float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
+					valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
+
+					return texture1D(Colormap, valueS) * vec4(1.0, 1.0, 1.0, rgba.a);
+				}
+
+				void main()
+				{
+					float depth = texture2D(Texture2, uv).r / 1024.0;//512.0; //EDIT: Set with a uniform representing global max depth
+
+					if(depth >= gl_FragCoord.z)
+						discard;
+
+					if(HasLastDepthPass != 0)
+					{
+						float lastDepthPass = texture2D(Texture4, uv).r;
+						if(depth < lastDepthPass)
+							discard;
+					}
+
+if(depth > 0.22) //EDIT: Temporary fix!!!
+	discard; //EDIT: Temporary fix!!!
+
+					vec4 color = IsFloatTexture != 0 ? shade_float(Texture, uv) : shade_default(Texture, uv);
+					vec4 lum = HasLuminance != 0 ? vec4(texture2D(Texture3, uv).rgb, alpha) : vec4(1.0, 1.0, 1.0, alpha);
+
+					gl_FragDepth = depth;
+					gl_FragColor = color * lum;
+				}
+			";
 		public const string FS_ASSEMBLED_IMAGE = @"
 			varying vec2 uv;
 			uniform sampler2D Texture, Texture2, Texture3;
 			uniform vec4 Color;
-			uniform int HasDefaultComponent, HasFloatComponent, HasLuminance;
+			uniform int HasTexture;
 			uniform vec2 InvBackbufferSize;
 			varying float alpha;
 			
-			vec4 shade_default(sampler2D sampler, in vec2 uv)
-			{
-				return texture2D(Texture, uv);
-			}
-			
-			uniform sampler1D Colormap;
-			uniform vec3 NanColor;
-
-			vec4 shade_float(sampler2D sampler, in vec2 uv)
-			{
-				//const vec3 COLOR_NAN = vec3(65.0, 68.0, 91.0) / 255.0;
-				const float MIN = 0.0;//0.35;
-				const float MAX = 1.0;//0.85;
-
-				// Get float value (valueS) from RGB data
-				vec3 rgb = texture2D(sampler, uv).rgb;
-				float alpha = texture2D(sampler, uv).a;
-				int valueI = int(rgb.r * 255.0) * 0x10000 + int(rgb.g * 255.0) * 0x100 + int(rgb.b * 255.0);
-				if(valueI == 0)
-					return vec4(NanColor, alpha);
-				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
-				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
-
-				return vec4(texture1D(Colormap, valueS).rgb, alpha);
-			}
-			
 			void main()
 			{
-				vec4 color_default = HasDefaultComponent != 0 ? shade_default(Texture, uv) : vec4(0.0, 0.0, 0.0, 1.0);
-				vec4 color_float = HasFloatComponent != 0 ? shade_float(Texture2, uv) : vec4(0.0, 0.0, 0.0, 1.0);
-				vec4 lum = texture2D(Texture3, uv);
-				
-				gl_FragColor = Color * vec4(color_default.rgb + color_float.rgb, color_default.a * color_float.a) * vec4(lum.rgb, alpha);
-				//gl_FragColor = color_default;
+				gl_FragColor = HasTexture != 0 ? texture2D(Texture, uv) : vec4(0.0, 0.0, 0.0, alpha);//Color * texture2D(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);
 			}
 		";
 	}
@@ -303,7 +326,7 @@ namespace csharp_viewer
 					GL.Uniform2(invBackbufferSize, invbackbuffersize);
 			}
 		}
-		RenderShader sdr2D_default, sdr2D_cm, sdr2D_assembled, sdr3D_default, sdr3D_cm;
+		RenderShader sdr2D_default, sdr2D_cm, sdr2D_assemble, sdr2D_assembled, sdr3D_default, sdr3D_cm, sdr3D_assemble;
 		GLShader sdrAabb;
 		GLMesh mesh2D, mesh3D;
 
@@ -689,15 +712,18 @@ namespace csharp_viewer
 #if USE_GS_QUAD
 				sdr2D_default = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
 				sdr2D_cm = new RenderShader(new string[] {IMAGE_CLOUD_SHADER.VS_USING_GS}, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, new string[] {IMAGE_CLOUD_SHADER.GS});
+				sdr2D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_USING_GS }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLE_IMAGE}, new string[] {IMAGE_CLOUD_SHADER.GS}));
 #else
-				sdr2D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
-				sdr2D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, null);
+				sdr2D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER});
+				sdr2D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER});
+				sdr2D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLE_IMAGE});
 				sdr2D_assembled = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLED_IMAGE});
 #endif
-				sdr3D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER}, null);
-				sdr3D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER}, null);
+				sdr3D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER});
+				sdr3D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER});
+				sdr3D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLE_IMAGE});
 
-				foreach(GLShader sdr in new GLShader[] {sdr2D_cm, sdr3D_cm, sdr2D_assembled})
+				foreach(GLShader sdr in new GLShader[] {sdr2D_cm, sdr3D_cm, sdr2D_assemble, sdr3D_assemble})
 				{
 					sdr.Bind();
 					GL.ActiveTexture(TextureUnit.Texture4);
@@ -1172,9 +1198,9 @@ namespace csharp_viewer
 					// >>> Render image
 
 					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
-						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, invbackbuffersize, invNumBackbufferPixels, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter);
+						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, sdr3D_assemble, invbackbuffersize, invNumBackbufferPixels, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter);
 					else
-						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, invbackbuffersize, invNumBackbufferPixels, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter);
+						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, sdr2D_assemble, invbackbuffersize, invNumBackbufferPixels, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter);
 				}
 
 				// >>> Draw frame around selected images
@@ -1935,10 +1961,19 @@ namespace csharp_viewer
 			}
 			SelectionChanged();
 			//EDIT: Call transforms.Remove(transform); for all transforms that aren't needed anymore
+			//EDIT: Call transform.Dispose(); for all transforms that aren't needed anymore
 			return transform;
 		}
 		public void ClearTransforms()
 		{
+			if(images != null)
+				foreach(TransformedImage image in images)
+				{
+					image.ClearTransforms();
+					//image.skipPosAnimation();
+				}
+			foreach(ImageTransform transform in transforms)
+				transform.Dispose();
 			transforms.Clear();
 		}
 		public void Clear(IEnumerable<TransformedImage> images)
