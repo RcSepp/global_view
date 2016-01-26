@@ -103,11 +103,11 @@ namespace csharp_viewer
 				MessageBox.Show("Missing entry in info.json: arguments");
 				return;
 			}
-			JObject associationsMeta = null;
+			/*JObject associationsMeta = null;
 			try {
 				associationsMeta = meta.associations;
 			}
-			catch {}
+			catch {}*/
 			try {
 				pixel_format = meta.metadata.pixel_format;
 			}

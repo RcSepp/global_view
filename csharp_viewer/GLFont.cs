@@ -359,8 +359,8 @@ namespace csharp_viewer
 			blankWidth = (int)Math.Ceiling(gfx.MeasureString(" ", font).Width);
 
 			#if !DEBUG_GLFONT
-				string bmp_filename = "charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png";
 				#if SAVE_AND_LOAD_CHARMAPS
+				string bmp_filename = "charmap_" + font.FontFamily.Name.Replace(" ", "") + "_" + font.Size + ".png";
 				if(System.IO.File.Exists(bmp_filename))
 					bmp = (Bitmap)Bitmap.FromFile(bmp_filename);
 				else

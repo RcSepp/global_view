@@ -20,7 +20,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
     <ConsolePause>False</ConsolePause>
-    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/eddy</Commandlineparameters>
+    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/mpas_ani</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <Optimize>True</Optimize>
@@ -42,26 +42,19 @@
     <Compile Include="GLShader.cs" />
     <Compile Include="ImageCloud.cs" />
     <Compile Include="ImageTransform.cs" />
-    <Compile Include="ThetaPhiTransform.cs" />
     <Compile Include="ColorTableManager.cs" />
-    <Compile Include="XYTransform.cs" />
-    <Compile Include="DataVisualization.cs" />
     <Compile Include="ColorMapCreator.cs" />
-    <Compile Include="AnimationTransform.cs" />
     <Compile Include="GLTexture1D.cs" />
     <Compile Include="GLFont.cs" />
     <Compile Include="InputDevices.cs" />
     <Compile Include="Common.cs" />
     <Compile Include="TransformedImage.cs" />
-    <Compile Include="TranslationTransform.cs" />
     <Compile Include="Selection.cs" />
     <Compile Include="GLTextureStream.cs" />
     <Compile Include="GLTexture2D.cs" />
     <Compile Include="GLTexture.cs" />
     <Compile Include="CoordinateSystem.cs" />
-    <Compile Include="ThetaPhiViewTransform.cs" />
     <Compile Include="GraphTransform.cs" />
-    <Compile Include="WheelTransform.cs" />
     <Compile Include="ImageContextMenu.cs" />
     <Compile Include="ActionManager.cs" />
     <Compile Include="DisableTransform.cs" />

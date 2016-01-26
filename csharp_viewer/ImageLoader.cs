@@ -244,7 +244,7 @@ namespace csharp_viewer
 				fs.Close();
 				return null;
 			}
-			string imageType = readline.Substring("Image type: ".Length);
+			//string imageType = readline.Substring("Image type: ".Length);
 
 			readline = sr.ReadLine();
 			if(!readline.StartsWith("Name: "))
@@ -252,7 +252,7 @@ namespace csharp_viewer
 				fs.Close();
 				return null;
 			}
-			string name = readline.Substring("Name: ".Length);
+			//string name = readline.Substring("Name: ".Length);
 
 			readline = sr.ReadLine();
 			if(!readline.StartsWith("Image size (x*y): "))
@@ -275,7 +275,7 @@ namespace csharp_viewer
 				fs.Close();
 				return null;
 			}
-			string numImages = readline.Substring("File size (no of images): ".Length);
+			//string numImages = readline.Substring("File size (no of images): ".Length);
 
 			fs.Position = 0x200;
 

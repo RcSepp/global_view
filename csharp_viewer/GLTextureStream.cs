@@ -41,6 +41,7 @@ namespace csharp_viewer
 
 			public virtual void OnTextureLoaded() {}
 			public virtual void OnTextureUnloaded() {}
+			public virtual void OnOrignalDimensionsUpdated() {}
 
 			public readonly string filename, depth_filename, lum_filename;
 			public readonly bool isFloatImage;
@@ -651,6 +652,7 @@ namespace csharp_viewer
 					}
 
 					// Compute original dimensions
+					bool originalDimensionsUpdated = originalWidth != newbmp.Width;
 					originalWidth = newbmp.Width;
 					originalHeight = newbmp.Height;
 					originalAspectRatio = (float)originalWidth / (float)originalHeight;
@@ -774,6 +776,10 @@ namespace csharp_viewer
 						}
 						bmp_lum = newbmp_lum;
 					}
+
+					if(originalDimensionsUpdated)
+						foreach(ImageReference reference in references)
+							reference.OnOrignalDimensionsUpdated();
 
 					renderMutex.ReleaseMutex();
 

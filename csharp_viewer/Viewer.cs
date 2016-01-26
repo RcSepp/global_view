@@ -1,5 +1,4 @@
-﻿#define DISABLE_DATAVIZ
-//#define USE_STD_IO
+﻿//#define USE_STD_IO
 #define EMBED_CONSOLE
 
 using System;
@@ -57,11 +56,6 @@ namespace csharp_viewer
 		public static ImageBrowser browser = new SimpleBrowser();
 		//public static ImageBrowser browser = new MPASBrowser();
 		//public static ImageBrowser browser = new PhotoBrowser();
-
-#if !DISABLE_DATAVIZ
-		Panel pnlPCView;
-		DataVisualization dataviz = null;
-#endif
 
 		System.Diagnostics.Stopwatch timer;
 
@@ -205,22 +199,10 @@ namespace csharp_viewer
 			imageCloud.Dock = DockStyle.Fill;
 			glImageCloud.Controls.Add(imageCloud);
 
-			#if !DISABLE_DATAVIZ
-			pnlPCView = new Panel();
-			pnlPCView.BackColor = Color.Black;
-			pnlPCView.TabIndex = 2;
-			this.Controls.Add(pnlPCView);
-			#endif
-
 			this.SizeChanged += this_SizeChanged;
 
 			//tbArguments = new TrackBar[Global.arguments.Length];
 			//lblArgumentValues = new Label[Global.arguments.Length];
-
-#if !DISABLE_DATAVIZ
-			// Create data visualization
-			dataviz = new DataVisualization(images, Global.arguments, valueset, pnlPCView);
-#endif
 
 #if !USE_STD_IO
 			// Create scripting console
@@ -979,11 +961,6 @@ namespace csharp_viewer
 							range.Add(meta.Value);
 						}
 				}
-
-				#if !DISABLE_DATAVIZ
-				if(dataviz != null)
-				dataviz.ImagesAdded();
-				#endif
 			}
 			#pragma warning restore 162
 
@@ -1202,11 +1179,6 @@ namespace csharp_viewer
 
 			image_render_mutex.ReleaseMutex();
 
-			#if !DISABLE_DATAVIZ
-			if(dataviz != null)
-			dataviz.ImagesAdded();
-			#endif
-
 			// Get image size
 			Size imageSize = new Size(256, 256);
 			if(File.Exists(newimages[0].FirstLayer.filename))
@@ -1322,11 +1294,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 						range.Add(meta.Value);
 					}
 
-#if !DISABLE_DATAVIZ
-				if(dataviz != null)
-					dataviz.ImagesAdded();
-#endif
-
 				Thread.Sleep(1000);
 			}
 		}
@@ -1428,7 +1395,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			// >>> Apply UI logic manually since anchors and docking aren't working on Mono Forms for OsX
 
 			int w = this.ClientSize.Width, h = this.ClientSize.Height;
-#if DISABLE_DATAVIZ
 			SetControlSize(glImageCloud, 0, 0, w, !consoleVisible || ctrlConsole == null ? h : h - 256);
 			if(ctrlConsole != null)
 			{
@@ -1436,17 +1402,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				if (consoleVisible)
 					SetControlSize(ctrlConsole, 0, h - 256, w, 256);
 			}
-#else
-			SetControlSize(glImageCloud, 0, 0, (w - 4) / 2, h - 200);
-			if(ctrlConsole != null)
-			{
-				SetControlSize(pnlImageControls, 0, h - 200, (w - 4) / 2, 32);
-				SetControlSize(ctrlConsole, 0, h - 168, (w - 4) / 2, 168);
-			}
-			else
-				SetControlSize(pnlImageControls, 0, h - 200, (w - 4) / 2, 200);
-			SetControlSize(pnlPCView, (w - 208) / 2 + 4, 0, (w - 4) / 2, h);
-#endif
+
 			/*// Invalidate all controls
 			foreach(Control control in this.Controls)
 				control.Hide();
@@ -1484,11 +1440,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			if(imageCloud != null)
 				imageCloud.OnSelectionChanged();
-
-#if !DISABLE_DATAVIZ
-			if(dataviz != null)
-				dataviz.OnSelectionChanged(imagekey, images);
-#endif
 
 			image_render_mutex.ReleaseMutex();
 		}

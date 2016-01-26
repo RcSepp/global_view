@@ -24,6 +24,11 @@ namespace csharp_viewer
 			public int[] globalparamindices;
 
 			public bool HasDepthInfo { get {return depth_filename != null;} }
+
+			public override void OnOrignalDimensionsUpdated()
+			{
+				_image.OnOrignalDimensionsUpdated(originalWidth, originalHeight);
+			}
 		}
 		public List<ImageLayer> inactivelayers = new List<ImageLayer>(), activelayers = new List<ImageLayer>();
 		public ImageLayer FirstLayer
@@ -54,6 +59,15 @@ namespace csharp_viewer
 				activelayers.Add(newlayer);
 			else
 				inactivelayers.Add(newlayer);
+		}
+
+		int originalWidth = 0, originalHeight = 0;
+		float originalAspectRatio = 1.0f;
+		private void OnOrignalDimensionsUpdated(int originalWidth, int originalHeight)
+		{
+			this.originalWidth = Math.Max(this.originalWidth, originalWidth);
+			this.originalHeight = Math.Max(this.originalHeight, originalHeight);
+			this.originalAspectRatio = (float)this.originalWidth / (float)this.originalHeight;
 		}
 
 		public static class FramebufferCollection
@@ -336,12 +350,12 @@ namespace csharp_viewer
 					visible_dynamic &= !t.SkipImage(key, this);
 			return visible_dynamic;
 		}
-		public bool IsVisible(ImageCloud.FreeView freeview, Matrix4 invvieworient, System.Drawing.Size backbuffersize, out Matrix4[] transforms)
+		public bool IsVisible(ImageCloud.FreeView freeview, Matrix4 invvieworient, System.Drawing.Size backbuffersize, out Matrix4 transform)
 		{
 			// Compute dynamic visibility and check if dynamic location updates are required
 			bool visible_dynamic = visible_static;
 			bool hasDynamicLocationTransform = locationInvalid;
-			foreach(ImageTransform t in this.transforms)
+			foreach(ImageTransform t in transforms)
 			{
 				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
@@ -352,48 +366,50 @@ namespace csharp_viewer
 			//foreach(ImageLayer layer in activelayers)
 			//	layer.RemoveIfUnloaded();
 
-			transforms = new Matrix4[activelayers.Count];
-			for(int i = 0; i < transforms.Length; ++i)
-				transforms[i] = invview; //Matrix4.Identity
+			transform = invview; //Matrix4.Identity
 			if(visible_dynamic)
 			{
 				if(hasDynamicLocationTransform)
 					ComputeLocation();
 
-				bool inside_frustum = false;
-				for(int i = 0; i < transforms.Length; ++i)
+				//transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
+				transform *= Matrix4.CreateScale(originalAspectRatio, 1.0f, 1.0f);
+				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
+				//if(depth_filename == null) // Do not always face screen when rendering volume images
+					transform *= invvieworient;
+				transform *= Matrix4.CreateTranslation(animatedPos);
+
+				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
-					//transforms[i] *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-					transforms[i] *= Matrix4.CreateScale(activelayers[i].originalAspectRatio, 1.0f, 1.0f);
-					//transforms[i] *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-					//if(depth_filename == null) // Do not always face screen when rendering volume images
-						transforms[i] *= invvieworient;
-					transforms[i] *= Matrix4.CreateTranslation(animatedPos);
+					transform *= freeview.viewprojmatrix;
 
-					if(freeview.DoFrustumCulling(transforms[i], Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+					// Set render priority and dimensions (thread safety: priority has to be set after width/height)
+					Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
+					int renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
+					int renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
+					float renderPriority = visibilityFactor * (this.selected ? 2000 : 1000);
+					foreach(ImageLayer activelayer in activelayers)
 					{
-						transforms[i] *= freeview.viewprojmatrix;
+						activelayer.renderWidth = renderWidth;
+						activelayer.renderHeight = renderHeight;
 
-						// Set render priority and dimensions (thread safety: priority has to be set after width/height)
-						Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transforms[i]) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transforms[i]); // Size of image in device units
-						activelayers[i].renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
-						activelayers[i].renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
-
-						//if(activelayers[i].renderPriority == 0)
-							activelayers[i].renderPriority = visibilityFactor * (this.selected ? 2000 : 1000);
-
-						inside_frustum = true;
+						//if(activelayer.renderPriority == 0)
+						activelayer.renderPriority = renderPriority;
 					}
-					else if(Global.time > prefetchHoldTime)
-						activelayers[i].renderPriority = 0;
+
+					return true;
 				}
-				return inside_frustum;
+				else if(Global.time > prefetchHoldTime)
+					foreach(ImageLayer activelayer in activelayers)
+						activelayer.renderPriority = 0;
+
+				return false;
 			}
 			else
 			{
 				if(Global.time > prefetchHoldTime)
-					foreach(ImageLayer layer in activelayers)
-						layer.renderPriority = 0;
+					foreach(ImageLayer activelayer in activelayers)
+						activelayer.renderPriority = 0;
 				return false;
 			}
 		}
@@ -417,47 +433,104 @@ namespace csharp_viewer
 			if(!hasTemporalSkipTransform && !hasTemporalLocationTransform) // If neither location nor skipping is time variant
 				return; // Don't prefetch
 
-			Matrix4[] transforms = new Matrix4[activelayers.Count];
-			for(int i = 0; i < transforms.Length; ++i)
-				transforms[i] = invview; //Matrix4.Identity
+			Matrix4 transform = invview; //Matrix4.Identity
 			if(visible_dynamic)
 			{
 				//if(hasTemporalLocationTransform) //EDIT: Compute location locally
 				//	ComputeLocation(); //EDIT: Compute location locally
 
-				for(int i = 0; i < transforms.Length; ++i)
+				//transform *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
+				transform *= Matrix4.CreateScale(originalAspectRatio, 1.0f, 1.0f);
+				//transform *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
+				//if(depth_filename == null) // Do not always face screen when rendering volume images
+					transform *= invvieworient;
+				transform *= Matrix4.CreateTranslation(animatedPos);
+
+				if(freeview.DoFrustumCulling(transform, Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
 				{
-					//transforms[i] *= Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-					transforms[i] *= Matrix4.CreateScale(activelayers[i].originalAspectRatio, 1.0f, 1.0f);
-					//transforms[i] *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
-					//if(depth_filename == null) // Do not always face screen when rendering volume images
-						transforms[i] *= invvieworient;
-					transforms[i] *= Matrix4.CreateTranslation(animatedPos);
+					transform *= freeview.viewprojmatrix;
 
-					if(freeview.DoFrustumCulling(transforms[i], Matrix4.Identity, Matrix4.Identity, new Vector3(0.0f, 0.0f, 0.0f), new Vector3(0.5f, 0.5f, 0.5f)))
+					// Set render priority and dimensions (thread safety: priority has to be set after width/height)
+					Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transform) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transform); // Size of image in device units
+					int renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
+					int renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
+					float renderPriority = 1200; // Prefetch renderPriority should be higher than render renderPriority to prefere images being loaded before they are being rendered
+					foreach(ImageLayer activelayer in activelayers)
 					{
-						transforms[i] *= freeview.viewprojmatrix;
-
-						// Set render priority and dimensions (thread safety: priority has to be set after width/height)
-						Vector3 vsize = Vector3.TransformPerspective(new Vector3(0.5f, 0.5f, 0.0f), transforms[i]) - Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), transforms[i]); // Size of image in device units
-						activelayers[i].renderWidth = Math.Max(1, (int)(vsize.X * (float)backbuffersize.Width));
-						activelayers[i].renderHeight = Math.Max(1, (int)(vsize.Y * (float)backbuffersize.Height));
-						activelayers[i].renderPriority = 1200; // Prefetch renderPriority should be higher than render renderPriority to prefere images being loaded before they are being rendered
-						prefetchHoldTime = Global.time;
+						activelayer.renderWidth = renderWidth;
+						activelayer.renderHeight = renderHeight;
+						activelayer.renderPriority = renderPriority;
 					}
+					prefetchHoldTime = Global.time;
 				}
 			}
 		}
-		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assembled, ImageCloud.RenderShader sdr_assemble, Vector2 invbackbuffersize, float invNumBackbufferPixels, float depthscale, ImageCloud.FreeView freeview, Matrix4[] transforms, int fragmentcounter)
+		public void Render(GLMesh mesh, ImageCloud.RenderShader sdr_default, ImageCloud.RenderShader sdr_float, ImageCloud.RenderShader sdr_assemble, float invNumBackbufferPixels, float depthscale, ImageCloud.FreeView freeview, Matrix4 transform, int fragmentcounter)
 		{
 			foreach(ImageLayer layer in activelayers)
 				layer.ReadyForRendering();
 
-			GLTexture2D tex = AssembleImage(sdr_assemble);
-			ImageCloud.RenderShader _sdr = sdr_assembled;
+			GLTexture2D tex;
+			GLTexture2D tex_lum = null;
+			ImageCloud.RenderShader sdr;
+			/*switch(activelayers.Count)
+			{
+			case 0: // If no layers are active
+				// Render blank
+				tex = null;
+				sdr = sdr_default;
+				break;
+
+			case 1: // If one layer is active
+				if(!activelayers[0].ReadyForRendering()) // If the layer isn't ready
+				{
+					// Render blank
+					tex = null;
+					sdr = sdr_default;
+					break;
+				}
+
+				// Render single image with luminance (if not null) and a shader depending on image content (float or default)
+				tex = activelayers[0].tex;
+				tex_lum = activelayers[0].tex_lum;
+				sdr = activelayers[0].isFloatImage ? sdr_float : sdr_default;
+				break;
+
+			default: // If more than one layer is active
+				// Render assembled
+				tex = AssembleImage(sdr_assemble);
+				sdr = sdr_default;
+				break;
+			}*/
+			if(activelayers.Count == 0) // If no layers are active
+			{
+				// Render blank
+				tex = null;
+				sdr = sdr_default;
+			}
+			else if(activelayers.Count + inactivelayers.Count > 1) // If image is multiple layer image
+			{
+				// Render assembled
+				tex = AssembleImage(sdr_assemble);
+				sdr = sdr_default;
+			}
+			else if(!activelayers[0].ReadyForRendering()) // If image is single layer image, but not ready for rendering
+			{
+				// Render blank
+				tex = null;
+				sdr = sdr_default;
+			}
+			else // If image is single layer image and ready for rendering
+			{
+				// Render single image with luminance (if not null) and a shader depending on image content (float or default)
+				tex = activelayers[0].tex;
+				tex_lum = activelayers[0].tex_lum;
+				sdr = activelayers[0].isFloatImage ? sdr_float : sdr_default;
+			}
+
 			Color4 _clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-			_sdr.Bind(transform: transforms[0], clr: _clr, texloaded: tex != null, hasdepth: false, haslum: true, invbackbuffersize: invbackbuffersize, depthscale: depthscale);
-			mesh.Bind(_sdr, tex);
+			sdr.Bind(transform: transform, clr: _clr, texloaded: tex != null, haslum: tex_lum != null, depthscale: depthscale);
+			mesh.Bind(sdr, tex, tex_lum);
 
 			GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
 			mesh.Draw();
@@ -467,7 +540,7 @@ namespace csharp_viewer
 			GL.GetQueryObject(fragmentcounter, GetQueryObjectParam.QueryResult, out numfragments);
 			visibilityFactor = (float)numfragments * invNumBackbufferPixels;
 
-			foreach(ImageTransform t in this.transforms)
+			foreach(ImageTransform t in transforms)
 				t.RenderImage(key, this, freeview);
 		}
 
@@ -524,11 +597,11 @@ namespace csharp_viewer
 			dir = Vector3.TransformNormal(dir, invworldmatrix);
 
 			Vector3 dest = from - dir * (from.Z / dir.Z);
-			uv = new Vector2(0.5f + dest.X / FirstLayer.originalAspectRatio, 0.5f - dest.Y);
+			uv = new Vector2(0.5f + dest.X / originalAspectRatio, 0.5f - dest.Y);
 
 			//System.Windows.Forms.MessageBox.Show(dest.ToString());
 
-			//float halfwidth = 0.5f * FirstLayer.originalAspectRatio, halfheight = 0.5f;
+			//float halfwidth = 0.5f * originalAspectRatio, halfheight = 0.5f;
 			//return -halfwidth < dest.X && dest.X < halfwidth && -halfheight < dest.Y && dest.Y < halfheight ? from.Z : float.MaxValue;
 			return 0.0f < uv.X && uv.X < 1.0f && 0.0f < uv.Y && uv.Y < 1.0f ? from.Z : float.MaxValue;
 		}
@@ -540,7 +613,7 @@ namespace csharp_viewer
 			dir = Vector3.TransformNormal(dir, invworldmatrix);
 
 			Vector3 dest = from - dir * (from.Z / dir.Z);
-			return new Vector2(0.5f + dest.X / FirstLayer.originalAspectRatio, 0.5f - dest.Y);
+			return new Vector2(0.5f + dest.X / originalAspectRatio, 0.5f - dest.Y);
 		}
 			
 		public void AddTransform(ImageTransform transform)
@@ -621,8 +694,8 @@ namespace csharp_viewer
 			//worldmatrix *= Matrix4.CreateScale(2.0f, 2.0f, 1.0f);
 			worldmatrix *= Matrix4.CreateTranslation(pos);
 
-			aabb.Include(Vector3.TransformPosition(new Vector3(-0.5f * FirstLayer.originalAspectRatio, -0.5f, -0.5f * FirstLayer.originalAspectRatio), worldmatrix));
-			aabb.Include(Vector3.TransformPosition(new Vector3( 0.5f * FirstLayer.originalAspectRatio,  0.5f,  0.5f * FirstLayer.originalAspectRatio), worldmatrix));
+			aabb.Include(Vector3.TransformPosition(new Vector3(-0.5f * originalAspectRatio, -0.5f, -0.5f * originalAspectRatio), worldmatrix));
+			aabb.Include(Vector3.TransformPosition(new Vector3( 0.5f * originalAspectRatio,  0.5f,  0.5f * originalAspectRatio), worldmatrix));
 
 			return aabb;
 		}

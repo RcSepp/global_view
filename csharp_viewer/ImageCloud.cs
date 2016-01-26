@@ -112,44 +112,18 @@ namespace csharp_viewer
 		";
 		public const string FS = @"
 			varying vec2 uv;
-			uniform sampler2D Texture, Texture2, Texture3, Texture4;
+			uniform sampler2D Texture, Texture2;
 			uniform vec4 Color;
-			uniform int HasTexture, HasDepth, HasLuminance;
-			uniform vec2 InvBackbufferSize;
+			uniform int HasTexture, HasLuminance;
 			varying float alpha;
 
 			vec4 shade(sampler2D sampler, in vec2 uv);
 
 			void main()
 			{
-				if(HasDepth != 0)
-				{
-					float d1 = texture2D(Texture3, gl_FragCoord.xy * InvBackbufferSize).r;
-					float d2 = texture2D(Texture2, uv).r;
-					//d2 = gl_FragCoord.z + (d2 - 1.0) * 1e-8;
-
-					//float depth = d1 / 2.0;//(d2 - d1) / 100.0;
-					//gl_FragColor = vec4(depth, depth, depth, 1.0);
-					//return;
-
-					if(d1 != d2)
-						discard;
-				}
-				
 				if(HasTexture != 0)
 				{
-					/*if(HasDepth != 0)
-					{
-						float depth = texture2D(Texture2, uv).r;
-						gl_FragDepth = depth = gl_FragCoord.z + (depth - 1.0) * 1e-5;
-//gl_FragColor = vec4(depth, depth, depth, 1.0);
-//gl_FragColor = vec4(depth / 2.0, depth / 2.0, depth / 2.0, 1.0);
-//gl_FragColor += vec4(depth, 0.0, 0.0, depth);
-					}*/
-					
-					vec3 lum = HasLuminance != 0 ? texture2D(Texture4, uv).rgb : vec3(1.0, 1.0, 1.0);
-//gl_FragColor = vec4(lum, 1.0);
-					
+					vec3 lum = HasLuminance != 0 ? texture2D(Texture2, uv).rgb : vec3(1.0, 1.0, 1.0);
 					gl_FragColor = Color * shade(Texture, uv) * vec4(lum, alpha);
 				}
 				else
@@ -159,8 +133,7 @@ namespace csharp_viewer
 		public const string FS_DEFAULT_DECODER = @"
 			vec4 shade(sampler2D sampler, in vec2 uv)
 			{
-//return texture2D(Texture, uv).r > 1e20 ? vec4(0.0, 0.0, 0.0, 0.0) : texture2D(Texture, uv);
-				return texture2D(Texture, uv);
+				return texture2D(sampler, uv);
 			}
 		";
 		public const string FS_COLORTABLE_DECODER = @"
@@ -181,7 +154,7 @@ namespace csharp_viewer
 				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
 				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
 
-				return texture1D(Colormap, valueS) * vec4(1.0, 1.0, 1.0, rgba.a);
+				return vec4(texture1D(Colormap, valueS).rgb, rgba.a); // Don't use colormap transparency
 			}
 		";
 		public const string FS_ASSEMBLE_IMAGE = @"
@@ -239,19 +212,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 					gl_FragColor = color * lum;
 				}
 			";
-		public const string FS_ASSEMBLED_IMAGE = @"
-			varying vec2 uv;
-			uniform sampler2D Texture, Texture2, Texture3;
-			uniform vec4 Color;
-			uniform int HasTexture;
-			uniform vec2 InvBackbufferSize;
-			varying float alpha;
-			
-			void main()
-			{
-				gl_FragColor = HasTexture != 0 ? texture2D(Texture, uv) : vec4(0.0, 0.0, 0.0, alpha);//Color * texture2D(Texture, uv) * vec4(1.0, 1.0, 1.0, alpha);
-			}
-		";
 	}
 	public static class AABB_SHADER
 	{
@@ -297,36 +257,31 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 
 		public class RenderShader : GLShader
 		{
-			int colorParam, hastex, hasdepth, haslum, depthScale, imageViewInv, invBackbufferSize;
+			int colorParam, hastex, haslum, depthScale, imageViewInv;
 
 			public RenderShader(string[] vs, string[] fs, string[] gs = null)
 				: base (vs, fs, gs)
 			{
 				colorParam = GetUniformLocation("Color");
 				hastex = GetUniformLocation("HasTexture");
-				hasdepth = GetUniformLocation("HasDepth");
 				haslum = GetUniformLocation("HasLuminance");
 				depthScale = GetUniformLocation("DepthScale");
 				imageViewInv = GetUniformLocation("ImageViewInv");
-				invBackbufferSize = GetUniformLocation("InvBackbufferSize");
 			}
 
-			public void Bind(Matrix4 transform, Color4 clr, bool texloaded, bool hasdepth, bool haslum, Vector2 invbackbuffersize, float depthscale = 0.0f, Matrix4 invview = default(Matrix4))
+			public void Bind(Matrix4 transform, Color4 clr, bool texloaded, bool haslum, float depthscale = 0.0f, Matrix4 invview = default(Matrix4))
 			{
 				Bind(transform);
 				GL.Uniform4(colorParam, clr);
 				GL.Uniform1(hastex, texloaded ? (int)1 : (int)0);
-				GL.Uniform1(this.hasdepth, hasdepth ? (int)1 : (int)0);
 				GL.Uniform1(this.haslum, haslum ? (int)1 : (int)0);
 				if(imageViewInv != -1)
 					GL.UniformMatrix4(imageViewInv, false, ref invview);
 				if(depthScale != -1)
 					GL.Uniform1(depthScale, depthscale);
-				if(invBackbufferSize != -1)
-					GL.Uniform2(invBackbufferSize, invbackbuffersize);
 			}
 		}
-		RenderShader sdr2D_default, sdr2D_cm, sdr2D_assemble, sdr2D_assembled, sdr3D_default, sdr3D_cm, sdr3D_assemble;
+		RenderShader sdr2D_default, sdr2D_cm, sdr2D_assemble, sdr3D_default, sdr3D_cm, sdr3D_assemble;
 		GLShader sdrAabb;
 		GLMesh mesh2D, mesh3D;
 
@@ -544,8 +499,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 		private bool depthRenderingEnabled = true;
 		private float depthRenderingEnabled_fade;
 
-		GLTexture2D texdot;
-
 		public static bool saveAssembledImage = false;
 
 		ColorTableManager colorTableMgr;
@@ -561,7 +514,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 		CoordinateSystem coordsys;
 		LineGrid grid;
 		ImageContextMenu ContextMenu;
-		ImageContextMenu.MenuGroup cmImage;
 		public void ShowContextMenu(ImageContextMenu.MenuGroup cm)
 		{
 			ContextMenu.Show(cm, glcontrol.PointToClient(Control.MousePosition), backbuffersize);
@@ -641,8 +593,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 			mesh2D = Common.meshQuad2;
 #endif
 
-			texdot = GLTexture2D.FromFile(Global.EXE_DIR + "dot.png", true);
-
 			texstream = new GLTextureStream(256*1024*1024, ReadImageMetaData); // Optimize for 1GB of VRAM
 			//texstream = new GLTextureStream(64*1024*1024, ReadImageMetaData); // Optimize for 256MB of VRAM
 			//texstream = new GLTextureStream(8*1024*1024, ReadImageMetaData); // Optimize for 32MB of VRAM
@@ -717,7 +667,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 				sdr2D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER});
 				sdr2D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER});
 				sdr2D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLE_IMAGE});
-				sdr2D_assembled = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLED_IMAGE});
 #endif
 				sdr3D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER});
 				sdr3D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER});
@@ -778,16 +727,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 			paramIndex.Load();
 			#endif
 
-			cmImage = new ImageContextMenu.MenuGroup("");
-			i = 0;
-			foreach(Cinema.CinemaArgument arg in arguments)
-			{
-				ImageContextMenu.MenuButton button = new ImageContextMenu.MenuButton(arg.label, cmdAlign_Click);
-				button.tag = (object)i++;
-				cmImage.controls.Add(button);
-			}
-			cmImage.ComputeSize();
-
 			// Enable depth rendering by default whenever a new scene is loaded
 			depthRenderingEnabled = true;
 			depthRenderingEnabled_fade = 1.0f;
@@ -813,7 +752,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 			if(mesh3D != null)
 				mesh3D.Free();
 			mesh3D = null;
-			cmImage = null;
 
 			#if USE_ARG_IDX
 				argIndex.Unload();
@@ -834,7 +772,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 			if(mesh2D != null)
 				mesh2D.Free();
 			mesh2D = null;
-			texdot = null;
 			if(colorTableMgr != null)
 			{
 				//colorTableMgr.Free();
@@ -980,12 +917,12 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 		struct TransformedImageAndMatrix
 		{
 			public TransformedImage image;
-			public Matrix4[] transforms;
+			public Matrix4 transform;
 
-			public TransformedImageAndMatrix(TransformedImage image, Matrix4[] transforms)
+			public TransformedImageAndMatrix(TransformedImage image, Matrix4 transform)
 			{
 				this.image = image;
-				this.transforms = transforms;
+				this.transform = transform;
 			}
 		}
 		private Point oldmousepos = Control.MousePosition;
@@ -1139,7 +1076,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 				foreach(TransformedImage iter in Viewer.visible)
 					iter.PrepareRender();
 
-				Vector2 invbackbuffersize = new Vector2(1.0f / backbuffersize.Width, 1.0f / backbuffersize.Height);
 				float invNumBackbufferPixels = 1.0f / ((float)backbuffersize.Width * (float)backbuffersize.Height);
 
 				// >>> Perform temporal prefetching
@@ -1162,17 +1098,17 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 
 					iter.Update(dt);
 
-					Matrix4[] _transforms;
-					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out _transforms))
+					Matrix4 transform;
+					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out transform))
 					{
 #if USE_DEPTH_SORTING
 						// >>> Add visible images to depth sorted list
 
-						float dist = Vector3.TransformPerspective(Vector3.Zero, _transforms[0]).Z;
+						float dist = Vector3.TransformPerspective(Vector3.Zero, transform).Z;
 						if(dist >= freeview.znear && dist <= freeview.zfar)
 						{
 							//dist = -dist;
-							renderlist.Add(dist, new TransformedImageAndMatrix(iter, _transforms));
+							renderlist.Add(dist, new TransformedImageAndMatrix(iter, transform));
 						}
 #else
 						// >>> Render visible images
@@ -1198,9 +1134,9 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 					// >>> Render image
 
 					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
-						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr2D_assembled, sdr3D_assemble, invbackbuffersize, invNumBackbufferPixels, depthRenderingEnabled_fade, freeview, iter.transforms, fragmentcounter);
+						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr3D_assemble, invNumBackbufferPixels, depthRenderingEnabled_fade, freeview, iter.transform, fragmentcounter);
 					else
-						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assembled, sdr2D_assemble, invbackbuffersize, invNumBackbufferPixels, 0.0f, freeview, /*iter.image.selected ? iter.matrix * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) :*/ iter.transforms, fragmentcounter);
+						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assemble, invNumBackbufferPixels, 0.0f, freeview, iter.image.selected ? iter.transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : iter.transform, fragmentcounter);
 				}
 
 				// >>> Draw frame around selected images
@@ -1210,21 +1146,13 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 				foreach(TransformedImageAndMatrix iter in renderlist)
 					if(iter.image.selected)
 					{
-						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.transforms[0] * Matrix4.CreateTranslation(0.0f, 0.0f, -0.002f);
+						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.002f);
 						sdrAabb.Bind(transform);
 						Common.meshLineQuad.Draw();
 					}
 				GL.LineWidth(1.0f);
 #endif
 			}
-
-			/*if(saveDepthBuffer)
-			{
-				saveDepthBuffer = false;
-				foreach(TransformedImage image in images)
-					if(image.AssembleImage())
-						break;
-			}*/
 
 			if(showLineGrid)
 				grid.Draw(freeview, selectionAabb, new Color4(0.5f, 1.0f, 0.5f, 1.0f), backbuffersize, viewControl == ViewControl.TwoDimensional ? 2 : 3);
@@ -1233,52 +1161,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 			{
 				Vector3 selectionAabbCenter = (selectionAabb.min + selectionAabb.max) / 2.0f;
 				coordsys.Draw(selectionAabbCenter, freeview.viewprojmatrix, vieworient, freeview.viewpos, FOV_Y * backbuffersize.Width / backbuffersize.Height, backbuffersize);
-			}
-
-			if(defineAlignmentStage != DefineAlignmentStage.None)
-			{
-				if(showCoordinateSystem)
-					coordsys.Draw(defineAlignmentOrigin, freeview.viewprojmatrix, vieworient, freeview.viewpos, FOV_Y * backbuffersize.Width / backbuffersize.Height, backbuffersize);
-				if((int)defineAlignmentStage >= (int)DefineAlignmentStage.DefineOffset)
-				{
-					Vector3 line = defineAlignmentOrigin - defineAlignmentOffset;
-					float linelen = line.Length;
-					Matrix4 linetransform = Matrix4.CreateScale(linelen);
-					linetransform *= Common.Matrix4_CreateRotationDir(line.Normalized(), new Vector3(0.0f, 0.0f, 1.0f));
-					linetransform *= Matrix4.CreateTranslation(defineAlignmentOrigin);
-					Common.sdrDashedLine.Bind(linetransform * freeview.viewprojmatrix);
-					GL.Uniform1(Common.sdrDashedLine_lengthUniform, linelen);
-					Common.meshLine.Bind(Common.sdrDashedLine, null);
-					Common.meshLine.Draw();
-
-					if((int)defineAlignmentStage >= (int)DefineAlignmentStage.DefineDelta)
-					{
-						Matrix4 dottransform = Matrix4.CreateTranslation(-0.5f, -0.5f, 0.0f);
-						float zoom = 0.5f * Vector3.TransformPosition(freeview.viewpos - defineAlignmentOffset, vieworient).Z * (FOV_Y * backbuffersize.Width / backbuffersize.Height) * texdot.width / backbuffersize.Width;
-						dottransform *= Matrix4.CreateScale(zoom, zoom * (float)texdot.height / (float)texdot.width, zoom);
-						dottransform *= invvieworient;
-//Matrix4 _dottransform = dottransform;
-						dottransform *= Matrix4.CreateTranslation(defineAlignmentOffset);
-
-						Common.sdrTextured.Bind(dottransform * freeview.viewprojmatrix);
-						Common.meshQuad.Bind(Common.sdrTextured, texdot);
-
-						for(int i = 0; i < arguments[defineAlignmentIndex].values.Length; ++i)
-						{
-							Common.meshQuad.Draw();
-
-							dottransform *= Matrix4.CreateTranslation(defineAlignmentDelta);
-							Common.sdrTextured.Bind(dottransform * freeview.viewprojmatrix);
-						}
-						/*foreach(KeyValuePair<int[], TransformedImage> selectedimage in selection)
-						{
-							Common.meshQuad.Draw();
-
-							_dottransform *= Matrix4.CreateTranslation(selectedimage.Value.pos + defineAlignmentDelta * (float)selectedimage.Key[defineAlignmentIndex]);
-							Common.sdrTextured.Bind(_dottransform * freeview.viewprojmatrix);
-						}*/
-					}
-				}
 			}
 
 			GL.Disable(EnableCap.DepthTest);
@@ -1331,41 +1213,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 			ContextMenu.Draw(dt, backbuffersize);
 		}
 
-		private enum DefineAlignmentStage
-		{
-			None, DefineOrigin, DefineOffset, DefineDelta
-		}
-		private DefineAlignmentStage defineAlignmentStage = DefineAlignmentStage.None;
-		private int defineAlignmentIndex;
-		private Plane defineAlignmentPlane;
-		private Vector3 defineAlignmentOrigin, defineAlignmentOffset, defineAlignmentDelta;
-		private void cmdAlign_Click(ImageContextMenu.MenuButton sender)
-		{
-			if(selectionAabb == null)
-				return;
-
-			defineAlignmentStage = DefineAlignmentStage.DefineOrigin;
-			defineAlignmentIndex = (int)sender.tag;
-
-			Vector3 selectionAabbCenter = (selectionAabb.min + selectionAabb.max) / 2.0f;
-			Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-			Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
-			Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
-			Vector3 vsdir = (vsfar - vsnear).Normalized();
-			defineAlignmentPlane = new Plane(selectionAabbCenter, vsdir);
-
-			defineAlignmentOrigin = selectionAabbCenter;
-
-			Point mouseLocation = glcontrol.PointToClient(Control.MousePosition);
-			Vector2 mousePos = new Vector2(2.0f * mouseLocation.X / backbuffersize.Width - 1.0f, 1.0f - 2.0f * mouseLocation.Y / backbuffersize.Height);
-			Vector3 vnear = new Vector3(mousePos.X, mousePos.Y, 0.0f);
-			Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
-			vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
-			vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
-			Vector3 vdir = (vfar - vnear).Normalized();
-			defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOrigin);
-		}
-
 		private TransformedImage dragImage, mouseDownImage;
 		private Vector3 dragImageOffset;
 		private Plane dragImagePlane;
@@ -1408,98 +1255,59 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 			mouseDownLocation = e.Location;
 			mouseDownInsideImageCloud = true;
 
-			if(defineAlignmentStage != DefineAlignmentStage.None)
-			{
-				Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
-				Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
-				Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-				vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
-				vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
-				Vector3 vdir = (vfar - vnear).Normalized();
+			Matrix4 invvieworient = freeview.viewmatrix;
+			invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
+			invvieworient.Transpose();
 
-				switch(defineAlignmentStage)
+			Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
+			Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
+			Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
+			vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
+			vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
+			Vector3 vdir = (vfar - vnear).Normalized();
+
+			float dist, closest_dist = float.MaxValue;
+			Vector2 uv, closest_uv = Vector2.Zero;
+			TransformedImage closest_image = default(TransformedImage);
+			foreach(TransformedImage image in images.ReverseValues)
+				if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient, out uv)) < closest_dist)
 				{
-				case DefineAlignmentStage.DefineOrigin:
-					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOrigin);
-					defineAlignmentStage = DefineAlignmentStage.DefineOffset;
-					break;
+					closest_dist = dist;
+					closest_uv = uv;
+					//Global.cle.PrintOutput(closest_uv.ToString());
+					closest_image = image;
+				}
 
-				case DefineAlignmentStage.DefineOffset:
-					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOffset);
-					defineAlignmentStage = DefineAlignmentStage.DefineDelta;
-					break;
+			if(closest_dist < float.MaxValue)
+			{
+				mouseDownImage = closest_image;
 
-				case DefineAlignmentStage.DefineDelta:
-					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentDelta);
-					defineAlignmentDelta -= defineAlignmentOffset;
+				bool enableDrag;
+				Viewer.browser.OnImageMouseDown(e.Button, closest_image, closest_uv, out enableDrag);
+				foreach(ImageTransform transform in closest_image.transforms)
+				{
+					bool transformAllowsDrag;
+					transform.OnImageMouseDown((ImageTransform.MouseButtons)e.Button, closest_image, closest_uv, out transformAllowsDrag);
+					enableDrag &= transformAllowsDrag;
+				}
 
-					defineAlignmentStage = DefineAlignmentStage.None;
-					if(TransformAdded != null)
-					{
-						TranslationTransform newtransform = new TranslationTransform(defineAlignmentOffset - defineAlignmentOrigin, defineAlignmentDelta);
-						//newtransform.SetArguments(arguments);
-						//newtransform.SetIndex(0, defineAlignmentIndex);
-						TransformAdded(newtransform);
-					}
-					break;
+				if(enableDrag)
+				{
+					dragImage = closest_image;
+					dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
+
+					// dragImagePlane = plane parallel to screen, going through point of intersection
+					Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
+					Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
+					Vector3 vsdir = (vsfar - vsnear).Normalized();
+					dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
 				}
 			}
-			else
+			else if(e.Button == MouseButtons.Left)
 			{
-				Matrix4 invvieworient = freeview.viewmatrix;
-				invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
-				invvieworient.Transpose();
+				dragImage = mouseDownImage = null;
 
-				Vector3 vnear = new Vector3(mouseDownPos.X, mouseDownPos.Y, 0.0f);
-				Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
-				Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-				vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
-				vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
-				Vector3 vdir = (vfar - vnear).Normalized();
-
-				float dist, closest_dist = float.MaxValue;
-				Vector2 uv, closest_uv = Vector2.Zero;
-				TransformedImage closest_image = default(TransformedImage);
-				foreach(TransformedImage image in images.ReverseValues)
-					if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient, out uv)) < closest_dist)
-					{
-						closest_dist = dist;
-						closest_uv = uv;
-						//Global.cle.PrintOutput(closest_uv.ToString());
-						closest_image = image;
-					}
-
-				if(closest_dist < float.MaxValue)
-				{
-					mouseDownImage = closest_image;
-
-					bool enableDrag;
-					Viewer.browser.OnImageMouseDown(e.Button, closest_image, closest_uv, out enableDrag);
-					foreach(ImageTransform transform in closest_image.transforms)
-					{
-						bool transformAllowsDrag;
-						transform.OnImageMouseDown((ImageTransform.MouseButtons)e.Button, closest_image, closest_uv, out transformAllowsDrag);
-						enableDrag &= transformAllowsDrag;
-					}
-
-					if(enableDrag)
-					{
-						dragImage = closest_image;
-						dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
-
-						// dragImagePlane = plane parallel to screen, going through point of intersection
-						Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
-						Vector3 vsfar = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 1.0f), invviewprojmatrix);
-						Vector3 vsdir = (vsfar - vsnear).Normalized();
-						dragImagePlane = new Plane(vnear + vdir * closest_dist, vsdir);
-					}
-				}
-				else if(e.Button == MouseButtons.Left)
-				{
-					dragImage = mouseDownImage = null;
-
-					Viewer.browser.OnNonImageMouseDown();
-				}
+				Viewer.browser.OnNonImageMouseDown();
 			}
 		}
 		public void MouseUp(object sender, System.Windows.Forms.MouseEventArgs e)
@@ -1608,30 +1416,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 				//ActionManager.Do(MoveAction, newpos - dragImage.pos + dragImageOffset, selection);
 
 				InvalidateOverallBounds();
-			} else if(defineAlignmentStage != DefineAlignmentStage.None)
-			{
-				Vector3 vnear = new Vector3(mousePos.X, mousePos.Y, 0.0f);
-				Vector3 vfar = new Vector3(vnear.X, vnear.Y, 1.0f);
-				Matrix4 invviewprojmatrix = freeview.viewprojmatrix.Inverted();
-				vnear = Vector3.TransformPerspective(vnear, invviewprojmatrix);
-				vfar = Vector3.TransformPerspective(vfar, invviewprojmatrix);
-				Vector3 vdir = (vfar - vnear).Normalized();
-
-				switch(defineAlignmentStage)
-				{
-				case DefineAlignmentStage.DefineOrigin:
-					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOrigin);
-					break;
-
-				case DefineAlignmentStage.DefineOffset:
-					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentOffset);
-					break;
-
-				case DefineAlignmentStage.DefineDelta:
-					defineAlignmentPlane.IntersectLine(vnear, vdir, out defineAlignmentDelta);
-					defineAlignmentDelta -= defineAlignmentOffset;
-					break;
-				}
 			}
 			else if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) > 2)
 			{
@@ -1796,7 +1580,6 @@ if(depth > 0.22) //EDIT: Temporary fix!!!
 				break;*/
 
 			case Keys.NumPad7:
-				//saveDepthBuffer = true;
 				saveAssembledImage = true;
 				break;
 			}
