@@ -9,7 +9,7 @@ namespace csharp_viewer
 {
 	public static class ImageLoader
 	{
-		public static Bitmap Load(string filename)
+		public static IBitmap Load(string filename)
 		{
 		reattempt_load:
 			try {
@@ -22,7 +22,7 @@ namespace csharp_viewer
 			}
 
 			try {
-				return (Bitmap)Bitmap.FromFile(filename);
+				return new GdiBitmap((Bitmap)Bitmap.FromFile(filename));
 			}
 			catch
 			{
@@ -70,7 +70,7 @@ namespace csharp_viewer
 				meta.Add(new GLTextureStream.ImageMetaData(tag.ToString(), (float)date.Ticks, date.ToShortDateString()));
 			}
 		}
-		public static Bitmap Load(string filename, List<GLTextureStream.ImageMetaData> meta)
+		public static IBitmap Load(string filename, List<GLTextureStream.ImageMetaData> meta)
 		{
 		reattempt_load:
 			try {
@@ -213,7 +213,7 @@ namespace csharp_viewer
 						case 8: bmp.RotateFlip(RotateFlipType.Rotate270FlipNone); break;
 					}
 				}
-				return bmp;
+				return new GdiBitmap(bmp);
 			}
 			catch(OutOfMemoryException) {
 				GC.WaitForPendingFinalizers();
@@ -232,7 +232,7 @@ namespace csharp_viewer
 
 	public static class ImImageLoader
 	{
-		public static Bitmap Load(string filename)
+		public static IBitmap Load(string filename)
 		{
 			FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
 
@@ -281,37 +281,178 @@ namespace csharp_viewer
 
 			BinaryReader br = new BinaryReader(fs);
 			int numpixels = width * height;
-			float[] values = new float[numpixels], valuesFlippedY = new float[numpixels];
-			float vmin = float.MaxValue, vmax = float.MinValue;
-			for(int i = 0; i < numpixels; ++i)
-			{
-				values[i] = br.ReadSingle();
-				vmin = Math.Min(vmin, values[i]);
-				vmax = Math.Max(vmax, values[i]);
-			}
-
-			/*float vscale = 255.0f / (vmax - vmin);
+			float[] valuesFlippedY = new float[numpixels];
 			for(int y = 0; y < height; ++y)
 				for(int x = 0; x < width; ++x)
-					valuesFlippedY[y * width + x] = (values[(height - y - 1) * width + x] - vmin) * vscale;*/
-
-			for(int y = 0; y < height; ++y)
-				for(int x = 0; x < width; ++x)
-					valuesFlippedY[y * width + x] = values[(height - y - 1) * width + x];
+					valuesFlippedY[(height - y - 1) * width + x] = br.ReadSingle();
 
 			fs.Close();
 
-			Bitmap bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+			/*Bitmap bmp = new Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 
 			System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
 			System.Runtime.InteropServices.Marshal.Copy(valuesFlippedY, 0, bmpdata.Scan0, valuesFlippedY.Length);
 			bmp.UnlockBits(bmpdata);
 
-			values = null;
 			valuesFlippedY = null;
 
-			return bmp;
+			return bmp;*/
+
+			return new F32Bitmap(width, height, valuesFlippedY);
 		}
+	}
+
+	public interface IBitmap
+	{
+		OpenTK.Graphics.OpenGL.PixelFormat pixelFormat { get; }
+		int Width { get; }
+		int Height { get; }
+		float maxDepth { get; }
+		void TexImage2D(OpenTK.Graphics.OpenGL.PixelInternalFormat destformat);
+		void Downscale(int newwidth, int newheight, System.Drawing.Drawing2D.InterpolationMode mode);
+		void Dispose();
+	}
+	public class GdiBitmap : IBitmap
+	{
+		private Bitmap bmp;
+
+		public GdiBitmap(Bitmap bmp)
+		{
+			this.bmp = bmp;
+		}
+		public GdiBitmap(string filename)
+		{
+			this.bmp = new Bitmap(filename);
+		}
+
+		#region IBitmap implementation
+		public void TexImage2D(OpenTK.Graphics.OpenGL.PixelInternalFormat destformat)
+		{
+			System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), System.Drawing.Imaging.ImageLockMode.ReadOnly, bmp.PixelFormat);
+			OpenTK.Graphics.OpenGL.GL.TexImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 0, destformat, bmpdata.Width, bmpdata.Height, 0, pixelFormat, OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, bmpdata.Scan0);
+			bmp.UnlockBits(bmpdata);
+		}
+		public void Downscale(int newwidth, int newheight, System.Drawing.Drawing2D.InterpolationMode mode)
+		{
+			Bitmap originalBmp = bmp;
+			bmp = new Bitmap(newwidth, newheight, originalBmp.PixelFormat);
+			Graphics gfx = Graphics.FromImage(bmp);
+			gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+			gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+			gfx.InterpolationMode = mode;
+			gfx.DrawImage(originalBmp, new Rectangle(0, 0, newwidth, newheight));
+			gfx.Flush();
+			originalBmp.Dispose();
+			originalBmp = null;
+		}
+
+		public OpenTK.Graphics.OpenGL.PixelFormat pixelFormat {
+			get {
+				switch(bmp.PixelFormat)
+				{
+				case System.Drawing.Imaging.PixelFormat.Format24bppRgb:
+					return OpenTK.Graphics.OpenGL.PixelFormat.Bgr;
+				case System.Drawing.Imaging.PixelFormat.Format32bppArgb:
+					return OpenTK.Graphics.OpenGL.PixelFormat.Bgra;
+				default:
+					return (OpenTK.Graphics.OpenGL.PixelFormat)(-1);
+				}
+			}
+		}
+
+		public float maxDepth { get { return 0.0f; } }
+		public int Width { get { return bmp.Width; } }
+		public int Height { get { return bmp.Height; } }
+
+		public void Dispose()
+		{
+			bmp.Dispose();
+			bmp = null;
+		}
+		#endregion
+	}
+	public class F32Bitmap : IBitmap
+	{
+		private int width, height;
+		float[] values;
+		float maxdepth;
+
+		public F32Bitmap(int width, int height, float[] values)
+		{
+			this.width = width;
+			this.height = height;
+			this.values = values;
+
+			maxdepth = float.MinValue;
+			for(int i = 0, numpixels = width * height; i < numpixels; ++i)
+				maxdepth = Math.Max(maxdepth, values[i]);
+		}
+
+		#region IBitmap implementation
+		public void TexImage2D(OpenTK.Graphics.OpenGL.PixelInternalFormat destformat)
+		{
+			OpenTK.Graphics.OpenGL.GL.TexImage2D<float>(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 0, OpenTK.Graphics.OpenGL.PixelInternalFormat.R32f, width, height, 0, OpenTK.Graphics.OpenGL.PixelFormat.Red, OpenTK.Graphics.OpenGL.PixelType.Float, values);
+		}
+		public void Downscale(int newwidth, int newheight, System.Drawing.Drawing2D.InterpolationMode mode)
+		{
+			float[] newvalues = new float[newwidth * newheight];
+
+			// Nearest neighbour sampling
+			for(int y = 0; y < newheight; ++y)
+				for(int x = 0; x < newwidth; ++x)
+				{
+					float src_xf = (float)x * (float)width / (float)newwidth;
+					int src_xi = (int)src_xf;
+					if(src_xf - (float)src_xi >= 0.5f)
+						++src_xi;
+
+					float src_yf = (float)y * (float)height / (float)newheight;
+					int src_yi = (int)src_yf;
+					if(src_yf - (float)src_yi >= 0.5f)
+						++src_yi;
+
+					newvalues[y * newwidth + x] = values[src_yi * width + src_xi];
+				}
+
+			/*// Linear sampling
+			for(int y = 0; y < newheight; ++y)
+				for(int x = 0; x < newwidth; ++x)
+				{
+					float src_xf = (float)x * (float)width / (float)newwidth;
+					int src_xi = (int)src_xf;
+					src_xf = src_xf - (float)src_xi;
+
+					float src_yf = (float)y * (float)height / (float)newheight;
+					int src_yi = (int)src_yf;
+					src_yf = src_yf - (float)src_yi;
+
+					newvalues[y * newwidth + x] = values[src_yi * width + src_xi] * src_xf * src_yf;
+					newvalues[y * newwidth + x] += values[src_yi * width + src_xi + 1] * (1.0f - src_xf) * src_yf;
+					newvalues[y * newwidth + x] += values[++src_yi * width + src_xi] * src_xf * (1.0f - src_yf);
+					newvalues[y * newwidth + x] += values[src_yi * width + src_xi + 1] * (1.0f - src_xf) * (1.0f - src_yf);
+				}*/
+
+			width = newwidth;
+			height = newheight;
+			values = null;
+			values = newvalues;
+		}
+
+		public OpenTK.Graphics.OpenGL.PixelFormat pixelFormat {
+			get {
+				throw new NotImplementedException();
+			}
+		}
+
+		public float maxDepth { get { return maxdepth; } }
+		public int Width { get { return width; } }
+		public int Height { get { return height; } }
+
+		public void Dispose()
+		{
+			values = null;
+		}
+		#endregion
 	}
 }
 

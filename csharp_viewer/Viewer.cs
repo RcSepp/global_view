@@ -1824,8 +1824,10 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				actMgr.Play(2.0);
 				break;
 			case Keys.F12:
+				image_render_mutex.WaitOne();
 				actMgr.SaveScreenshot("screenshot.png");
 				ImageCloud.Status("Screenshot saved as \"screenshot.png\"");
+				image_render_mutex.ReleaseMutex();
 				break;
 			case Keys.R:
 				// Switch to video-friendly resolution

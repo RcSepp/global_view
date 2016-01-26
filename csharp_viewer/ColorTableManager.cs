@@ -554,8 +554,9 @@ namespace csharp_viewer
 
 							xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
 							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 4 + 0], out colormapBytes[x * 4 + 1], out colormapBytes[x * 4 + 2]);
-							colormapBytes[x * 4 + 3] = (byte)(xr*xr * 255.0f);
+							//colormapBytes[x * 4 + 3] = (byte)(xr*xr * 255.0f);
 							//colormapBytes[x * 4 + 3] = (byte)(((float)colormapBytes[x * 4 + 0] + (float)colormapBytes[x * 4 + 1] + (float)colormapBytes[x * 4 + 2]) * 255.0f / 3.0f);//(byte)(xr * 255.0f);
+							colormapBytes[x * 4 + 3] = 255;
 						}
 						endColormapCreation:
 						colormapTexture.Unlock();

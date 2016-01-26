@@ -173,13 +173,16 @@ namespace csharp_viewer
 
 			// Get framebuffer dimensions
 			int framebufferWidth = 0, framebufferHeight = 0;
+			float invMaxDepth = float.MinValue; // max(pixels inside bmp_depth)
 			foreach(ImageLayer layer in activelayers)
 			{
 				framebufferWidth = Math.Max(framebufferWidth, layer.loadedWidth);
 				framebufferHeight = Math.Max(framebufferHeight, layer.loadedHeight);
+				invMaxDepth = Math.Max(invMaxDepth, layer.tex_depth_maxdepth);
 			}
 			if(framebufferWidth == 0 || framebufferHeight == 0)
 				return null; // None of the active layers has been created so far
+			invMaxDepth = 1.0f / invMaxDepth;
 
 			FramebufferCollection.FramebufferAndTime finalTexFramebuffer = FramebufferCollection.RequestFramebuffer(framebufferWidth, framebufferHeight);
 
@@ -207,6 +210,7 @@ namespace csharp_viewer
 					GL.Uniform1(sdr_assemble.GetUniformLocation("IsFloatTexture"), layer.isFloatImage ? 1 : 0);
 					GL.Uniform1(sdr_assemble.GetUniformLocation("HasLuminance"), layer.tex_lum != null ? 1 : 0);
 					GL.Uniform1(sdr_assemble.GetUniformLocation("HasLastDepthPass"), pass != 0 ? 1 : 0);
+					GL.Uniform1(sdr_assemble.GetUniformLocation("InvMaxDepth"), invMaxDepth);
 					Common.meshQuad2.Bind(sdr_assemble, layer.tex, layer.tex_depth, layer.tex_lum, pass != 0 ? finalTexFramebuffer.texDepth2 : null);
 					Common.meshQuad2.Draw();
 				}

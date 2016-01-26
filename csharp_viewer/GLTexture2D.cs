@@ -11,7 +11,7 @@ namespace csharp_viewer
 {
 	public class GLTexture2D : GLTexture
 	{
-		public GLTexture2D(string name, Bitmap bmp, bool genmipmaps = false, bool linearfilter = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
+		public GLTexture2D(string name, IBitmap bmp, bool genmipmaps = false, bool linearfilter = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Bgra, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)
 			: base(name, TextureTarget.Texture2D, bmp.Width, bmp.Height)
 		{
 			tex = GL.GenTexture();
@@ -19,9 +19,10 @@ namespace csharp_viewer
 
 		reattempt_load:
 			try {
-				BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+				/*BitmapData bmpdata = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
 				GL.TexImage2D(TextureTarget.Texture2D, 0, destformat, bmpdata.Width, bmpdata.Height, 0, sourceformat, sourcetype, bmpdata.Scan0);
-				bmp.UnlockBits(bmpdata);
+				bmp.UnlockBits(bmpdata);*/
+				bmp.TexImage2D(destformat);
 			}
 			catch(OutOfMemoryException) {
 				GC.WaitForPendingFinalizers();
@@ -63,7 +64,7 @@ namespace csharp_viewer
 			if(!File.Exists(filename))
 				throw new FileNotFoundException();
 
-			return new GLTexture2D(filename, new Bitmap(filename), genmipmaps);
+			return new GLTexture2D(filename, new GdiBitmap(filename), genmipmaps);
 		}
 
 		public GLTexture2D(string name, byte[] bytes, int width, int height, bool genmipmaps = false, OpenTK.Graphics.OpenGL.PixelFormat sourceformat = OpenTK.Graphics.OpenGL.PixelFormat.Rgb, PixelInternalFormat destformat = PixelInternalFormat.Rgba, PixelType sourcetype = PixelType.UnsignedByte)

@@ -388,7 +388,7 @@ namespace csharp_viewer
 				}
 			#endif
 
-			texture = new GLTexture2D("font", bmp);
+			texture = new GLTexture2D("font", new GdiBitmap(bmp));
 		}
 
 		protected override void DrawString(float x, float y, float w, string text, System.Drawing.Size backbufferSize, Color4 color)

@@ -161,6 +161,7 @@ namespace csharp_viewer
 				varying vec2 uv;
 				uniform sampler2D Texture, Texture2, Texture3, Texture4;
 				uniform int IsFloatTexture, HasLuminance, HasLastDepthPass;
+				uniform float InvMaxDepth;
 				varying float alpha;
 
 				vec4 shade_default(sampler2D sampler, in vec2 uv)
@@ -190,7 +191,7 @@ namespace csharp_viewer
 
 				void main()
 				{
-					float depth = texture2D(Texture2, uv).r / 1024.0;//512.0; //EDIT: Set with a uniform representing global max depth
+					float depth = 0.5 * texture2D(Texture2, uv).r * InvMaxDepth;
 
 					if(depth >= gl_FragCoord.z)
 						discard;
@@ -202,13 +203,14 @@ namespace csharp_viewer
 							discard;
 					}
 
-if(depth > 0.22) //EDIT: Temporary fix!!!
-	discard; //EDIT: Temporary fix!!!
+//if(depth >= 0.5) //EDIT: Temporary fix!!!
+//	discard; //EDIT: Temporary fix!!!
 
 					vec4 color = IsFloatTexture != 0 ? shade_float(Texture, uv) : shade_default(Texture, uv);
 					vec4 lum = HasLuminance != 0 ? vec4(texture2D(Texture3, uv).rgb, alpha) : vec4(1.0, 1.0, 1.0, alpha);
 
 					gl_FragDepth = depth;
+					//gl_FragColor = vec4(texture1D(Colormap, depth + 0.5).rgb, 1.0);
 					gl_FragColor = color * lum;
 				}
 			";

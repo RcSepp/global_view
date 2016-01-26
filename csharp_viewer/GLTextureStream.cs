@@ -121,6 +121,7 @@ namespace csharp_viewer
 
 			public GLTexture2D tex { get { return image.tex; } }
 			public GLTexture2D tex_depth { get { return image.tex_depth; } }
+			public float tex_depth_maxdepth { get { return image.bmp_depth != null ? image.bmp_depth.maxDepth : 0.0f; } }
 			public GLTexture2D tex_lum { get { return image.tex_lum; } }
 			public int originalWidth { get { return image != null ? image.originalWidth : 0; } }
 			public int originalHeight { get { return image != null ? image.originalHeight : 0; } }
@@ -171,7 +172,7 @@ namespace csharp_viewer
 				public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
 				private float renderPriority = 0.0f; // == Maximum of render priorities of all references
 				public int renderWidth = 0, renderHeight = 0; // == Maximum of render dimensions of all references
-				private System.Drawing.Bitmap oldbmp = null;
+				private IBitmap oldbmp = null;
 				public void OnRenderPriorityDecreased()
 				{
 					renderPriority = 0.0f;
@@ -328,7 +329,7 @@ namespace csharp_viewer
 					}
 				}
 
-				public System.Drawing.Bitmap bmp = null, bmp_depth = null, bmp_lum = null;
+				public IBitmap bmp = null, bmp_depth = null, bmp_lum = null;
 				public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
 				private bool texIsStatic = false;
 				public int originalWidth = 0, originalHeight = 0;
@@ -519,44 +520,13 @@ namespace csharp_viewer
 							{
 								// >>> Optimization: Downscale images instead of reloading them
 
-								Bitmap originalBmp = bmp;
-								bmp = new Bitmap(width, height, originalBmp.PixelFormat);
-								Graphics gfx = Graphics.FromImage(bmp);
-								gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-								gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-								gfx.InterpolationMode = isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-								gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
-								gfx.Flush();
-								originalBmp.Dispose();
-								originalBmp = null;
+								bmp.Downscale(width, height, isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic);
 
 								if(depth_filename != null)
-								{
-									originalBmp = bmp_depth;
-									bmp_depth = new Bitmap(width, height, originalBmp.PixelFormat);
-									gfx = Graphics.FromImage(bmp_depth);
-									gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-									gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-									gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-									gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
-									gfx.Flush();
-									originalBmp.Dispose();
-									originalBmp = null;
-								}
+									bmp_depth.Downscale(width, height, System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor);
 
 								if(lum_filename != null)
-								{
-									originalBmp = bmp_lum;
-									bmp_lum = new Bitmap(width, height, originalBmp.PixelFormat);
-									gfx = Graphics.FromImage(bmp_lum);
-									gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-									gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-									gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
-									gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
-									gfx.Flush();
-									originalBmp.Dispose();
-									originalBmp = null;
-								}
+									bmp_lum.Downscale(width, height, System.Drawing.Drawing2D.InterpolationMode.Bilinear);
 
 								renderMutex.ReleaseMutex();
 
@@ -576,7 +546,7 @@ namespace csharp_viewer
 					}
 
 					// Load image from disk
-					Bitmap newbmp;
+					IBitmap newbmp;
 					if(!metadataLoaded && ReadImageMetaData != null)
 					{
 						List<ImageMetaData> meta = new List<ImageMetaData>();
@@ -607,7 +577,7 @@ namespace csharp_viewer
 					++GLTextureStream.foo;
 
 					// Load depth image from disk
-					Bitmap newbmp_depth = null;
+					IBitmap newbmp_depth = null;
 					if(depth_filename != null)
 					{
 						if(!File.Exists(depth_filename) || (newbmp_depth = ImageLoader.Load(depth_filename)) == null)
@@ -627,7 +597,7 @@ namespace csharp_viewer
 					}
 
 					// Load luminance image from disk
-					Bitmap newbmp_lum = null;
+					IBitmap newbmp_lum = null;
 					if(lum_filename != null)
 					{
 						if(!File.Exists(lum_filename) || (newbmp_lum = ImageLoader.Load(lum_filename)) == null)
@@ -695,44 +665,13 @@ namespace csharp_viewer
 					// Downscale image from originalWidth/originalHeight to width/height
 					if(width != originalWidth || height != originalHeight)
 					{
-						Bitmap originalBmp = newbmp;
-						newbmp = new Bitmap(width, height, originalBmp.PixelFormat);
-						Graphics gfx = Graphics.FromImage(newbmp);
-						gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-						gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-						gfx.InterpolationMode = isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-						gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
-						gfx.Flush();
-						originalBmp.Dispose();
-						originalBmp = null;
+						newbmp.Downscale(width, height, isFloatImage ? System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic);
 
 						if(depth_filename != null)
-						{
-							originalBmp = newbmp_depth;
-							newbmp_depth = new Bitmap(width, height, originalBmp.PixelFormat);
-							gfx = Graphics.FromImage(newbmp_depth);
-							gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-							gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-							gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-							gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
-							gfx.Flush();
-							originalBmp.Dispose();
-							originalBmp = null;
-						}
+							newbmp_depth.Downscale(width, height, System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor);
 
 						if(lum_filename != null)
-						{
-							originalBmp = newbmp_lum;
-							newbmp_lum = new Bitmap(width, height, originalBmp.PixelFormat);
-							gfx = Graphics.FromImage(newbmp_lum);
-							gfx.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
-							gfx.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-							gfx.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
-							gfx.DrawImage(originalBmp, new Rectangle(0, 0, width, height));
-							gfx.Flush();
-							originalBmp.Dispose();
-							originalBmp = null;
-						}
+							newbmp_lum.Downscale(width, height, System.Drawing.Drawing2D.InterpolationMode.Bilinear);
 					}
 
 					#if DEBUG_GLTEXTURESTREAM
@@ -1144,7 +1083,7 @@ namespace csharp_viewer
 			gfx.Flush();
 
 			// Load texture
-			texFileNotFound = new GLTexture2D("texFileNotFound", bmpFileNotFound, true);
+			texFileNotFound = new GLTexture2D("texFileNotFound", new GdiBitmap(bmpFileNotFound), true);
 
 			loader = new AsyncImageLoader(memorysize, texFileNotFound, ReadImageMetaData);
 
