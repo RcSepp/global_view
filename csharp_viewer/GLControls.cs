@@ -61,7 +61,8 @@ namespace csharp_viewer
 
 		protected virtual void Draw(float dt, Matrix4 transform) {}
 		protected virtual void SizeChanged() {}
-		protected virtual void MouseDown(MouseEventArgs e) {}
+		protected virtual void _MouseDown(MouseEventArgs e) {}
+		protected virtual void _MouseUp(MouseEventArgs e) {}
 
 		public GLControl()
 		{
@@ -162,9 +163,20 @@ namespace csharp_viewer
 
 		public bool OnMouseDown(MouseEventArgs e)
 		{
-			if(bounds.Contains(e.Location))
+			if(Visible && bounds.Contains(e.Location))
 			{
-				MouseDown(e);
+				_MouseDown(e);
+				return true;
+			}
+			else
+				return false;
+		}
+
+		public bool OnMouseUp(MouseEventArgs e)
+		{
+			if(Visible && bounds.Contains(e.Location))
+			{
+				_MouseUp(e);
 				return true;
 			}
 			else
@@ -207,7 +219,7 @@ namespace csharp_viewer
 				control.OnParentSizeChanged(this.Size);
 		}
 
-		protected override void MouseDown(MouseEventArgs e)
+		protected override void _MouseDown(MouseEventArgs e)
 		{
 			foreach(GLControl control in controls)
 				control.OnMouseDown(e);
@@ -251,6 +263,8 @@ namespace csharp_viewer
 		}
 		private void OnMouseUp(object sender, MouseEventArgs e)
 		{
+			foreach(GLControl control in Controls)
+				control.OnMouseUp(e);
 		}
 		private void OnMouseMove(object sender, MouseEventArgs e)
 		{
@@ -289,6 +303,8 @@ namespace csharp_viewer
 
 		private Action clickAction = null;
 		public EventHandler Click;
+		public MouseEventHandler MouseDown;
+		public MouseEventHandler MouseUp;
 
 		public GLButton(string texfilename, Rectangle bounds, AnchorStyles anchor = AnchorStyles.Top | AnchorStyles.Left, string actionname = null, string actiondesc = null)
 		{
@@ -327,9 +343,16 @@ namespace csharp_viewer
 			Common.meshQuad.Draw();
 		}
 
-		protected override void MouseDown(MouseEventArgs e)
+		protected override void _MouseDown(MouseEventArgs e)
 		{
+			if(MouseDown != null)
+				MouseDown(this, e);
 			PerformClick();
+		}
+		protected override void _MouseUp(MouseEventArgs e)
+		{
+			if(MouseUp != null)
+				MouseUp(this, e);
 		}
 
 		public void PerformClick()

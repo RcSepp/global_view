@@ -211,6 +211,7 @@ namespace csharp_viewer
 			public GLTexture1D tex;
 			public Vector3 nanColor;
 			public string name, groupname;
+			public bool flipped;
 
 			public NamedColorTable(GLTexture1D tex, Vector3 nanColor, string name, string groupname)
 			{
@@ -218,6 +219,7 @@ namespace csharp_viewer
 				this.groupname = groupname;
 				this.nanColor = nanColor;
 				this.tex = tex;
+				this.flipped = false;
 			}
 			public static NamedColorTable None = new NamedColorTable(null, Vector3.Zero, "none", "none");
 
@@ -257,12 +259,18 @@ namespace csharp_viewer
 			private int totalwidth = 0, totalheight = 0;
 			public GLFont font;
 
+			GLTexture2D texFlipButton;
+
 			public delegate void ColormapDelegate(NamedColorTable colormap);
 			public event ColormapDelegate ColormapDragStart;
 
 			public ColorMapPicker(GLFont font)
 			{
 				this.font = font;
+
+				// Create textures
+				texFlipButton = GLTexture2D.FromFile(Global.EXE_DIR + "flipButton.png", false);
+				//cmdFlipButton = new GLButton(Global.EXE_DIR + "flipButton.png", new Rectangle(0, 0, 0, 0), AnchorStyles.Top | AnchorStyles.Left, "FlipColorMap", "Flip highlighted colormap");
 			}
 
 			public void AddColorMap(NamedColorTable colormap)
@@ -326,7 +334,31 @@ namespace csharp_viewer
 						}
 
 						// Draw colormap
-						cmpreviewshader.Bind(colormap == highlightedColormap ? Matrix4.CreateScale(3.0f, 1.0f, 1.0f) * trans : trans);
+						if(colormap == highlightedColormap)
+						{
+							//Common.sdrTextured.Bind(Matrix4.CreateScale(trans.M22 / trans.M11 * (float)texFlipButton.width / (float)texFlipButton.height, 1.0f, 1.0f) * trans);
+							Common.sdrTextured.Bind(
+								Matrix4.CreateScale(1.0f * (float)texFlipButton.width / backbuffersize.Width, 1.0f * (float)texFlipButton.height / backbuffersize.Height, 1.0f) *
+								Matrix4.CreateTranslation(-1.0f + 2.0f * cell_x / (float)backbuffersize.Width, 1.0f - 2.0f * (y + COLORMAP_TOP + COLORMAP_HEIGHT) / (float)backbuffersize.Height, 0.0f)
+							);
+							Common.meshQuad.Bind(Common.sdrTextured, texFlipButton);
+							Common.meshQuad.Draw();
+
+							cmpreviewshader.Bind(
+								Matrix4.CreateScale(colormap.flipped ? -1.0f : 1.0f, 1.0f, 1.0f) *
+								Matrix4.CreateTranslation(colormap.flipped ? 1.0f : 0.0f, 0.0f, 0.0f) * 
+								Matrix4.CreateScale(1.0f / COLORMAP_RELATIVE_WIDTH - 2.0f / COLORMAP_RELATIVE_WIDTH * (float)COLORMAP_HEIGHT / width, 1.0f, 1.0f) *
+								trans *
+								Matrix4.CreateTranslation(2.0f * (float)COLORMAP_HEIGHT / backbuffersize.Width, 0.0f, 0.0f)
+							);
+						}
+						else
+							//cmpreviewshader.Bind(trans);
+							cmpreviewshader.Bind(
+								Matrix4.CreateScale(colormap.flipped ? -1.0f : 1.0f, 1.0f, 1.0f) *
+								Matrix4.CreateTranslation(colormap.flipped ? 1.0f : 0.0f, 0.0f, 0.0f) * 
+								trans
+							);
 						Common.meshQuad.Bind(cmpreviewshader, colormap.tex);
 						Common.meshQuad.Draw();
 
@@ -387,22 +419,27 @@ namespace csharp_viewer
 				this.backbuffersize = backbuffersize;
 			}
 
-			private NamedColorTable ColorMapFromPoint(Point pos)
+			private NamedColorTable ColorMapFromPoint(Point pos, out bool overFlipButton)
 			{
+				overFlipButton = false;
 				if(pos.X < bounds.Left || pos.Y < bounds.Top + HEADER_HEIGHT)
 					return null;
 
-				int cell_right = bounds.Left, y = bounds.Top;
+				int cell_left = bounds.Left, cell_right, y = bounds.Top;
 				foreach(ColorMapGroup group in groups.Values)
 				{
 					// Add scaled group width to cell_right
-					cell_right += (int)Math.Ceiling((float)group.width * (float)backbuffersize.Width / (float)totalwidth);
+					cell_right = cell_left + (int)Math.Ceiling((float)group.width * (float)backbuffersize.Width / (float)totalwidth);
 
 					if(pos.X < cell_right)
 					{
 						int colormapidx = (pos.Y - bounds.Top - HEADER_HEIGHT) / ROW_HEIGHT;
+						if(pos.X - cell_left < COLORMAP_HEIGHT)
+							overFlipButton = true;
 						return colormapidx < group.colormaps.Count ? group.colormaps[colormapidx] : null;
 					}
+
+					cell_left = cell_right;
 				}
 
 				return null;
@@ -413,8 +450,14 @@ namespace csharp_viewer
 				if(bounds.Contains(e.Location) && e.Location.Y < bounds.Top + totalheight)
 				{
 					NamedColorTable colormap;
-					if(ColormapDragStart != null && (colormap = ColorMapFromPoint(e.Location)) != null)
-						ColormapDragStart(colormap);
+					bool overFlipButton;
+					if(ColormapDragStart != null && (colormap = ColorMapFromPoint(e.Location, out overFlipButton)) != null)
+					{
+						if(overFlipButton)
+							colormap.flipped = !colormap.flipped;
+						else
+							ColormapDragStart(colormap);
+					}
 					return true;
 				}
 				else
@@ -425,7 +468,8 @@ namespace csharp_viewer
 			{
 				if(bounds.Contains(e.Location))
 				{
-					highlightedColormap = ColorMapFromPoint(e.Location);
+					bool overFlipButton;
+					highlightedColormap = ColorMapFromPoint(e.Location, out overFlipButton);
 					return true;
 				}
 				else
@@ -478,7 +522,7 @@ namespace csharp_viewer
 			private DragPoint dragPoint = DragPoint.None;
 			private float dragOffset, dragOffset2;
 
-			public Action InsertSplitterPinAction, InsertNestedPinAction, MovePinAction, SetSectionColormapAction, ResetColorTableAction;
+			public Action InsertSplitterPinAction, InsertNestedPinAction, MovePinAction, RemovePinAction, SetSectionColormapAction, ResetColorTableAction;
 
 			public InputSection(ColorTableManager colorTableMgr, GLFont font)
 			{
@@ -488,6 +532,7 @@ namespace csharp_viewer
 				InsertSplitterPinAction = ActionManager.CreateAction("Insert splitter pin", this, "InsertSplitterPin");
 				InsertNestedPinAction = ActionManager.CreateAction("Insert nesting pin", this, "InsertNestedPin");
 				MovePinAction = ActionManager.CreateAction("Move pin", this, "MovePin");
+				RemovePinAction = ActionManager.CreateAction("Remove pin", this, "RemovePin");
 				SetSectionColormapAction = ActionManager.CreateAction("Set colormap of section", this, "SetSectionColormap");
 				ResetColorTableAction = ActionManager.CreateAction("Reset colormap", this, "ResetColorTable");
 
@@ -553,6 +598,8 @@ namespace csharp_viewer
 									goto endColormapCreation;
 
 							xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
+							if(sectionEnum.Current.flipped)
+								xr = 1.0f - xr;
 							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 4 + 0], out colormapBytes[x * 4 + 1], out colormapBytes[x * 4 + 2]);
 							//colormapBytes[x * 4 + 3] = (byte)(xr*xr * 255.0f);
 							//colormapBytes[x * 4 + 3] = (byte)(((float)colormapBytes[x * 4 + 0] + (float)colormapBytes[x * 4 + 1] + (float)colormapBytes[x * 4 + 2]) * 255.0f / 3.0f);//(byte)(xr * 255.0f);
@@ -651,7 +698,9 @@ namespace csharp_viewer
 					Vector3 vpos = Vector3.Transform(new Vector3(2.0f * xr - 1.0f, 0.0f, 0.0f), invtransform);
 					xr = vpos.X / 2.0f + 0.5f;
 
-					//EDIT: Show trash button
+					// Show trash button
+					colorTableMgr.buttons[4].Visible = true;
+					colorTableMgr.buttons[0].Visible = false;
 
 					float dragSplitterDistance = float.MaxValue;
 					int splitterIndex = 0;
@@ -819,7 +868,8 @@ namespace csharp_viewer
 			}
 			public bool MouseUp(MouseEventArgs e)
 			{
-				if(!Bounds.Contains(e.Location))
+				bool overTrashButton = colorTableMgr.buttons[4].Bounds.Contains(e.Location);
+				if(!overTrashButton && !Bounds.Contains(e.Location))
 				{
 					colorTableMgr.draggedColormap = null;
 					return false;
@@ -836,46 +886,51 @@ namespace csharp_viewer
 
 				if(dragSplitterIndex != -1)
 				{
-					//EDIT: Hide trash button
+					// Hide trash button
+					colorTableMgr.buttons[0].Visible = true;
+					colorTableMgr.buttons[4].Visible = false;
+
+					if(overTrashButton)
+						ActionManager.Do(RemovePinAction, new object[] { dragSplitterIndex });
 
 					/*if(false)//(target == document.getElementById('cmdTrash')) // If splitter is released above trash
-				{
-					// Remove dragSplitter
-					splitters.splice(splitters.indexOf(dragSplitter), 1);
-
-					if(dragSplitter.left === null)
 					{
-						// Iteratively remove section dragSplitter.right and splitter dragSplitter.right.end
-						while(dragSplitter.right !== null)
-						{
-							sections.splice(sections.indexOf(dragSplitter.right), 1);
-							splitters.splice(splitters.indexOf(dragSplitter.right.end), 1);
+						// Remove dragSplitter
+						splitters.splice(splitters.indexOf(dragSplitter), 1);
 
-							dragSplitter = dragSplitter.right.end;
+						if(dragSplitter.left === null)
+						{
+							// Iteratively remove section dragSplitter.right and splitter dragSplitter.right.end
+							while(dragSplitter.right !== null)
+							{
+								sections.splice(sections.indexOf(dragSplitter.right), 1);
+								splitters.splice(splitters.indexOf(dragSplitter.right.end), 1);
+
+								dragSplitter = dragSplitter.right.end;
+							}
 						}
-					}
-					else if(dragSplitter.right === null)
-					{
-						// Iteratively remove section dragSplitter.left and splitter dragSplitter.left.start
-						while(dragSplitter.left !== null)
+						else if(dragSplitter.right === null)
 						{
+							// Iteratively remove section dragSplitter.left and splitter dragSplitter.left.start
+							while(dragSplitter.left !== null)
+							{
+								sections.splice(sections.indexOf(dragSplitter.left), 1);
+								splitters.splice(splitters.indexOf(dragSplitter.left.start), 1);
+
+								dragSplitter = dragSplitter.left.start;
+							}
+						}
+						else
+						{
+							// Remove section dragSplitter.left and connect splitter dragSplitter.left.start to section dragSplitter.right
+							dragSplitter.left.start.right = dragSplitter.right;
+							dragSplitter.right.start = dragSplitter.left.start;
 							sections.splice(sections.indexOf(dragSplitter.left), 1);
-							splitters.splice(splitters.indexOf(dragSplitter.left.start), 1);
-
-							dragSplitter = dragSplitter.left.start;
 						}
-					}
-					else
-					{
-						// Remove section dragSplitter.left and connect splitter dragSplitter.left.start to section dragSplitter.right
-						dragSplitter.left.start.right = dragSplitter.right;
-						dragSplitter.right.start = dragSplitter.left.start;
-						sections.splice(sections.indexOf(dragSplitter.left), 1);
-					}
 
-					requestAnimFrame(render);
-					onColorTableChanged(sections);
-				}*/
+						requestAnimFrame(render);
+						onColorTableChanged(sections);
+					}*/
 					dragSplitterIndex = -1;
 				}
 				else
@@ -925,6 +980,10 @@ namespace csharp_viewer
 
 				return true;
 			}
+			public bool InsideMouseWheelArea(Point pos)
+			{
+				return Bounds.Contains(pos);
+			}
 
 			private void OnColormapDrop(NamedColorTable colormap, MouseEventArgs e)
 			{
@@ -948,7 +1007,7 @@ namespace csharp_viewer
 				for(int sectionIndex = 0; sectionIndex < sections.Count; ++sectionIndex)
 					if(sections[sectionIndex].start.pos <= xr && xr < sections[sectionIndex].end.pos)
 					{
-						ActionManager.Do(SetSectionColormapAction, new object[] { sectionIndex, colormap.name });
+						ActionManager.Do(SetSectionColormapAction, new object[] { sectionIndex, colormap.name, colormap.flipped });
 						break;
 					}
 			}
@@ -1081,7 +1140,59 @@ namespace csharp_viewer
 				dragSplitter.pos = splitterPosition;
 				ColormapChanged(dragSplitter.left == null ? dragSplitter.pos : dragSplitter.left.start.pos, dragSplitter.right == null ? dragSplitter.pos : dragSplitter.right.end.pos);
 			}
-			private void SetSectionColormap(int sectionIndex, string colormapName)
+			private void RemovePin(int splitterIndex)
+			{
+				if(splitterIndex < 0 || splitterIndex >= splitters.Count || splitters[splitterIndex].isfixed)
+					return;
+				Splitter splitter = splitters[splitterIndex];
+
+				float update_start = 1.0f, update_end = 0.0f;
+
+				// Remove splitter
+				update_start = Math.Min(update_start, splitter.pos);
+				update_end = Math.Max(update_end, splitter.pos);
+				splitters.Remove(splitter);
+
+				if(splitter.left == null)
+				{
+					// Iteratively remove section splitter.right and splitter splitter.right.end
+					while(splitter.right != null)
+					{
+						update_end = Math.Max(update_end, splitter.right.end.pos);
+
+						sections.Remove(splitter.right);
+						splitters.Remove(splitter.right.end);
+
+						splitter = splitter.right.end;
+					}
+				}
+				else if(splitter.right == null)
+				{
+					// Iteratively remove section splitter.left and splitter splitter.left.start
+					while(splitter.left != null)
+					{
+						update_start = Math.Min(update_start, splitter.left.start.pos);
+
+						sections.Remove(splitter.left);
+						splitters.Remove(splitter.left.start);
+
+						splitter = splitter.left.start;
+					}
+				}
+				else
+				{
+					update_start = Math.Min(update_start, splitter.left.start.pos);
+					update_end = Math.Max(update_end, splitter.right.end.pos);
+
+					// Remove section splitter.left and connect splitter splitter.left.start to section splitter.right
+					splitter.left.start.right = splitter.right;
+					splitter.right.start = splitter.left.start;
+					sections.Remove(splitter.left);
+				}
+
+				ColormapChanged(update_start, update_end);
+			}
+			private void SetSectionColormap(int sectionIndex, string colormapName, bool colormapFlipped)
 			{
 				if(sectionIndex < 0 || sectionIndex >= sections.Count)
 					return;
@@ -1092,7 +1203,7 @@ namespace csharp_viewer
 					return;
 
 				section.colorMap = colormap;
-				section.flipped = false;//colormap.flipped;
+				section.flipped = colormapFlipped;
 				section.startValue = 0.0f;
 				section.endValue = 1.0f;
 
@@ -1176,7 +1287,7 @@ namespace csharp_viewer
 			Reset();
 
 			// Create buttons
-			buttons = new GLButton[4];
+			buttons = new GLButton[5];
 			buttons[0] = new GLButton(Global.EXE_DIR + "splitterButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateSplitter", "Create colormap splitter");
 			buttons[0].Click = SplitterButton_Click;
 			buttons[1] = new GLButton(Global.EXE_DIR + "interjectorButton.png", new Rectangle(4, 100 - buttons[0].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "CreateInterjector", "Create colormap interjector");
@@ -1185,6 +1296,10 @@ namespace csharp_viewer
 			buttons[2].Click = ColorMapButton_Click;
 			buttons[3] = new GLButton(Global.EXE_DIR + "saveColorMapButton.png", new Rectangle(4, 100 - buttons[2].Bounds.Height, 0, 0), AnchorStyles.Bottom | AnchorStyles.Right, "SaveColormap", "Save colormap to disk");
 			buttons[3].Click = SplitterButton_Click;
+buttons[3].Visible = false;
+			buttons[4] = new GLButton(Global.EXE_DIR + "trashButton.png", new Rectangle(4, 100, 0, 0), AnchorStyles.Bottom | AnchorStyles.Left, "RemoveSplitter", "Remove colormap splitter");
+			buttons[4].MouseUp = TrashButton_MouseUp;
+			buttons[4].Visible = false;
 
 			// Create cursors
 			cursors = new GLCursor[2];
@@ -1274,6 +1389,10 @@ namespace csharp_viewer
 				ActionManager.Do(HideColormapPickerAction);
 			else
 				ActionManager.Do(ShowColormapPickerAction);
+		}
+		public void TrashButton_MouseUp(object sender, MouseEventArgs e)
+		{
+			input.MouseUp(e);
 		}
 
 		private void ColorMapPicker_ColormapDragStart(NamedColorTable colormap)
@@ -1385,17 +1504,32 @@ public static string foo = "";
 			
 			return input.MouseMove(e);
 		}
-		public bool MouseUp(MouseEventArgs e)
+		/*public bool MouseUp(MouseEventArgs e)
 		{
 			if(pickerVisible && draggedColormap != null)
 				ActionManager.Do(HideColormapPickerAction);
 			
+			return input.MouseUp(e);
+		}*/
+		public new bool MouseUp(MouseEventArgs e)
+		{
+			if(pickerVisible && draggedColormap != null)
+				ActionManager.Do(HideColormapPickerAction);
+			
+			foreach(GLButton button in buttons)
+				if(button.OnMouseUp(e))
+					return true;
+
 			return input.MouseUp(e);
 		}
 
 		public bool MouseWheel(MouseEventArgs e)
 		{
 			return input.MouseWheel(e);
+		}
+		public bool InsideMouseWheelArea(Point pos)
+		{
+			return input.InsideMouseWheelArea(pos);
 		}
 
 		public void Reset()

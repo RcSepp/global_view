@@ -962,14 +962,23 @@ namespace csharp_viewer
 			if(glcontrol_focused)
 			{
 				bool viewChanged = false;
+				float mdx, mdy, mdz;
+				if(colorTableMgr != null && colorTableMgr.InsideMouseWheelArea(glcontrol.PointToClient(Control.MousePosition)))
+					mdx = mdy = mdz = 0.0f;
+				else
+				{
+					mdx = InputDevices.mdx;
+					mdy = InputDevices.mdy;
+					mdz = InputDevices.mdz;
+				}
 				if(viewControl == ViewControl.TwoDimensional)
 				{
-					/*Vector3 freeViewTranslation = Vector3.Zero;//new Vector3(0.0f, 0.0f, camera_speed * 10.0f * InputDevices.mdz); //mdz / dt);
-					if(InputDevices.mdz != 0)
-						freeViewTranslation.Z = freeview.viewpos.Z * 5.0f * InputDevices.mdz;*/
-					Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, 10.0f * camera_speed * InputDevices.mdz); //mdz / dt);
+					/*Vector3 freeViewTranslation = Vector3.Zero;//new Vector3(0.0f, 0.0f, camera_speed * 10.0f * mdz); //mdz / dt);
+					if(mdz != 0)
+						freeViewTranslation.Z = freeview.viewpos.Z * 5.0f * mdz;*/
+					Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, 10.0f * camera_speed * mdz); //mdz / dt);
 
-					if(dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right)))
+					if(mouseDownInsideImageCloud && dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right)))
 					{
 						Vector2 dm = new Vector2(4.0f * (Control.MousePosition.X - oldmousepos.X) / backbuffersize.Width, 4.0f * (oldmousepos.Y - Control.MousePosition.Y) / backbuffersize.Height);
 						Vector3 vnear = new Vector3(dm.X, dm.Y, 0.0f);
@@ -995,7 +1004,7 @@ namespace csharp_viewer
 					Vector3 freeViewTranslation = new Vector3((InputDevices.kbstate.IsKeyDown(Key.A) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.D) ? 1.0f : 0.0f),
 						                             (InputDevices.kbstate.IsKeyDown(Key.Space) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.LShift) ? 1.0f : 0.0f),
 						                             (InputDevices.kbstate.IsKeyDown(Key.W) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.S) ? 1.0f : 0.0f));
-					freeViewTranslation.Z += InputDevices.mdz;
+					freeViewTranslation.Z += mdz;
 					if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
 					{
 						freeview.Translate(Vector3.Multiply(freeViewTranslation, camera_speed * dt));
@@ -1004,13 +1013,13 @@ namespace csharp_viewer
 					if(dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) | InputDevices.mstate.IsButtonDown(MouseButton.Right)))
 					{
 						if(viewControl == ViewControl.ViewCentric)
-							freeview.Rotate(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx));
+							freeview.Rotate(new Vector2(0.01f * mdy, 0.01f * mdx));
 						else
 						{
 							if(viewControl == ViewControl.CoordinateSystemCentric)
 								viewRotationCenter = selectionAabb != null ? (selectionAabb.min + selectionAabb.max) / 2.0f : Vector3.Zero;
 							
-							freeview.RotateAround(new Vector2(0.01f * InputDevices.mdy, 0.01f * InputDevices.mdx), viewRotationCenter);
+							freeview.RotateAround(new Vector2(0.01f * mdy, 0.01f * mdx), viewRotationCenter);
 						}
 						viewChanged = true;
 					}
