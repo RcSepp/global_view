@@ -157,16 +157,16 @@ namespace csharp_viewer
 				return vec4(texture1D(Colormap, valueS).rgb, rgba.a); // Don't use colormap transparency
 			}
 		";
-		public const string FS_ASSEMBLE_IMAGE = @"
+		public const string FS_DEPTH_PEELING = @"
 				varying vec2 uv;
 				uniform sampler2D Texture, Texture2, Texture3, Texture4;
-				uniform int IsFloatTexture, HasLuminance, HasLastDepthPass;
+				uniform int IsFloatTexture, HasLuminance, Pass;
 				uniform float InvMaxDepth;
 				varying float alpha;
 
 				vec4 shade_default(sampler2D sampler, in vec2 uv)
 				{
-					return texture2D(Texture, uv);
+					return texture2D(sampler, uv);
 				}
 				
 				uniform sampler1D Colormap;
@@ -192,28 +192,57 @@ namespace csharp_viewer
 				void main()
 				{
 					float depth = 0.5 * texture2D(Texture2, uv).r * InvMaxDepth;
-
 					if(depth >= gl_FragCoord.z)
 						discard;
 
-					if(HasLastDepthPass != 0)
+					if(Pass != 0)
 					{
 						float lastDepthPass = texture2D(Texture4, uv).r;
-						if(depth < lastDepthPass)
+						if(depth <= lastDepthPass)
 							discard;
 					}
 
-//if(depth >= 0.5) //EDIT: Temporary fix!!!
-//	discard; //EDIT: Temporary fix!!!
-
 					vec4 color = IsFloatTexture != 0 ? shade_float(Texture, uv) : shade_default(Texture, uv);
 					vec4 lum = HasLuminance != 0 ? vec4(texture2D(Texture3, uv).rgb, alpha) : vec4(1.0, 1.0, 1.0, alpha);
-
-					gl_FragDepth = depth;
-					//gl_FragColor = vec4(texture1D(Colormap, depth + 0.5).rgb, 1.0);
 					gl_FragColor = color * lum;
+					gl_FragDepth = depth;
+
+/*vec4 color = IsFloatTexture != 0 ? shade_float(Texture, uv) : shade_default(Texture, uv);
+vec4 lum = HasLuminance != 0 ? vec4(texture2D(Texture3, uv).rgb, alpha) : vec4(1.0, 1.0, 1.0, alpha);
+
+if(Pass == 0)
+{
+	gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+	gl_FragDepth = depth;
+}
+else // Pass != 0
+{
+	float lastDepthPass = texture2D(Texture4, uv).r;
+	if(depth < lastDepthPass)
+		discard;
+	if(depth == lastDepthPass)
+	{
+		gl_FragColor = color * lum;
+		gl_FragDepth = gl_FragCoord.z;
+	}
+	else
+	{
+		gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+		gl_FragDepth = depth;
+	}
+}*/
 				}
 			";
+
+		/*public const string FS_DEPTH_PEELING_GATHER = @"
+				varying vec2 uv;
+				uniform sampler2D Texture;
+
+				void main()
+				{
+					gl_FragColor = texture2D(Texture, uv);
+				}
+			";*/
 	}
 	public static class AABB_SHADER
 	{
@@ -668,11 +697,11 @@ namespace csharp_viewer
 #else
 				sdr2D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER});
 				sdr2D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER});
-				sdr2D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLE_IMAGE});
+				sdr2D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEFAULT }, new string[] {IMAGE_CLOUD_SHADER.FS_DEPTH_PEELING});
 #endif
 				sdr3D_default = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_DEFAULT_DECODER});
 				sdr3D_cm = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS, IMAGE_CLOUD_SHADER.FS_COLORTABLE_DECODER});
-				sdr3D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS_ASSEMBLE_IMAGE});
+				sdr3D_assemble = new RenderShader(new string[] { IMAGE_CLOUD_SHADER.VS_DEPTHIMAGE }, new string[] {IMAGE_CLOUD_SHADER.FS_DEPTH_PEELING});
 
 				foreach(GLShader sdr in new GLShader[] {sdr2D_cm, sdr3D_cm, sdr2D_assemble, sdr3D_assemble})
 				{

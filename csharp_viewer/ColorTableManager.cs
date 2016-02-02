@@ -600,10 +600,9 @@ namespace csharp_viewer
 							xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
 							if(sectionEnum.Current.flipped)
 								xr = 1.0f - xr;
-							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 4 + 0], out colormapBytes[x * 4 + 1], out colormapBytes[x * 4 + 2]);
+							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 4 + 0], out colormapBytes[x * 4 + 1], out colormapBytes[x * 4 + 2], out colormapBytes[x * 4 + 3]);
 							//colormapBytes[x * 4 + 3] = (byte)(xr*xr * 255.0f);
 							//colormapBytes[x * 4 + 3] = (byte)(((float)colormapBytes[x * 4 + 0] + (float)colormapBytes[x * 4 + 1] + (float)colormapBytes[x * 4 + 2]) * 255.0f / 3.0f);//(byte)(xr * 255.0f);
-							colormapBytes[x * 4 + 3] = 255;
 						}
 						endColormapCreation:
 						colormapTexture.Unlock();
@@ -1277,6 +1276,7 @@ namespace csharp_viewer
 			AddColormap(ColorTableFromSolidColor(Color4.White, Vector3.Zero, "White"));
 			AddColormap(ColorTableFromSolidColor(Color4.Gray, Vector3.Zero, "Gray"));
 			AddColormap(ColorTableFromSolidColor(Color4.Black, Vector3.Zero, "Black"));
+			AddColormap(ColorTableFromSolidColor(new Color4(0.0f, 0.0f, 0.0f, 0.5f), Vector3.Zero, "50% Alpha"));
 			/*ColorMapCreator.Vector3 C0 = new ColorMapCreator.Vector3(58.650f, 76.245f, 192.270f);
 			ColorMapCreator.Vector3 C1 = new ColorMapCreator.Vector3(180.030f, 4.080f, 38.250f);
 			AddColormap(ColorTableFromRange(C0, C1, new Vector3(65.0f / 255.0f, 68.0f / 255.0f, 91.0f / 255.0f), "Moreland cool/warm", "Divergent"));*/
@@ -1540,11 +1540,12 @@ public static string foo = "";
 #region "ColorTable creation/loading"
 		private static NamedColorTable ColorTableFromSolidColor(Color4 color, Vector3 nanColor, string name)
 		{
-			byte[] colormapBytes = new byte[3];
+			byte[] colormapBytes = new byte[4];
 			colormapBytes[0] = (byte)(color.R * 255.0f);
 			colormapBytes[1] = (byte)(color.G * 255.0f);
 			colormapBytes[2] = (byte)(color.B * 255.0f);
-			return new NamedColorTable(new GLTexture1D("colormap_solid", colormapBytes, 1, PixelFormat.Rgb, false), nanColor, name, "Solid");
+			colormapBytes[3] = (byte)(color.A * 255.0f);
+			return new NamedColorTable(new GLTexture1D("colormap_solid", colormapBytes, 1, PixelFormat.Rgba, false), nanColor, name, "Solid");
 		}
 		private static NamedColorTable ColorTableFromRange(ColorMapCreator.Vector3 cmin, ColorMapCreator.Vector3 cmax, Vector3 nanColor, string name, string groupname)
 		{
@@ -1594,7 +1595,7 @@ public static string foo = "";
 							case XmlNodeType.Element:
 								if(reader.Name == "Point")
 								{
-									float x = float.NaN, r = -1.0f, g = -1.0f, b = -1.0f;
+									float x = float.NaN, r = -1.0f, g = -1.0f, b = -1.0f, a = 1.0f;
 									while(reader.MoveToNextAttribute())
 									{
 										if(reader.Name == "x")
@@ -1605,9 +1606,11 @@ public static string foo = "";
 											g = float.Parse(reader.Value);
 										if(reader.Name == "b")
 											b = float.Parse(reader.Value);
+										if(reader.Name == "o")
+											a = float.Parse(reader.Value);
 									}
 									if(x != float.NaN && r >= 0.0f && r <= 1.0f && g >= 0.0f && g <= 1.0f && b >= 0.0f && b <= 1.0f)
-										colorTable.AddColor(x, r * 255.0f, g * 255.0f, b * 255.0f);
+										colorTable.AddColor(x, r * 255.0f, g * 255.0f, b * 255.0f, a * 255.0f);
 								}
 								else if(reader.Name == "NaN")
 								{
@@ -1641,7 +1644,7 @@ System.Drawing.Imaging.BitmapData data = bmp.LockBits(new Rectangle(Point.Empty,
 System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
 bmp.UnlockBits(data);
 bmp.Save(colorMapName + ".png");*/
-						colorTables.Add(new NamedColorTable(new GLTexture1D("colormap_xml", bytes, COLOR_TABLE_SIZE, PixelFormat.Rgb, false), nanColor, colorMapName, colorMapGroupName));
+						colorTables.Add(new NamedColorTable(new GLTexture1D("colormap_xml", bytes, COLOR_TABLE_SIZE, PixelFormat.Rgba, false), nanColor, colorMapName, colorMapGroupName));
 					}
 					break;
 

@@ -298,14 +298,16 @@ namespace csharp_viewer
 	{
 		private ImageContextMenu.MenuGroup cmImage;
 
+		Color4 bgcolor = Color4.DarkSlateGray;
 		public override void OnLoad()
 		{
-			SetOption(Option.BackColor, new Color4(102, 101, 96, 255));
+			//SetOption(Option.BackColor, new Color4(102, 101, 96, 255));
+			SetOption(Option.BackColor, bgcolor);
 			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			SetOption(Option.ShowCoordinateSystem, false);
 			SetOption(Option.ShowLineGrid, false);
 
-			//SetOption(Option.ForceOriginalImageSize, true);
+			SetOption(Option.ForceOriginalImageSize, true);
 
 			cmImage = new ImageContextMenu.MenuGroup("");
 			cmImage.controls.Add(new ImageContextMenu.MenuButton("test"));
@@ -373,6 +375,14 @@ namespace csharp_viewer
 
 			case Keys.Delete:
 				HideSelection();
+				break;
+
+			case Keys.Space:
+				if(bgcolor == Color4.Red)
+					bgcolor = Color4.Blue;
+				else
+					bgcolor = Color4.Red;
+				SetOption(Option.BackColor, bgcolor);
 				break;
 			}
 		}

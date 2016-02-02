@@ -204,12 +204,16 @@ namespace csharp_viewer
 		{
 			return lab2rgb(Vector3.Lerp(rgb2lab(rgb1), rgb2lab(rgb2), interp));
 		}
+		public static Vector4 interpolateLabColor(Vector4 rgba1, Vector4 rgba2, float interp)
+		{
+			return new Vector4(lab2rgb(Vector3.Lerp(rgb2lab(rgba1.xyz), rgb2lab(rgba2.xyz), interp)), rgba1.w * (1.0f - interp) + rgba2.w * interp);
+		}
 
 		public class InterpolatedColorMap
 		{
-			private System.Collections.Generic.SortedList<float, Vector3> samples = new System.Collections.Generic.SortedList<float, Vector3>();
+			private System.Collections.Generic.SortedList<float, Vector4> samples = new System.Collections.Generic.SortedList<float, Vector4>();
 			private float x_min = float.MaxValue, x_max = float.MinValue;
-			public void AddColor(float x, float r, float g, float b)
+			public void AddColor(float x, float r, float g, float b, float a)
 			{
 				if(samples.ContainsKey(x))
 					samples.Remove(x);
@@ -218,31 +222,32 @@ namespace csharp_viewer
 					x_min = Math.Min(x_min, x);
 					x_max = Math.Max(x_max, x);
 				}
-				samples.Add(x, new Vector3(r, g, b));
+				samples.Add(x, new Vector4(r, g, b, a));
 			}
 
 			public byte[] Create(int size)
 			{
-				byte[] colorMap = new byte[size * 3];
+				byte[] colorMap = new byte[size * 4];
 				float x_delta = x_max - x_min;
 
-				System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<float, Vector3>> iter = samples.GetEnumerator();
+				System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<float, Vector4>> iter = samples.GetEnumerator();
 				if(!iter.MoveNext())
 					return null; // No samples provided
-				System.Collections.Generic.KeyValuePair<float, Vector3> lastSample = iter.Current;
+				System.Collections.Generic.KeyValuePair<float, Vector4> lastSample = iter.Current;
 				while(iter.MoveNext())
 				{
-					System.Collections.Generic.KeyValuePair<float, Vector3> currentSample = iter.Current;
+					System.Collections.Generic.KeyValuePair<float, Vector4> currentSample = iter.Current;
 
 					float lastX = (lastSample.Key - x_min) / x_delta, currentX = (currentSample.Key - x_min) / x_delta;
 					int lastIdx = (int)(lastX * (float)size), currentIdx = (int)(currentX * (float)size), deltaIdx = currentIdx - lastIdx;
 					for(int i = 0; i < deltaIdx; ++i)
 					{
-						Vector3 clr = interpolateLabColor(lastSample.Value, currentSample.Value, (float)i / (float)deltaIdx);
+						Vector4 clr = interpolateLabColor(lastSample.Value, currentSample.Value, (float)i / (float)deltaIdx);
 						int idx = lastIdx + i;
-						colorMap[3 * idx + 0] = (byte)clr.x;
-						colorMap[3 * idx + 1] = (byte)clr.y;
-						colorMap[3 * idx + 2] = (byte)clr.z;
+						colorMap[4 * idx + 0] = (byte)clr.xyz.x;
+						colorMap[4 * idx + 1] = (byte)clr.y;
+						colorMap[4 * idx + 2] = (byte)clr.z;
+						colorMap[4 * idx + 3] = (byte)clr.w;
 					}
 
 					lastSample = currentSample;
@@ -299,6 +304,25 @@ namespace csharp_viewer
 				float g = 1.0f - f;
 				return new Vector3(v0.x * g + v1.x * f, v0.y * g + v1.y * f, v0.z * g + v1.z * f);
 			}
+		}
+		public class Vector4
+		{
+			public float x, y, z, w;
+			public Vector4(float x, float y, float z, float w)
+			{
+				this.x = x;
+				this.y = y;
+				this.z = z;
+				this.w = w;
+			}
+			public Vector4(Vector3 xyz, float w)
+			{
+				this.x = xyz.x;
+				this.y = xyz.y;
+				this.z = xyz.z;
+				this.w = w;
+			}
+			public Vector3 xyz { get { return new Vector3(x, y, z); } }
 		}
 
 		public class Matrix3
