@@ -28,7 +28,7 @@ namespace csharp_viewer
 				this.strValue = strValue;
 			}
 		}
-		public delegate bool ReadImageMetaDataDelegate(TransformedImage image, ImageMetaData[] meta);
+		public delegate bool ReadImageMetaDataDelegate(ImageReference image, ImageMetaData[] meta);
 
 		private Bitmap bmpFileNotFound;
 		private GLTexture2D texFileNotFound;
@@ -560,6 +560,12 @@ namespace csharp_viewer
 							return memory = 0;
 						}
 
+						if(meta.Count != 0)
+						{
+							metadataLoaded = true;
+							foreach(ImageReference reference in references)
+								metadataLoaded &= ReadImageMetaData(reference, meta.ToArray());
+						}
 						//if(meta.Count == 0 || ReadImageMetaData(image, meta.ToArray()))
 						//	metadataLoaded = true;
 					}

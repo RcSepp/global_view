@@ -11,4 +11,7 @@ TemporaryGeneratedFile*
 vs2010_csharp_viewer.suo
 *.user
 *.pdb
+*.exe*
+*.csproj.FileListAbsolute.txt
+*.AssemblyAttribute.cs
 .history

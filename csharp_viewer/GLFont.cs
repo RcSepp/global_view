@@ -1,5 +1,5 @@
 ﻿//#define DEBUG_GLFONT
-//#define SAVE_AND_LOAD_CHARMAPS
+#define SAVE_AND_LOAD_CHARMAPS
 
 using System;
 using System.Drawing;

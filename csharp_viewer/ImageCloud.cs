@@ -533,7 +533,7 @@ else // Pass != 0
 
 		public static bool saveAssembledImage = false;
 
-		ColorTableManager colorTableMgr;
+		ColorTableManager colorTableMgr = null;
 
 		#if USE_ARG_IDX
 			ArgumentIndex argIndex = new ArgumentIndex();
@@ -768,7 +768,8 @@ else // Pass != 0
 
 		public void Unload()
 		{
-			colorTableMgr.Visible = false;
+			if(colorTableMgr != null)
+				colorTableMgr.Visible = false;
 			if(texstream != null)
 				texstream.ClearImages();
 			if(images != null)
@@ -1310,7 +1311,7 @@ else // Pass != 0
 			float dist, closest_dist = float.MaxValue;
 			Vector2 uv, closest_uv = Vector2.Zero;
 			TransformedImage closest_image = default(TransformedImage);
-			foreach(TransformedImage image in images.Values)//images.ReverseValues)
+			foreach(TransformedImage image in images.Values)
 				if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient, out uv)) < closest_dist)
 				{
 					closest_dist = dist;
@@ -1553,7 +1554,7 @@ else // Pass != 0
 			float dist, closest_dist = float.MaxValue;
 			Vector2 uv, closest_uv;
 			TransformedImage closest_image = default(TransformedImage);
-			foreach(TransformedImage image in images.ReverseValues)
+			foreach(TransformedImage image in images.Values)
 				if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient, out uv)) < closest_dist)
 				{
 					closest_dist = dist;

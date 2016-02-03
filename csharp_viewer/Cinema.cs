@@ -74,7 +74,7 @@ namespace csharp_viewer
 		}
 
 		// Parse meta data from info.json
-		public static void ParseCinemaDescriptor(string databasePath, out CinemaArgument[] arguments, out string name_pattern, out string depth_name_pattern, out string pixel_format)
+		public static bool ParseCinemaDescriptor(string databasePath, out CinemaArgument[] arguments, out string name_pattern, out string depth_name_pattern, out string pixel_format)
 		{
 			arguments = null;
 			name_pattern = null;
@@ -82,15 +82,23 @@ namespace csharp_viewer
 			pixel_format = null;
 
 			StreamReader sr = new StreamReader(new FileStream(databasePath + "image/info.json", FileMode.Open, FileAccess.Read));
-			dynamic meta = JsonConvert.DeserializeObject(sr.ReadToEnd());
+			dynamic meta;
+			try {
+				meta = JsonConvert.DeserializeObject(sr.ReadToEnd());
+			}
+			catch(Exception ex) {
+				Global.cle.PrintOutput("Error parsing info.json: " + ex.Message);
+				sr.Close();
+				return false;
+			}
 			sr.Close();
 
 			try {
 				name_pattern = meta.name_pattern;
 			}
 			catch {
-				MessageBox.Show("Missing entry in info.json: name_pattern");
-				return;
+				Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: name_pattern");
+				return false;
 			}
 			try {
 				depth_name_pattern = meta.depth_name_pattern;
@@ -100,8 +108,8 @@ namespace csharp_viewer
 				argumentsMeta = meta.arguments;
 			}
 			catch {
-				MessageBox.Show("Missing entry in info.json: arguments");
-				return;
+				Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: arguments");
+				return false;
 			}
 			/*JObject associationsMeta = null;
 			try {
@@ -131,8 +139,8 @@ namespace csharp_viewer
 				}
 				if(argumentMeta == null)
 				{
-					MessageBox.Show("Missing argument: " + argumentStr);
-					return;
+					Global.cle.PrintOutput(string.Format("Error parsing info.json: Missing argument: '{0}'", argumentStr));
+					return false;
 				}
 
 				// Create CinemaArgument from JToken
@@ -176,6 +184,8 @@ namespace csharp_viewer
 						carg.values[i] = (float)(long)values[i];
 				}
 			}
+
+			return true;
 		}
 
 		// Parse meta data from image Json
@@ -260,14 +270,23 @@ namespace csharp_viewer
 				CinemaStore store = new CinemaStore();
 
 				StreamReader sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read));
-				dynamic meta = JsonConvert.DeserializeObject(sr.ReadToEnd());
+				dynamic meta;
+				try {
+					meta = JsonConvert.DeserializeObject(sr.ReadToEnd());
+				}
+				catch(Exception ex) {
+					Global.cle.PrintOutput("Error parsing info.json: " + ex.Message);
+					sr.Close();
+					return null;
+				}
 				sr.Close();
 
 				try {
 					store.namePattern = meta.name_pattern;
 				}
 				catch {
-					throw new Exception("Missing entry in info.json: name_pattern");
+					Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: name_pattern");
+					return null;
 				}
 				try { store.depthNamePattern = meta.depth_name_pattern; } catch {}
 				JObject argumentsMeta = null;
@@ -275,7 +294,8 @@ namespace csharp_viewer
 					argumentsMeta = meta.arguments;
 				}
 				catch {
-					throw new Exception("Missing entry in info.json: arguments");
+					Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: arguments");
+					return null;
 				}
 					
 				foreach(KeyValuePair<string, JToken> argumentMeta in argumentsMeta)
@@ -296,6 +316,11 @@ namespace csharp_viewer
 						carg.label = argumentMeta.Value["label"].ToObject<string>();
 						carg.strValues = argumentMeta.Value["values"].ToObject<string[]>();
 						carg.defaultStrValue = argumentMeta.Value["default"].ToObject<string>();
+						if(Array.IndexOf(carg.strValues, carg.defaultStrValue) == -1)
+						{
+							Global.cle.PrintOutput(string.Format("Error parsing info.json: Values of argument '{0}' don't contain default ('{1}')", carg.name, carg.defaultStrValue));
+							return null;
+						}
 
 						store.argumentMap.Add(argumentMeta.Key, carg);
 					} else if(type == "option" || type == "hidden")
@@ -307,6 +332,11 @@ namespace csharp_viewer
 						parameter.label = argumentMeta.Value["label"].ToObject<string>();
 						parameter.strValues = argumentMeta.Value["values"].ToObject<string[]>();
 						parameter.defaultStrValue = argumentMeta.Value["default"].ToObject<string>();
+						if(Array.IndexOf(carg.strValues, carg.defaultStrValue) == -1)
+						{
+							Global.cle.PrintOutput(string.Format("Error parsing info.json: Values of argument '{0}' don't contain default ('{1}')", carg.name, carg.defaultStrValue));
+							return null;
+						}
 
 						parameter.isField = (string)argumentMeta.Value["isfield"] == "yes" ? true : false;
 						parameter.isLayer = (string)argumentMeta.Value["islayer"] == "yes" ? true : false;
@@ -325,8 +355,12 @@ namespace csharp_viewer
 						}
 
 						store.parameterMap.Add(argumentMeta.Key, parameter);
-					} else
-						throw new Exception("Invalid value for argument type: " + type);
+					}
+					else
+					{
+						Global.cle.PrintOutput(string.Format("Error parsing info.json: Type field of argument '{0}' is '{1}' (expected 'range', 'option' or 'hidden')", argumentMeta.Key, type));
+						return null;
+					}
 
 					object[] values = argumentMeta.Value["values"].ToObject<object[]>();
 					if(parameter != null && parameter.types != null)

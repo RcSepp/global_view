@@ -1479,7 +1479,7 @@ public static string foo = "";
 			}
 		}
 
-		public new bool MouseDown(MouseEventArgs e)
+		public bool MouseDown(MouseEventArgs e)
 		{
 			if(pickerVisible && picker.MouseDown(e))
 				return true;

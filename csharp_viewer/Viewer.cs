@@ -129,21 +129,7 @@ namespace csharp_viewer
 		[STAThread]
 		static public void Main(string[] args)
 		{
-			/*string name_pattern, depth_name_pattern, image_pixel_format;
-			Cinema.ParseCinemaDescriptor(args[0], out Global.arguments, out name_pattern, out depth_name_pattern, out image_pixel_format);
-
-			string code = "select where $theta > 100";
-			ISQL.Compiler compiler = new ISQL.Compiler();
-			compiler.Execute(code);*/
-
-
-
-			try {
-				Application.Run(new Viewer(args));
-			//Application.Run(new DimensionMapper(Global.arguments));
-			} catch(Exception ex) {
-				MessageBox.Show(ex.Message, ex.TargetSite.ToString());
-			}
+			Application.Run(new Viewer(args));
 		}
 
 		/*GLWindow foo;
@@ -528,7 +514,7 @@ namespace csharp_viewer
 					meta[0].name = "feature";
 					meta[0].value = value;
 					meta[0].strValue = strValue;
-					texstream_ReadImageMetaData(se.Current, meta);
+					AddArgumentsToImage(se.Current, meta);
 				}
 				sr.Close();
 
@@ -652,12 +638,14 @@ namespace csharp_viewer
 
 			if(imageCloud != null)
 			{
-				//try {
+				try {
 					imageCloud.Load(newimages, valuerange, imageSize, hasFloatImages/*image_pixel_format != null && image_pixel_format.Equals("I24")*/, false/*depth_name_pattern != null*/);
-				/*} catch(Exception ex) {
-					MessageBox.Show(ex.Message, ex.TargetSite.ToString());
-					throw ex;
-				}*/
+				} catch(Exception ex) {
+					imageCloud.Unload();
+					image_render_mutex.ReleaseMutex();
+					Global.cle.PrintOutput(ex.Message);
+					return;
+				}
 
 				/*// >>> Define heuristic to choose transformations based on argument names
 
@@ -791,12 +779,15 @@ namespace csharp_viewer
 
 			// Parse meta data from info.json
 			Cinema.CinemaArgument[] newargs;
-			Cinema.ParseCinemaDescriptor(filename, out newargs, out name_pattern, out depth_name_pattern, out image_pixel_format);
+			if(!Cinema.ParseCinemaDescriptor(filename, out newargs, out name_pattern, out depth_name_pattern, out image_pixel_format))
+				return;
 			bool useOnlyFloatImages = image_pixel_format != null && image_pixel_format.Equals("I24");
 			bool useFloatImages = useOnlyFloatImages;
 
 			Cinema.CinemaStore.Parameter[] newparams;
 			Cinema.CinemaStore store = Cinema.CinemaStore.Load(filename + "image/info.json");
+			if(store == null)
+				return;
 			newargs = store.arguments;
 			newparams = store.parameters;
 
@@ -1316,7 +1307,11 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			ClearTransforms();
 		}
 
-		private bool texstream_ReadImageMetaData(TransformedImage image, GLTextureStream.ImageMetaData[] meta)
+		private bool texstream_ReadImageMetaData(GLTextureStream.ImageReference layer, GLTextureStream.ImageMetaData[] meta)
+		{
+			return AddArgumentsToImage(((TransformedImage.ImageLayer)layer)._image, meta);
+		}
+		private bool AddArgumentsToImage(TransformedImage image, GLTextureStream.ImageMetaData[] meta)
 		{
 			if(!image_render_mutex.WaitOne(500)) // Without this timeout image_render_mutex and addImageMutex can deadlock when this function is called during database unload
 				return false;
@@ -1377,7 +1372,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			return true;
 		}
 
-		private void Exit(string isqlCommand)
+		private void Exit()
 		{
 #if USE_STD_IO
 			Global.cle.Close();
@@ -1673,12 +1668,14 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			GL.ClampColor(ClampColorTarget.ClampVertexColor, ClampColorMode.False);
 			GL.ClampColor(ClampColorTarget.ClampFragmentColor, ClampColorMode.False);
 
-			Common.CreateCommonMeshes();
-			Common.CreateCommonFonts();
 			try {
+				Common.CreateCommonMeshes();
+				Common.CreateCommonFonts();
 				Common.CreateCommonShaders();
 			} catch(Exception ex) {
-				MessageBox.Show(ex.Message, "Error creating shaders");
+				Global.cle.PrintOutput(ex.Message);
+				renderThread_finished = true;
+				return;
 			}
 
 			imageCloud.Init(glImageCloud, texstream_ReadImageMetaData);
