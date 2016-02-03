@@ -1,14 +1,15 @@
 ﻿<Properties StartupItem="csharp_viewer/csharp_viewer.csproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Release|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/TransformedImage.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="csharp_viewer/ImageCloud.cs">
     <Files>
-      <File FileName="csharp_viewer/TransformedImage.cs" Line="284" Column="15" />
-      <File FileName="csharp_viewer/ImageCloud.cs" Line="204" Column="1" />
+      <File FileName="csharp_viewer/TransformedImage.cs" Line="269" Column="60" />
+      <File FileName="csharp_viewer/ImageCloud.cs" Line="1318" Column="39" />
       <File FileName="csharp_viewer/ImageBrowser.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ColorMapCreator.cs" Line="1" Column="1" />
-      <File FileName="csharp_viewer/ColorTableManager.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/ColorMapCreator.cs" Line="225" Column="45" />
+      <File FileName="csharp_viewer/ColorTableManager.cs" Line="1623" Column="41" />
       <File FileName="csharp_viewer/GLShader.cs" Line="1" Column="1" />
       <File FileName="csharp_viewer/Viewer.cs" Line="1" Column="1" />
+      <File FileName="csharp_viewer/GLTexture2D.cs" Line="9" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

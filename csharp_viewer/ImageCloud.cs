@@ -204,6 +204,7 @@ namespace csharp_viewer
 
 					vec4 color = IsFloatTexture != 0 ? shade_float(Texture, uv) : shade_default(Texture, uv);
 					vec4 lum = HasLuminance != 0 ? vec4(texture2D(Texture3, uv).rgb, alpha) : vec4(1.0, 1.0, 1.0, alpha);
+					//gl_FragColor = vec4(texture1D(Colormap, depth).rgb, 1.0);
 					gl_FragColor = color * lum;
 					gl_FragDepth = depth;
 
@@ -1002,10 +1003,10 @@ else // Pass != 0
 				}
 				if(viewControl == ViewControl.TwoDimensional)
 				{
-					/*Vector3 freeViewTranslation = Vector3.Zero;//new Vector3(0.0f, 0.0f, camera_speed * 10.0f * mdz); //mdz / dt);
+					Vector3 freeViewTranslation = Vector3.Zero;//new Vector3(0.0f, 0.0f, camera_speed * 10.0f * mdz); //mdz / dt);
 					if(mdz != 0)
-						freeViewTranslation.Z = freeview.viewpos.Z * 5.0f * mdz;*/
-					Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, 10.0f * camera_speed * mdz); //mdz / dt);
+						freeViewTranslation.Z = freeview.viewpos.Z * 5.0f * mdz;
+					//Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, 10.0f * camera_speed * mdz); //mdz / dt);
 
 					if(mouseDownInsideImageCloud && dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right)))
 					{
@@ -1309,7 +1310,7 @@ else // Pass != 0
 			float dist, closest_dist = float.MaxValue;
 			Vector2 uv, closest_uv = Vector2.Zero;
 			TransformedImage closest_image = default(TransformedImage);
-			foreach(TransformedImage image in images.ReverseValues)
+			foreach(TransformedImage image in images.Values)//images.ReverseValues)
 				if(image != null && (dist = image.CastRay(vnear, vdir, invvieworient, out uv)) < closest_dist)
 				{
 					closest_dist = dist;
