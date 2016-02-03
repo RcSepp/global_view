@@ -82,9 +82,9 @@ namespace csharp_viewer
 						} catch(Exception ex) {
 							playing = false;
 							if(ex.InnerException != null)
-								System.Windows.Forms.MessageBox.Show(ex.InnerException.ToString(), ex.InnerException.TargetSite.ToString());
+								Global.cle.PrintOutput(ex.InnerException.Message);
 							else
-								System.Windows.Forms.MessageBox.Show(ex.ToString(), ex.TargetSite.ToString());
+								Global.cle.PrintOutput(ex.Message);
 							return;
 						}
 						if(!playback_next_action.MoveNext())
@@ -111,9 +111,9 @@ namespace csharp_viewer
 						} catch(Exception ex) {
 							executing = false;
 							if(ex.InnerException != null)
-								System.Windows.Forms.MessageBox.Show(ex.InnerException.ToString(), ex.InnerException.TargetSite.ToString());
+								Global.cle.PrintOutput(ex.InnerException.Message);
 							else
-								System.Windows.Forms.MessageBox.Show(ex.ToString(), ex.TargetSite.ToString());
+								Global.cle.PrintOutput(ex.Message);
 							return;
 						}
 					}

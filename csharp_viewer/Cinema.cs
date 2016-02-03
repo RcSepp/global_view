@@ -70,122 +70,7 @@ namespace csharp_viewer
 
 		public static bool IsCinemaDB(string path)
 		{
-			return File.Exists(path + "/image/info.json");
-		}
-
-		// Parse meta data from info.json
-		public static bool ParseCinemaDescriptor(string databasePath, out CinemaArgument[] arguments, out string name_pattern, out string depth_name_pattern, out string pixel_format)
-		{
-			arguments = null;
-			name_pattern = null;
-			depth_name_pattern = null;
-			pixel_format = null;
-
-			StreamReader sr = new StreamReader(new FileStream(databasePath + "image/info.json", FileMode.Open, FileAccess.Read));
-			dynamic meta;
-			try {
-				meta = JsonConvert.DeserializeObject(sr.ReadToEnd());
-			}
-			catch(Exception ex) {
-				Global.cle.PrintOutput("Error parsing info.json: " + ex.Message);
-				sr.Close();
-				return false;
-			}
-			sr.Close();
-
-			try {
-				name_pattern = meta.name_pattern;
-			}
-			catch {
-				Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: name_pattern");
-				return false;
-			}
-			try {
-				depth_name_pattern = meta.depth_name_pattern;
-			} catch {}
-			JObject argumentsMeta = null;
-			try {
-				argumentsMeta = meta.arguments;
-			}
-			catch {
-				Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: arguments");
-				return false;
-			}
-			/*JObject associationsMeta = null;
-			try {
-				associationsMeta = meta.associations;
-			}
-			catch {}*/
-			try {
-				pixel_format = meta.metadata.pixel_format;
-			}
-			catch {}
-
-			MatchCollection matches = Regex.Matches(name_pattern, "{\\w*}");
-			arguments = new CinemaArgument[matches.Count];
-			int matchidx = 0;
-			foreach(Match match in matches)
-			{
-				string argumentStr = match.Value.Substring(1, match.Value.Length - 2);
-
-				JToken argumentMeta = null;
-				foreach(JProperty prop in argumentsMeta.Children())
-				{
-					if(argumentStr.Equals(prop.Name))
-					{
-						argumentMeta = prop.Value;
-						break;
-					}
-				}
-				if(argumentMeta == null)
-				{
-					Global.cle.PrintOutput(string.Format("Error parsing info.json: Missing argument: '{0}'", argumentStr));
-					return false;
-				}
-
-				// Create CinemaArgument from JToken
-				CinemaArgument carg = arguments[matchidx++] = new CinemaArgument();
-				carg.name = argumentStr;
-				carg.label = argumentMeta["label"].ToObject<string>();
-				carg.strValues = argumentMeta["values"].ToObject<string[]>();
-
-				object[] values = argumentMeta["values"].ToObject<object[]>();
-				object defaultValue = argumentMeta["default"].ToObject<object>();
-
-				Dictionary<string, int> strValueIndices = null;
-				if(defaultValue.GetType() == typeof(string))
-				{
-					if(!float.TryParse((string)defaultValue, out carg.defaultValue))
-					{
-						strValueIndices = new Dictionary<string, int>();
-						strValueIndices[(string)defaultValue] = 0;
-						carg.defaultValue = 0.0f;
-					}
-				}
-				else if(defaultValue.GetType() == typeof(long))
-					carg.defaultValue = (float)(long)defaultValue;
-
-				carg.values = new float[values.Length];
-				for(int i = 0; i < values.Length; ++i)
-				{
-					if(strValueIndices != null)
-					{
-						// Values are indices of unique strings (mapping through strValueIndices)
-						int index;
-						if(!strValueIndices.TryGetValue((string)values[i], out index))
-							strValueIndices[(string)values[i]] = index = strValueIndices.Count;
-						carg.values[i] = (float)index;
-						continue;
-					}
-
-					if(values[i].GetType() == typeof(string))
-						float.TryParse((string)values[i], out carg.values[i]);
-					else if(values[i].GetType() == typeof(long))
-						carg.values[i] = (float)(long)values[i];
-				}
-			}
-
-			return true;
+			return (path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) && File.Exists(path)) || File.Exists(path + "/image/info.json");
 		}
 
 		// Parse meta data from image Json
@@ -228,7 +113,8 @@ namespace csharp_viewer
 
 		public class CinemaStore
 		{
-			private string namePattern, depthNamePattern;
+			public string namePattern, depthNamePattern;
+			public string pixel_format;
 			private Dictionary<string, CinemaArgument> argumentMap = new Dictionary<string, CinemaArgument>();
 			public CinemaArgument[] arguments;
 			public class Parameter : CinemaArgument
@@ -284,7 +170,9 @@ namespace csharp_viewer
 				try {
 					store.namePattern = meta.name_pattern;
 				}
-				catch {
+				catch {}
+				if(store.namePattern == null)
+				{
 					Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: name_pattern");
 					return null;
 				}
@@ -293,10 +181,35 @@ namespace csharp_viewer
 				try {
 					argumentsMeta = meta.arguments;
 				}
-				catch {
+				catch {}
+				if(argumentsMeta == null)
+				{
 					Global.cle.PrintOutput("Error parsing info.json: Missing entry in info.json: arguments");
 					return null;
 				}
+				store.pixel_format = "R8G8B8";
+				JObject metadata = null;
+				try {
+					metadata = meta.metadata;
+				}
+				catch {}
+				if(metadata != null)
+				{
+					JToken t;
+					if(metadata.TryGetValue("pixel_format", out t))
+					{
+						store.pixel_format = t.Value<string>();
+						if(Array.IndexOf(new string[] {"R8G8B8", "I24"}, store.pixel_format) == -1)
+						{
+							Global.cle.PrintOutput(string.Format("Warning parsing info.json: pixel_format is '{0}' (expected 'R8G8B8' or 'I24')", store.pixel_format));
+							store.pixel_format = "R8G8B8";
+						}
+					}
+					else
+						Global.cle.PrintOutput("Warning parsing info.json: Missing entry in info.json metadata section: pixel_format");
+				}
+				else
+					Global.cle.PrintOutput("Warning parsing info.json: Missing entry in info.json: metadata");
 					
 				foreach(KeyValuePair<string, JToken> argumentMeta in argumentsMeta)
 				{
@@ -780,9 +693,9 @@ namespace csharp_viewer
 						lumPathAdditions.Sort();
 
 						// Assemble final paths (relative to Cinema database directory)
-						_layer.imagepath = "image/" + _layer.imagepath + (pathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), pathAdditions) : "") + ext;
-						_layer.imageDepthPath = hasDepth ? "image/" + _layer.imageDepthPath + (depthPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), depthPathAdditions) : "") + ".im" : null;
-						_layer.imageLumPath = hasLum ? "image/" + _layer.imageLumPath + (lumPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), lumPathAdditions) : "") + ext : null;
+						_layer.imagepath = _layer.imagepath + (pathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), pathAdditions) : "") + ext;
+						_layer.imageDepthPath = hasDepth ? _layer.imageDepthPath + (depthPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), depthPathAdditions) : "") + ".im" : null;
+						_layer.imageLumPath = hasLum ? _layer.imageLumPath + (lumPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), lumPathAdditions) : "") + ext : null;
 						_layer.paramidx = new int[paramidx.Length];
 						Array.Copy(paramidx, _layer.paramidx, paramidx.Length);
 						_layer.paramvalid = new bool[paramvalid.Length];

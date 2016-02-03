@@ -1277,12 +1277,12 @@ namespace csharp_viewer
 			AddColormap(ColorTableFromSolidColor(Color4.White, Vector3.Zero, "White"));
 			AddColormap(ColorTableFromSolidColor(Color4.Gray, Vector3.Zero, "Gray"));
 			AddColormap(ColorTableFromSolidColor(Color4.Black, Vector3.Zero, "Black"));
-			AddColormap(ColorTableFromSolidColor(new Color4(0.0f, 0.0f, 0.0f, 0.5f), Vector3.Zero, "50% Black", "Transparent"));
-			AddColormap(ColorTableFromSolidColor(new Color4(0.0f, 0.0f, 0.0f, 0.25f), Vector3.Zero, "25% Black", "Transparent"));
-			AddColormap(ColorTableFromSolidColor(new Color4(1.0f, 1.0f, 1.0f, 0.5f), Vector3.Zero, "50% White", "Transparent"));
 			AddColormap(ColorTableFromSolidColor(new Color4(1.0f, 1.0f, 1.0f, 0.25f), Vector3.Zero, "25% White", "Transparent"));
-			AddColormap(ColorTableFromSolidColor(new Color4(1.0f, 0.0f, 0.0f, 0.5f), Vector3.Zero, "50% Red", "Transparent"));
+			AddColormap(ColorTableFromSolidColor(new Color4(1.0f, 1.0f, 1.0f, 0.5f), Vector3.Zero, "50% White", "Transparent"));
+			AddColormap(ColorTableFromSolidColor(new Color4(0.0f, 0.0f, 0.0f, 0.25f), Vector3.Zero, "25% Black", "Transparent"));
+			AddColormap(ColorTableFromSolidColor(new Color4(0.0f, 0.0f, 0.0f, 0.5f), Vector3.Zero, "50% Black", "Transparent"));
 			AddColormap(ColorTableFromSolidColor(new Color4(1.0f, 0.0f, 0.0f, 0.25f), Vector3.Zero, "25% Red", "Transparent"));
+			AddColormap(ColorTableFromSolidColor(new Color4(1.0f, 0.0f, 0.0f, 0.5f), Vector3.Zero, "50% Red", "Transparent"));
 			/*ColorMapCreator.Vector3 C0 = new ColorMapCreator.Vector3(58.650f, 76.245f, 192.270f);
 			ColorMapCreator.Vector3 C1 = new ColorMapCreator.Vector3(180.030f, 4.080f, 38.250f);
 			AddColormap(ColorTableFromRange(C0, C1, new Vector3(65.0f / 255.0f, 68.0f / 255.0f, 91.0f / 255.0f), "Moreland cool/warm", "Divergent"));*/

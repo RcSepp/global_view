@@ -92,8 +92,8 @@ namespace csharp_viewer
 		bool closing = false;
 		string name_pattern, depth_name_pattern;
 
-		private Action AppStartAction, ExitProgramAction;
-		private Action OnSelectionChangedAction, OnSelectionMovedAction, OnTransformationAddedAction, ClearTransformsAction;
+		private Action AppStartAction;
+		private Action OnSelectionChangedAction, OnSelectionMovedAction, OnTransformationAddedAction;
 		//private Action FocusAction, MoveAction, ShowAction, HideAction, ClearAction, CountAction, GroupAction;
 
 		public static bool KeyEquals(int[] x, int[] y)
@@ -370,7 +370,7 @@ namespace csharp_viewer
 				HashSet<int> indices = (HashSet<int>)parameters[1];
 				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
 				//bool isTemporal = (bool)parameters[2];
-				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[3];
+				//IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[3];
 
 				indices_enum.MoveNext();
 				int index = indices_enum.Current;
@@ -762,10 +762,12 @@ namespace csharp_viewer
 			{
 				if(filename.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || filename.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase))
 					LoadDatabaseFromImages(new string[] { filename }, name_pattern);
+				else if(filename.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+					LoadCinemaDatabase(filename);
 				else if(filename.EndsWith(".isql", StringComparison.OrdinalIgnoreCase))
 					ActionManager.mgr.RunScript(filename);
 				else
-					throw new FileLoadException(filename + " is not a recognized image or ISQL sript");
+					throw new FileLoadException(filename + " is not a recognized image, cinema store or ISQL sript");
 			}
 			else
 				throw new FileNotFoundException(filename + " not found");
@@ -775,21 +777,36 @@ namespace csharp_viewer
 		{
 			FindFileOrDirectory(ref filename);
 
+			string image_dir, cinemaStore_filename;
+			if(filename.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+			{
+				// filename points to the cinema store
+				// Images are in: parent_dir(filename)
+				// info.json is at: filename
+				image_dir = Path.GetDirectoryName(filename) + Path.DirectorySeparatorChar;
+				cinemaStore_filename = filename;
+			}
+			else
+			{
+				// filename points to the cinema directory
+				// Images are in: filename + "image/"
+				// info.json is at: filename + "image/info.json"
+				image_dir = filename + "image/";
+				cinemaStore_filename = filename + "image/info.json";
+			}
+
 			PreLoad();
 
-			// Parse meta data from info.json
-			Cinema.CinemaArgument[] newargs;
-			if(!Cinema.ParseCinemaDescriptor(filename, out newargs, out name_pattern, out depth_name_pattern, out image_pixel_format))
-				return;
-			bool useOnlyFloatImages = image_pixel_format != null && image_pixel_format.Equals("I24");
-			bool useFloatImages = useOnlyFloatImages;
-
-			Cinema.CinemaStore.Parameter[] newparams;
-			Cinema.CinemaStore store = Cinema.CinemaStore.Load(filename + "image/info.json");
+			Cinema.CinemaStore store = Cinema.CinemaStore.Load(cinemaStore_filename);
 			if(store == null)
 				return;
-			newargs = store.arguments;
-			newparams = store.parameters;
+			name_pattern = store.namePattern;
+			depth_name_pattern = store.depthNamePattern;
+			image_pixel_format = store.pixel_format;
+			bool useOnlyFloatImages = store.pixel_format != null && store.pixel_format.Equals("I24");
+			bool useFloatImages = useOnlyFloatImages;
+			Cinema.CinemaArgument[] newargs = store.arguments;
+			Cinema.CinemaStore.Parameter[] newparams = store.parameters;
 
 			image_render_mutex.WaitOne();
 			int[] newargindices;
@@ -806,7 +823,7 @@ namespace csharp_viewer
 			if(false)
 			{
 				Thread inSituThread = new Thread(new ParameterizedThreadStart(SimulateInSituThread));
-				inSituThread.Start((object)filename);
+				inSituThread.Start((object)new string[] {image_dir, cinemaStore_filename});
 				return;
 			}
 			else
@@ -828,7 +845,7 @@ namespace csharp_viewer
 						imagestrvalues[i] = newargs[i].strValues[argidx[i]];
 						imagepath = imagepath.Replace("{" + newargs[i].name + "}", newargs[i].strValues[argidx[i]].ToString());
 					}
-					imagepath = filename + "image/" + imagepath;
+					imagepath = image_dir + imagepath;
 
 					String depthpath = depth_name_pattern;
 					if(depth_name_pattern != null)
@@ -836,7 +853,7 @@ namespace csharp_viewer
 						// Construct depth image file path from argidx[]
 						for(int i = 0; i < newargs.Length; ++i)
 							depthpath = depthpath.Replace("{" + newargs[i].name + "}", newargs[i].strValues[argidx[i]].ToString());
-						depthpath = filename + "image/" + depthpath;
+						depthpath = image_dir + depthpath;
 					}
 
 					// Load CinemaImage
@@ -906,9 +923,9 @@ namespace csharp_viewer
 					{
 						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(
 							cimg,
-							filename + layerdesc.imagepath,
-							layerdesc.imageDepthPath == null ? null : filename + layerdesc.imageDepthPath,
-							layerdesc.imageLumPath == null ? null : filename + layerdesc.imageLumPath,
+							image_dir + layerdesc.imagepath,
+							layerdesc.imageDepthPath == null ? null : image_dir + layerdesc.imageDepthPath,
+							layerdesc.imageLumPath == null ? null : image_dir + layerdesc.imageLumPath,
 							useOnlyFloatImages || layerdesc.isFloatImage
 						);
 						//layer.filename = filename + layerdesc.imagepath;
@@ -1183,7 +1200,7 @@ namespace csharp_viewer
 
 		private void SimulateInSituThread(object parameters)
 		{
-			string filename = (string)parameters;
+			string image_dir = ((string[])parameters)[0], cinemaStore_filename = ((string[])parameters)[1];
 
 			// Create a list of all available indices
 			List<int[]> indexlist = new List<int[]>();
@@ -1232,7 +1249,7 @@ namespace csharp_viewer
 					imagestrvalues[i] = Global.arguments[i].strValues[argidx[i]];
 					imagepath = imagepath.Replace("{" + Global.arguments[i].name + "}", Global.arguments[i].strValues[argidx[i]].ToString());
 				}
-				imagepath = filename + "image/" + imagepath;
+				imagepath = image_dir + imagepath;
 
 				// Load CinemaImage
 				TransformedImage cimg = new TransformedImage();
@@ -1655,9 +1672,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				openglVersionStr = openglVersionStr.Substring(0, idx); // Turn "X.Y.Z" into "X.Y"
 			Global.OPENGL_VERSION = decimal.Parse(openglVersionStr.Split(' ')[0]);
 
-			//GL.ClearColor(0.8f, 0.8f, 0.8f, 1.0f);
-			//GL.ClearColor(0.0f, 0.1f, 0.3f, 1.0f); // Set inside image cload!
-			//GL.Viewport(glImageCloud.Height > glImageCloud.Width ? new Rectangle(0, (glImageCloud.Height - glImageCloud.Width) / 2, glImageCloud.Width, glImageCloud.Width) : new Rectangle((glImageCloud.Width - glImageCloud.Height) / 2, 0, glImageCloud.Height, glImageCloud.Height));
 			GL.Viewport(glImageCloud.Size);
 			GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
 			GL.Enable(EnableCap.Blend);
@@ -1693,12 +1707,19 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			ActionManager.Do(AppStartAction);
 
-			//if(cmdline.Length == 1)
-			//	LoadCinemaDatabase(cmdline[0]);
-			LoadFromCommandLine(cmdline);
-//LoadDatabaseFromImages(new string[] {"/Users/sklaassen/Desktop/work/db/cinema_debug/image/1.000000/-30/-30.png"});
-//if(cmdline.Length == 1)
-//	LoadDatabaseFromDirectory(cmdline[0], false);
+			try {
+				LoadFromCommandLine(cmdline);
+			}
+			catch(FileNotFoundException ex) {
+				Global.cle.PrintOutput("File not found: " + ex.Message);
+				renderThread_finished = true;
+				return;
+			}
+			catch(FileLoadException ex) {
+				Global.cle.PrintOutput(ex.Message);
+				renderThread_finished = true;
+				return;
+			}
 
 			browser.Init(this, imageCloud);
 			browser.OnLoad();

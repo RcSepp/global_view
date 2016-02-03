@@ -22,7 +22,7 @@ namespace csharp_viewer
 		private static Color4 TICK_COLOR = new Color4(128, 100, 162, 255);
 		private static Color4 CHECK_COLOR = new Color4(142, 180, 247, 100);
 
-		private TransformedImageCollection images;
+		//private TransformedImageCollection images;
 		private Cinema.CinemaStore.Parameter[] parameters;
 		private GLMesh meshBorders, meshTick, meshCheck;
 
@@ -168,7 +168,7 @@ namespace csharp_viewer
 
 		public void Load()
 		{
-			this.images = Viewer.images;
+			//this.images = Viewer.images;
 			this.parameters = Global.parameters;
 
 			// Create check bars for each parameter
@@ -192,7 +192,7 @@ namespace csharp_viewer
 
 		public void Unload()
 		{
-			images = null;
+			//images = null;
 			parameters = null;
 			checkbars.Clear();
 		}

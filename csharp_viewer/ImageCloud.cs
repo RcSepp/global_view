@@ -154,7 +154,8 @@ namespace csharp_viewer
 				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
 				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
 
-				return vec4(texture1D(Colormap, valueS).rgb, rgba.a); // Don't use colormap transparency
+				//return vec4(texture1D(Colormap, valueS).rgb, rgba.a); // Don't use colormap transparency
+				return texture1D(Colormap, valueS) * vec4(1.0, 1.0, 1.0, rgba.a); // Use colormap transparency
 			}
 		";
 		public const string FS_DEPTH_PEELING = @"
