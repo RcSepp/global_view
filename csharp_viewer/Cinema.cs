@@ -54,6 +54,11 @@ namespace csharp_viewer
 						return argidx;
 				return -1;
 			}
+
+			public override string ToString()
+			{
+				return string.Format("Argument {0}", name);
+			}
 		}
 
 		public class CinemaImage
@@ -429,7 +434,7 @@ namespace csharp_viewer
 					return string.Compare(x.name, y.name);
 				}
 			}
-			public Association[] GetDependentAssociations(int[] argidx)
+			/*public Association[] GetDependentAssociations(int[] argidx)
 			{
 				SortedDictionary<CinemaArgument, DependencyMap> dependentAssociations = new SortedDictionary<CinemaArgument, DependencyMap>(new ParameterComparer());
 
@@ -477,23 +482,12 @@ namespace csharp_viewer
 					}
 				}
 
-				/*// Sort dependent associations alphabetically (because this is the order in which image paths are assembled)
-				dependentAssociations.Sort(delegate(Parameter x, Parameter y) {
-					return strcmp(x.name, y.name);
-				});
-
-				return dependentAssociations.ToArray();*/
-
-				/*Parameter[] dependentAssociationsArray = new Parameter[dependentAssociations.Count];
-				dependentAssociations.CopyTo(dependentAssociationsArray);
-				return dependentAssociationsArray;*/
-
 				Association[] dependentAssociationsArray = new Association[dependentAssociations.Count];
 				int j = 0;
 				foreach(KeyValuePair<CinemaArgument, DependencyMap> dependentAssociation in dependentAssociations)
 					dependentAssociationsArray[j++] = new Association(dependentAssociation.Key, dependentAssociation.Value);
 				return dependentAssociationsArray;
-			}
+			}*/
 
 			public struct LayerDescription
 			{
@@ -516,17 +510,25 @@ namespace csharp_viewer
 			{
 				private CinemaStore store;
 				private int[] argidx;
-				//private Association[] dependentAssociations;
 
-				public LayerCollection(CinemaStore store, int[] argidx, Association[] dependentAssociations)
+				public LayerCollection(CinemaStore store, int[] argidx)
 				{
 					this.store = store;
 					this.argidx = argidx;
-					//this.dependentAssociations = dependentAssociations;
 				}
 
-				private bool ValidateAssociation(DependencyMap dependencyMap, int[] argidx, int[] paramidx, bool[] paramvalid)
+				private bool ValidateAssociation(DependencyMap dependencyMap, int[] argidx, int[] paramidx, bool[] paramvalid, out bool depthValid, out bool lumValid)
 				{
+					depthValid = lumValid = true;
+
+					// Validate the following:
+					// <association>: {
+					//     <dependency1>,
+					//     <dependency2>
+					// }
+
+					/* // Variant 1:
+					// Return satisfied(<dependency1>) && satisfied(<dependency2>)
 					foreach(KeyValuePair<CinemaArgument, string[]> dependency in dependencyMap)
 					{
 						Parameter dependentParameter = dependency.Key as Parameter;
@@ -539,6 +541,11 @@ namespace csharp_viewer
 							string dependentParameterStrValue = dependentParameter.strValues[paramidx[dependentParameterIndex]];
 							if(Array.IndexOf(dependency.Value, dependentParameterStrValue) == -1)
 								return false;
+
+							if(dependentParameter.depthValue != null && Array.IndexOf(dependency.Value, dependentParameter.depthValue) == -1)
+								depthValid = false;
+							if(dependentParameter.lumValue != null && Array.IndexOf(dependency.Value, dependentParameter.lumValue) == -1)
+								lumValid = false;
 						}
 						else // If dependency.Key is an argument
 						{
@@ -550,7 +557,41 @@ namespace csharp_viewer
 								return false;
 						}
 					}
-					return true;
+					return true;*/
+
+					// Variant 2:
+					// Return satisfied(<dependency1>) || satisfied(<dependency2>)
+					foreach(KeyValuePair<CinemaArgument, string[]> dependency in dependencyMap)
+					{
+						Parameter dependentParameter = dependency.Key as Parameter;
+						if(dependentParameter != null) // If dependency.Key is a parameter
+						{
+							if(paramvalid[Array.IndexOf(store.parameters, dependentParameter)] == false)
+								continue;
+
+							int dependentParameterIndex = Array.IndexOf(store.parameters, dependentParameter);
+							string dependentParameterStrValue = dependentParameter.strValues[paramidx[dependentParameterIndex]];
+							if(Array.IndexOf(dependency.Value, dependentParameterStrValue) == -1)
+								continue;
+
+							if(dependentParameter.depthValue != null && Array.IndexOf(dependency.Value, dependentParameter.depthValue) == -1)
+								depthValid = false;
+							if(dependentParameter.lumValue != null && Array.IndexOf(dependency.Value, dependentParameter.lumValue) == -1)
+								lumValid = false;
+						}
+						else // If dependency.Key is an argument
+						{
+							CinemaArgument dependentArgument = dependency.Key;
+
+							int dependentArgumentIndex = Array.IndexOf(store.arguments, dependentArgument);
+							string dependentArgumentStrValue = dependentArgument.strValues[argidx[dependentArgumentIndex]];
+							if(Array.IndexOf(dependency.Value, dependentArgumentStrValue) == -1)
+								continue;
+						}
+
+						return true;
+					}
+					return false;
 				}
 
 				public IEnumerator<LayerDescription> GetEnumerator()
@@ -586,7 +627,8 @@ namespace csharp_viewer
 						for(int i = 0; i < store.parameters.Length; ++i)
 						{
 							DependencyMap dependencyMap;
-							if(paramvalid[i] == true && store.associations.TryGetValue(store.parameters[i], out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid))
+							bool depthValid, lumValid;
+							if(paramvalid[i] == true && store.associations.TryGetValue(store.parameters[i], out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid, out depthValid, out lumValid))
 							{
 								// Dependencies not satisfied for store.parameters[i]
 								paramvalid[i] = false;
@@ -618,37 +660,35 @@ namespace csharp_viewer
 							}*/
 
 							DependencyMap dependencyMap;
-							if(store.associations.TryGetValue(parameter, out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid))
+							bool depthValid = true, lumValid = true;
+							if(store.associations.TryGetValue(parameter, out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid, out depthValid, out lumValid))
 							{
 								// Dependencies not satisfied for parameter
 								++p;
 								continue;
 							}
 
-							//imageParameters.Add(parameter.name, strValue);
-
 							if(_layer.imagepath.Contains("{" + parameter.name + "}"))
 							{
 								_layer.imagepath = _layer.imagepath.Replace("{" + parameter.name + "}", strValue);
-								_layer.imageDepthPath = _layer.imageDepthPath.Replace("{" + parameter.name + "}", strValue);
-								_layer.imageLumPath = _layer.imageLumPath.Replace("{" + parameter.name + "}", strValue);
+								_layer.imageDepthPath = _layer.imageDepthPath.Replace("{" + parameter.name + "}", depthValid ? (parameter.depthValue != null ? parameter.depthValue : strValue) : parameter.defaultStrValue);
+								_layer.imageLumPath = _layer.imageLumPath.Replace("{" + parameter.name + "}", lumValid ? (parameter.lumValue != null ? parameter.lumValue : strValue) : parameter.defaultStrValue);
 							}
 							else
 							{
 								if(parameter.types != null && parameter.types[paramidx[p]] == "value")
 									_layer.isFloatImage = true;
-								//_layer.imagepath += Path.DirectorySeparatorChar + parameter.name + "=" + parameter.strValues[paramidx[p]];
 								pathAdditions.Add(parameter.name + "=" + parameter.strValues[paramidx[p]]);
 
 								if(parameter.depthValue != null)
 									hasDepth = true;
-								//_layer.imageDepthPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.depthValue != null ? parameter.depthValue : strValue);
-								depthPathAdditions.Add(parameter.name + "=" + (parameter.depthValue != null ? parameter.depthValue : strValue));
+								if(depthValid)
+									depthPathAdditions.Add(parameter.name + "=" + (parameter.depthValue != null ? parameter.depthValue : strValue));
 
 								if(parameter.lumValue != null)
 									hasLum = true;
-								//_layer.imageLumPath += Path.DirectorySeparatorChar + parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : strValue);
-								lumPathAdditions.Add(parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : strValue));
+								if(lumValid)
+									lumPathAdditions.Add(parameter.name + "=" + (parameter.lumValue != null ? parameter.lumValue : strValue));
 							}
 							++p;
 						}
@@ -659,7 +699,8 @@ namespace csharp_viewer
 							string argStr = "{" + store.arguments[i].name + "}";
 
 							DependencyMap dependencyMap;
-							if(store.associations.TryGetValue(store.arguments[i], out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid))
+							bool depthValid = true, lumValid = true;
+							if(store.associations.TryGetValue(store.arguments[i], out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid, out depthValid, out lumValid))
 							{
 								// Dependencies not satisfied for store.arguments[i]
 								if(_layer.imagepath.Contains(argStr))
@@ -674,17 +715,16 @@ namespace csharp_viewer
 							if(_layer.imagepath.Contains(argStr))
 							{
 								_layer.imagepath = _layer.imagepath.Replace(argStr, store.arguments[i].strValues[argidx[i]]);
-								_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, store.arguments[i].strValues[argidx[i]]);
-								_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, store.arguments[i].strValues[argidx[i]]);
+								_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, depthValid ? store.arguments[i].strValues[argidx[i]] : store.arguments[i].defaultStrValue);
+								_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, lumValid ? store.arguments[i].strValues[argidx[i]] : store.arguments[i].defaultStrValue);
 							}
 							else
 							{
-								//_layer.imagepath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
 								pathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
-								//_layer.imageDepthPath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
-								depthPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
-								//_layer.imageLumPath += Path.DirectorySeparatorChar + store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]];
-								lumPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
+								if(depthValid)
+									depthPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
+								if(lumValid)
+									lumPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
 							}
 						}
 
@@ -720,9 +760,9 @@ namespace csharp_viewer
 					return this.GetEnumerator();
 				}
 			}
-			public LayerCollection iterateLayers(int[] argidx, Association[] dependentAssociations)
+			public LayerCollection iterateLayers(int[] argidx)
 			{
-				return new LayerCollection(this, argidx, dependentAssociations);
+				return new LayerCollection(this, argidx);
 			}
 
 			public float[] GetImageValues(int[] argidx)

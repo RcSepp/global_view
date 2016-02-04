@@ -599,6 +599,7 @@ namespace csharp_viewer
 							texIsStatic = true;
 							return memory = 0;
 						}
+//Global.cle.PrintOutput(depth_filename);
 						++GLTextureStream.foo;
 					}
 

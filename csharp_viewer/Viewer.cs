@@ -900,7 +900,6 @@ namespace csharp_viewer
 				{
 					float[] imagevalues = store.GetImageValues(argidx);
 					string[] imagestrvalues = store.GetImageStrValues(argidx);
-					Cinema.CinemaStore.Association[] dependentAssociations = store.GetDependentAssociations(argidx);
 
 					/*string imagepath, depthpath, lumpath;
 					bool isFloatImage;
@@ -919,7 +918,7 @@ namespace csharp_viewer
 					cimg.args = newargs;
 					cimg.globalargindices = newargindices;
 
-					foreach(Cinema.CinemaStore.LayerDescription layerdesc in store.iterateLayers(argidx, dependentAssociations))
+					foreach(Cinema.CinemaStore.LayerDescription layerdesc in store.iterateLayers(argidx))
 					{
 						TransformedImage.ImageLayer layer = new TransformedImage.ImageLayer(
 							cimg,
