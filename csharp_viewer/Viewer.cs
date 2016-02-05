@@ -777,22 +777,26 @@ namespace csharp_viewer
 		{
 			FindFileOrDirectory(ref filename);
 
-			string image_dir, cinemaStore_filename;
+			string image_dir, cinemaStore_filename, startupScript_filename;
 			if(filename.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
 			{
 				// filename points to the cinema store
-				// Images are in: parent_dir(filename)
+				// Images are in: parent_dir(filename) + "/"
 				// info.json is at: filename
+				// startup.isql is at: parent_dir(filename) + "/startup.isql"
 				image_dir = Path.GetDirectoryName(filename) + Path.DirectorySeparatorChar;
 				cinemaStore_filename = filename;
+				startupScript_filename = Path.GetDirectoryName(filename) + Path.DirectorySeparatorChar + "startup.isql";
 			}
 			else
 			{
 				// filename points to the cinema directory
 				// Images are in: filename + "image/"
 				// info.json is at: filename + "image/info.json"
+				// startup.isql is at: filename + "/startup.isql"
 				image_dir = filename + "image/";
 				cinemaStore_filename = filename + "image/info.json";
+				startupScript_filename = filename + Path.DirectorySeparatorChar + "startup.isql";
 			}
 
 			PreLoad();
@@ -991,11 +995,10 @@ namespace csharp_viewer
 
 			PostLoad(newimages, imageSize, useFloatImages);
 
-			string startupscriptfilename = filename + Path.DirectorySeparatorChar + "startup.isql";
-			if(File.Exists(startupscriptfilename))
+			if(File.Exists(startupScript_filename))
 			{
 				Global.cle.PrintOutput("Executing startup script (startup.isql)");
-				actMgr.RunScript(startupscriptfilename);
+				actMgr.RunScript(startupScript_filename);
 			}
 		}
 

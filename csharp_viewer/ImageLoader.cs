@@ -26,9 +26,9 @@ namespace csharp_viewer
 			}
 			catch
 			{
-				int foo = filename.LastIndexOf('/');
+				/*int foo = filename.LastIndexOf('/');
 				string newfilename = filename.Substring(0, foo + 1) + "damaged_" + filename.Substring(foo + 1);
-				System.IO.File.Move(filename, newfilename);
+				System.IO.File.Move(filename, newfilename);*/
 				return null;
 			}
 			//return (Bitmap)Bitmap.FromFile(filename);
@@ -221,9 +221,9 @@ namespace csharp_viewer
 			}
 			catch
 			{
-				int foo = filename.LastIndexOf('/');
+				/*int foo = filename.LastIndexOf('/');
 				string newfilename = filename.Substring(0, foo + 1) + "damaged_" + filename.Substring(foo + 1);
-				System.IO.File.Move(filename, newfilename);
+				System.IO.File.Move(filename, newfilename);*/
 				return null;
 			}
 			//return (Bitmap)Bitmap.FromFile(filename);

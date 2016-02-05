@@ -31,6 +31,17 @@ namespace csharp_viewer
 			{
 				_image.OnOrignalDimensionsUpdated(originalWidth, originalHeight);
 			}
+
+			public void SetZeroPriority()
+			{
+				//renderPriority = 0.0f;
+
+				// Decay priority over time
+				if(renderPriority > 0.0f)
+					renderPriority = 0.0f;
+				else
+					--renderPriority;
+			}
 		}
 		public List<ImageLayer> inactivelayers = new List<ImageLayer>(), activelayers = new List<ImageLayer>();
 		public ImageLayer FirstLayer
@@ -400,7 +411,7 @@ namespace csharp_viewer
 					// Deactivate layer
 					activelayers.RemoveAt(i);
 					inactivelayers.Add(layer);
-					layer.renderPriority = 0;
+					layer.SetZeroPriority();
 				}
 			}
 
@@ -549,7 +560,7 @@ namespace csharp_viewer
 				}
 				else if(Global.time > prefetchHoldTime)
 					foreach(ImageLayer activelayer in activelayers)
-						activelayer.renderPriority = 0;
+						activelayer.SetZeroPriority();
 
 				return false;
 			}
@@ -557,7 +568,7 @@ namespace csharp_viewer
 			{
 				if(Global.time > prefetchHoldTime)
 					foreach(ImageLayer activelayer in activelayers)
-						activelayer.renderPriority = 0;
+						activelayer.SetZeroPriority();
 				return false;
 			}
 		}
