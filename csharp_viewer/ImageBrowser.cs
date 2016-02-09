@@ -303,11 +303,11 @@ namespace csharp_viewer
 		{
 			//SetOption(Option.BackColor, new Color4(102, 101, 96, 255));
 			SetOption(Option.BackColor, bgcolor);
-			SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
-			SetOption(Option.ShowCoordinateSystem, false);
-			SetOption(Option.ShowLineGrid, false);
+			//SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
+			//SetOption(Option.ShowCoordinateSystem, false);
+			//SetOption(Option.ShowLineGrid, false);
 
-			SetOption(Option.ForceOriginalImageSize, true);
+			//SetOption(Option.ForceOriginalImageSize, true);
 
 			cmImage = new ImageContextMenu.MenuGroup("");
 			cmImage.controls.Add(new ImageContextMenu.MenuButton("test"));
@@ -345,14 +345,15 @@ namespace csharp_viewer
 		}
 		public override void OnImageDoubleClick(TransformedImage image)
 		{
-			ClearSelection();
-			MoveIntoView(image);
+			//ClearSelection();
+			//MoveIntoView(image);
 		}
 		public override void OnImageDrag(TransformedImage image, Vector3 delta)
 		{
 			MoveSelection(delta);
 		}
 
+		bool argidx_visible = true;
 		public override void OnKeyDown(KeyEventArgs e)
 		{
 			switch(e.KeyCode)
@@ -363,6 +364,7 @@ namespace csharp_viewer
 				break;
 
 			case Keys.O:
+				SetOption(Option.ShowArgumentIndex, argidx_visible = !argidx_visible);
 				/*if(depthRenderingEnabled)
 					ActionManager.Do(DisableDepthRenderingAction);
 				else
@@ -378,11 +380,11 @@ namespace csharp_viewer
 				break;
 
 			case Keys.Space:
-				if(bgcolor == Color4.Red)
+				/*if(bgcolor == Color4.Red)
 					bgcolor = Color4.Blue;
 				else
 					bgcolor = Color4.Red;
-				SetOption(Option.BackColor, bgcolor);
+				SetOption(Option.BackColor, bgcolor);*/
 				break;
 			}
 		}

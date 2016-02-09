@@ -269,7 +269,7 @@ namespace csharp_viewer
 		}}
 		public void SetViewAngle(float theta, float phi)
 		{{
-			viewangle = new Selection<float> {{ theta= theta, phi= phi }};
+			viewangle = new Selection<float> {{ theta= (theta + 4.0f * (float)Math.PI) % (2.0f * (float)Math.PI), phi= Math.Min((float)Math.PI, Math.Max(0.0f, phi)) }};
 		}}
 
 		public override void OnArgumentsChanged()
@@ -363,10 +363,10 @@ namespace csharp_viewer
 		public override void PrepareImage(int[] imagekey, TransformedImage image)
 		{{
 			float t = (float)({1}), p = (float)({2});
-			t += 10.0f * (float)Math.PI;
-			t %= 2.0f * (float)Math.PI;
-			p += 10.0f * (float)Math.PI;
-			p %= 2.0f * (float)Math.PI;
+			//t += 10.0f * (float)Math.PI;
+			//t %= 2.0f * (float)Math.PI;
+			//p += 10.0f * (float)Math.PI;
+			//p %= 2.0f * (float)Math.PI;
 			float totalangle = AngularDistance(viewangle.theta, t)/*Math.Abs(viewangle.theta - t)*/ + Math.Abs(viewangle.phi - p);
 			ImageAndAngle bestImage = bestImages.Get(Global.arguments, imagekey);
 			if(totalangle < bestImage.angle)

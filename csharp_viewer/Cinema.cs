@@ -260,6 +260,11 @@ namespace csharp_viewer
 						parameter.isLayer = (string)argumentMeta.Value["islayer"] == "yes" ? true : false;
 						parameter.type = (string)argumentMeta.Value["type"];
 						try { parameter.types = (string[])argumentMeta.Value["types"].ToObject<string[]>(); } catch {}
+						if(parameter.types != null && parameter.types.Length != carg.strValues.Length)
+						{
+							Global.cle.PrintOutput(string.Format("Error parsing info.json: Types field of argument '{0}' contains a different number of elements than values field (# values = {1}, # types = {2})", argumentMeta.Key, carg.strValues.Length, parameter.types.Length));
+							return null;
+						}
 						parameter.isChecked = new bool[parameter.strValues.Length];
 
 						if(type == "option")

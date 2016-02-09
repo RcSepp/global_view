@@ -142,17 +142,13 @@ namespace csharp_viewer
 
 			vec4 shade(sampler2D sampler, in vec2 uv)
 			{
-				//const vec3 COLOR_NAN = vec3(65.0, 68.0, 91.0) / 255.0;
-				const float MIN = 0.0;//0.35;
-				const float MAX = 1.0;//0.85;
-
 				// Get float value (valueS) from RGB data
 				vec4 rgba = texture2D(sampler, uv);
 				int valueI = int(rgba.r * 255.0) * 0x10000 + int(rgba.g * 255.0) * 0x100 + int(rgba.b * 255.0);
 				if(valueI == 0)
 					return vec4(NanColor, alpha);
 				float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
-				valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
+				valueS = clamp(valueS, 0.0, 1.0);
 
 				//return vec4(texture1D(Colormap, valueS).rgb, rgba.a); // Don't use colormap transparency
 				return texture1D(Colormap, valueS) * vec4(1.0, 1.0, 1.0, rgba.a); // Use colormap transparency
@@ -175,17 +171,13 @@ namespace csharp_viewer
 
 				vec4 shade_float(sampler2D sampler, in vec2 uv)
 				{
-					//const vec3 COLOR_NAN = vec3(65.0, 68.0, 91.0) / 255.0;
-					const float MIN = 0.0;//0.35;
-					const float MAX = 1.0;//0.85;
-
 					// Get float value (valueS) from RGB data
 					vec4 rgba = texture2D(sampler, uv);
 					int valueI = int(rgba.r * 255.0) * 0x10000 + int(rgba.g * 255.0) * 0x100 + int(rgba.b * 255.0);
 					if(valueI == 0)
 						return vec4(NanColor, alpha);
 					float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
-					valueS = clamp((valueS - MIN) / (MAX - MIN) + MIN, 0.0, 1.0);
+					valueS = clamp(valueS, 0.0, 1.0);
 
 					return texture1D(Colormap, valueS) * vec4(1.0, 1.0, 1.0, rgba.a);
 				}

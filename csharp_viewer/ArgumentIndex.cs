@@ -33,17 +33,19 @@ namespace csharp_viewer
 			public string label = "";
 			private Rectangle bounds, labelBounds;
 			Cinema.CinemaArgument argument;
+			private int argidx;
 			private GLMesh meshBorders, meshSelection, meshTick;
 
-			public TrackBar(Cinema.CinemaArgument argument, GLMesh meshBorders, GLMesh meshTick, GLMesh meshSelection)
+			public TrackBar(Cinema.CinemaArgument argument, int argidx, GLMesh meshBorders, GLMesh meshTick, GLMesh meshSelection)
 			{
 				this.argument = argument;
+				this.argidx = argidx;
 				this.meshBorders = meshBorders;
 				this.meshTick = meshTick;
 				this.meshSelection = meshSelection;
 			}
 
-			public void Draw(Rectangle bounds, Selection selection, int argidx, Size backbufferSize, GLShader sdr, int colorUniform)
+			public void Draw(Rectangle bounds, Selection selection, Size backbufferSize, GLShader sdr, int colorUniform)
 			{
 				float x, y;
 
@@ -201,9 +203,14 @@ namespace csharp_viewer
 
 			// Create track bars for each argument
 			trackbars.Clear();
+			int argidx = -1;
 			foreach(Cinema.CinemaArgument argument in arguments)
 			{
-				TrackBar newtrackbar = new TrackBar(argument, meshBorders, meshTick, meshSelection);
+				++argidx;
+				if(argument.values.Length <= 1)
+					continue;
+
+				TrackBar newtrackbar = new TrackBar(argument, argidx, meshBorders, meshTick, meshSelection);
 				newtrackbar.label = argument.label;
 				trackbars.Add(newtrackbar);
 			}
@@ -233,7 +240,6 @@ namespace csharp_viewer
 
 			int bounds_y = Bounds.Y;
 
-			int argidx = 0;
 			foreach(TrackBar trackbar in trackbars)
 			{
 				/*HashSet<int> selected_ticks = new HashSet<int>();
@@ -244,7 +250,7 @@ namespace csharp_viewer
 				}
 				++i;*/
 
-				trackbar.Draw(Bounds, selection, argidx++, BackbufferSize, Common.sdrSolidColor, Common.sdrSolidColor_colorUniform); //TODO: make constraint sets indexable. Otherwise selection[i++] will crash for meta data trackbars
+				trackbar.Draw(Bounds, selection, BackbufferSize, Common.sdrSolidColor, Common.sdrSolidColor_colorUniform); //TODO: make constraint sets indexable. Otherwise selection[i++] will crash for meta data trackbars
 				Bounds = new Rectangle(Bounds.X, Bounds.Y + Bounds.Height * 3 / 2, Bounds.Width, Bounds.Height);// Bounds.Y += Bounds.Height * 3 / 2;
 			}
 
