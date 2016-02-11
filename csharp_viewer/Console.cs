@@ -16,6 +16,10 @@ namespace csharp_viewer
 		private int history_idx = 0;
 		private string history_current;
 
+		// Recordable macros
+		private static string MACRO_PATH;
+		private string[] macros = new string[10];
+
 		// Execution delegate
 		public delegate void ExecuteDelegate(string command, out string output, out string warnings);
 		public event ExecuteDelegate ExecuteCommand;
@@ -33,8 +37,9 @@ namespace csharp_viewer
 			});
 
 			HISTORY_PATH = System.Reflection.Assembly.GetEntryAssembly().Location;
-			HISTORY_PATH = HISTORY_PATH.Substring(0, Math.Max(HISTORY_PATH.LastIndexOf('/'), HISTORY_PATH.LastIndexOf('\\')) + 1);
+			MACRO_PATH = HISTORY_PATH = HISTORY_PATH.Substring(0, Math.Max(HISTORY_PATH.LastIndexOf('/'), HISTORY_PATH.LastIndexOf('\\')) + 1);
 			HISTORY_PATH += ".history";
+			MACRO_PATH += ".macros";
 
 			if(File.Exists(HISTORY_PATH))
 			{
@@ -44,12 +49,27 @@ namespace csharp_viewer
 				sr.Close();
 				history_idx = history.Count;
 			}
+			if(File.Exists(MACRO_PATH))
+			{
+				StreamReader sr = new StreamReader(MACRO_PATH);
+				int i = 0;
+				while(i < macros.Length && sr.Peek() != -1)
+					macros[i++] = sr.ReadLine();
+				while(i < macros.Length)
+					macros[i++] = "";
+				sr.Close();
+			}
 		}
 		~Console()
 		{
 			StreamWriter sw = new StreamWriter(HISTORY_PATH);
 			foreach(string h in history)
 				sw.WriteLine(h);
+			sw.Close();
+
+			sw = new StreamWriter(MACRO_PATH);
+			foreach(string m in macros)
+				sw.WriteLine(m);
 			sw.Close();
 		}
 
@@ -83,6 +103,19 @@ namespace csharp_viewer
 		{
 			history.Add(current);
 			history_idx = history.Count;
+		}
+
+		protected void StoreMacro(int slot, string macro)
+		{
+			if(slot < 0 || slot >= macros.Length)
+				throw new IndexOutOfRangeException(string.Format("Invalid macro slot: {0} (should be between 0 and {1})", slot, macros.Length));
+			macros[slot] = macro;
+		}
+		protected string RecallMacro(int slot)
+		{
+			if(slot < 0 || slot >= macros.Length)
+				throw new IndexOutOfRangeException(string.Format("Invalid macro slot: {0} (should be between 0 and {1})", slot, macros.Length));
+			return macros[slot];
 		}
 
 		/*protected string Execute(string command)

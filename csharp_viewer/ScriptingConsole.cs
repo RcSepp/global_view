@@ -62,6 +62,15 @@ namespace csharp_viewer
 			}
 		}
 
+		private void ReplaceLastLineText(string text)
+		{
+			txt.Selection.BeginUpdate();
+			txt.Selection.Start = new Place(0, txt.LinesCount - 1);
+			txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
+			txt.Selection.EndUpdate();
+			txt.InsertText(text);
+		}
+
 		private void KeyDown(object sender, KeyEventArgs e)
 		{
 			if((txt.Selection.Start.iLine < txt.LinesCount - 1 || txt.Selection.Start.iChar < 2) &&
@@ -98,13 +107,7 @@ namespace csharp_viewer
 				{
 					string current = txt.Lines[txt.LinesCount - 1].Substring(2);
 					if(HistoryUp(ref current))
-					{
-						txt.Selection.BeginUpdate();
-						txt.Selection.Start = new Place(0, txt.LinesCount - 1);
-						txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
-						txt.Selection.EndUpdate();
-						txt.InsertText(current);
-					}
+						ReplaceLastLineText(current);
 				}
 				e.Handled = true;
 				break;
@@ -112,13 +115,7 @@ namespace csharp_viewer
 				{
 					string current = txt.Lines[txt.LinesCount - 1].Substring(2);
 					if(HistoryDown(ref current))
-					{
-						txt.Selection.BeginUpdate();
-						txt.Selection.Start = new Place(0, txt.LinesCount - 1);
-						txt.Selection.End = new Place(txt.Lines[txt.LinesCount - 1].Length, txt.LinesCount - 1);
-						txt.Selection.EndUpdate();
-						txt.InsertText(current);
-					}
+						ReplaceLastLineText(current);
 				}
 				e.Handled = true;
 				break;
@@ -159,6 +156,21 @@ namespace csharp_viewer
 				printMethod = true;
 
 				e.Handled = true;
+				break;
+
+			default:
+				if((e.Modifiers & Keys.Control) != 0 && e.KeyCode >= Keys.D0 && e.KeyCode <= Keys.D9)
+				{
+					if((e.Modifiers & Keys.Shift) != 0)
+					{
+						string current = txt.Lines[txt.LinesCount - 1].Substring(2);
+						StoreMacro(e.KeyCode - Keys.D0, current);
+						PrintOutput(string.Format("Macro {0} set to \"{1}\"", e.KeyCode - Keys.D0, current));
+					}
+					else
+						ReplaceLastLineText(RecallMacro(e.KeyCode - Keys.D0));
+					break;
+				}
 				break;
 			}
 		}
