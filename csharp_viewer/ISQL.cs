@@ -196,23 +196,70 @@ namespace ISQL
 					if(argidx == -1)
 						throw new Exception("Unknown argument name " + argname);
 
-					string varExpr = null;
-					switch(fragments[j].token)
+					if(j + 1 < fragments.Length && fragments[j + 1].token == Tokenizer.Token.Dot)
 					{
-					case Tokenizer.Token.ArgVal:
-						// Replace $ARG with "image.values[" + argidx.ToString() + "]"
-						varExpr = "image.values[image.globalargindices[" + argidx.ToString() + "]]";
-						break;
-					case Tokenizer.Token.ArgStr:
-						// Replace @ARG with "image.strValues[" + argidx.ToString() + "]"
-						varExpr = "image.strValues[image.globalargindices[" + argidx.ToString() + "]]";
-						break;
-					case Tokenizer.Token.ArgIdx:
-						// Replace #ARG with "Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])"
-						varExpr = "Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
-						break;
+						if(j + 1 >= fragments.Length || fragments[j + 2].token != Tokenizer.Token.Var)
+							throw new Exception("Expected attribute after \"" + fragments[j].GetString(code) + ".\"");
+
+						string attribute = fragments[j + 2].GetString(code);
+						string varExpr = null;
+						if(attribute == "min")
+						{
+							switch(fragments[j].token)
+							{
+							case Tokenizer.Token.ArgVal:
+								varExpr = "Global.arguments[" + argidx.ToString() + "].values[0]";
+								break;
+							case Tokenizer.Token.ArgStr:
+								// Replace @ARG with "image.strValues[" + argidx.ToString() + "]"
+								varExpr = "Global.arguments[" + argidx.ToString() + "].strValues[0]";
+								break;
+							case Tokenizer.Token.ArgIdx:
+								varExpr = "0";
+								break;
+							}
+						}
+						else if(attribute == "max")
+						{
+							switch(fragments[j].token)
+							{
+							case Tokenizer.Token.ArgVal:
+								varExpr = "Global.arguments[" + argidx.ToString() + "].values[Global.arguments[" + argidx.ToString() + "].values.Length - 1]";
+								break;
+							case Tokenizer.Token.ArgStr:
+								// Replace @ARG with "image.strValues[" + argidx.ToString() + "]"
+								varExpr = "Global.arguments[" + argidx.ToString() + "].strValues[Global.arguments[" + argidx.ToString() + "].values.Length - 1]";
+								break;
+							case Tokenizer.Token.ArgIdx:
+								varExpr = "(Global.arguments[" + argidx.ToString() + "].values.Length - 1)";
+								break;
+							}
+						}
+						else
+							throw new Exception("Argument " + argname + " doesn't have attribute " + attribute);
+						
+						expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j + 2].endidx - exprOffset);
 					}
-					expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j].endidx - exprOffset);
+					else
+					{
+						string varExpr = null;
+						switch(fragments[j].token)
+						{
+						case Tokenizer.Token.ArgVal:
+						// Replace $ARG with "image.values[" + argidx.ToString() + "]"
+							varExpr = "image.values[image.globalargindices[" + argidx.ToString() + "]]";
+							break;
+						case Tokenizer.Token.ArgStr:
+						// Replace @ARG with "image.strValues[" + argidx.ToString() + "]"
+							varExpr = "image.strValues[image.globalargindices[" + argidx.ToString() + "]]";
+							break;
+						case Tokenizer.Token.ArgIdx:
+						// Replace #ARG with "Array.IndexOf(image.args[" + argidx.ToString() + "].values, image.values[" + argidx.ToString() + "])"
+							varExpr = "Array.IndexOf(Global.arguments[" + argidx.ToString() + "].values, image.values[image.globalargindices[" + argidx.ToString() + "]])";
+							break;
+						}
+						expr = expr.Substring(0, fragments[j].startidx - exprOffset) + varExpr + expr.Substring(fragments[j].endidx - exprOffset);
+					}
 
 					if(usedArgumentIndices != null)
 						usedArgumentIndices.Add(argidx);
@@ -289,7 +336,7 @@ namespace csharp_viewer
 			{
 				Invalid, Var, Num, Str, // Basic types
 				ArgVal, ArgStr, ArgIdx, TfId, // Specialized types
-				Add, Sub, Mul, Div, Mod, Eq, NEq, Gr, Sm, GrEq, SmEq, Asn, OBr, CBr, Cma, //Opcodes
+				Add, Sub, Mul, Div, Mod, Eq, NEq, Gr, Sm, GrEq, SmEq, Asn, OBr, CBr, Cma, Dot, //Opcodes
 				Where, From, By // Clauses
 			}
 			public static bool IsClause(Token token)
@@ -319,7 +366,8 @@ namespace csharp_viewer
 				OBr = Token.OBr, // (
 				CBr = Token.CBr, // )
 
-				Cma = Token.Cma // ,
+				Cma = Token.Cma, // ,
+				Dot = Token.Dot // .
 			}
 
 			public class Fragment
@@ -410,6 +458,9 @@ namespace csharp_viewer
 							break;
 						case ',':
 							fragment.token = Token.Cma;
+							break;
+						case '.':
+							fragment.token = Token.Dot;
 							break;
 						}
 						break;

@@ -80,6 +80,7 @@ namespace csharp_viewer
 		public virtual void OnArgumentsChanged() {}
 		public virtual void OnImageMouseDown(MouseButtons button, TransformedImage image, Vector2 uv, out bool allowDrag) { allowDrag = true; }
 		public virtual void OnImageMouseMove(MouseButtons button, TransformedImage image, Vector2 uv) {}
+		public virtual void SetTransformParameter(object tparam) {}
 
 		//[NonSerializedAttribute]
 		private AABB transformAabb = new AABB();

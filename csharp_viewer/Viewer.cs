@@ -1,5 +1,6 @@
 ﻿//#define USE_STD_IO
 #define EMBED_CONSOLE
+#define ENABLE_CONTINOUS_RENDERING
 
 using System;
 using System.Windows.Forms;
@@ -20,7 +21,7 @@ namespace csharp_viewer
 		public static decimal OPENGL_VERSION = -1;
 		public static string EXE_DIR = Path.GetDirectoryName(Application.ExecutablePath) + Path.DirectorySeparatorChar;
 
-		public static float time = 0.0f;
+		public static float time = 0.0f, realTime = 0.0f;
 		public static Cinema.CinemaArgument[] arguments = new Cinema.CinemaArgument[0]; // An array of descriptors for each dimension
 		public static Cinema.CinemaStore.Parameter[] parameters = new Cinema.CinemaStore.Parameter[0]; // An array of descriptors for each parameter
 
@@ -57,8 +58,6 @@ namespace csharp_viewer
 		//public static ImageBrowser browser = new MPASBrowser();
 		//public static ImageBrowser browser = new PhotoBrowser();
 
-		System.Diagnostics.Stopwatch timer;
-
 		private bool consoleVisible = true;
 		public bool ConsoleVisible
 		{
@@ -82,6 +81,25 @@ namespace csharp_viewer
 		//Dictionary<int[], TransformedImage> images = new Dictionary<int[], TransformedImage>(new IntArrayEqualityComparer()); // A hashmap of images accessed by an index array (consisting of one index per dimension)
 		public static TransformedImageCollection images = new TransformedImageCollection();
 		public static Mutex image_render_mutex = new Mutex();
+		#if ENABLE_CONTINOUS_RENDERING
+		public static EventWaitHandle frame_request_event = null;
+		#else
+		public static EventWaitHandle frame_request_event = new EventWaitHandle(true, EventResetMode.AutoReset);
+		#endif
+		public static bool requestRender = true;
+		public static void RequestInputProcessing()
+		{
+			if(frame_request_event != null)
+				frame_request_event.Set();
+		}
+		public static void RequestFrame()
+		{
+			if(frame_request_event != null)
+			{
+				requestRender = true;
+				frame_request_event.Set();
+			}
+		}
 		//HashSet<string> valueset = new HashSet<string>(); // A set of all value types appearing in the metadata of at least one image
 		Dictionary<string, HashSet<object>> valuerange = new Dictionary<string, HashSet<object>>(); // A set of all value types, containing a set of all possible values in the metadata all images
 
@@ -331,6 +349,7 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Create transform that only shows the image whose view angle most closly matches the cameras view angle", "look", this, "CreateTransformLookAt");
 			ActionManager.CreateAction("Create transform that only shows the image whose view angle most closly matches a view angle modified by dragging with the mouse", "sphere", this, "CreateTransformSphericalView");
 			ActionManager.CreateAction("Create skip transform", "skip", this, "CreateTransformSkip");
+			ActionManager.CreateAction("Create plot transform", "plot", this, "CreateTransformPlot");
 
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
 				image_render_mutex.WaitOne();
@@ -387,6 +406,36 @@ namespace csharp_viewer
 				}
 				return null;
 			});
+			ActionManager.CreateAction<string[], HashSet<int>, bool, IEnumerable<TransformedImage>>("Control the given argument with a slider", "slider", delegate(object[] parameters) {
+				string[] byExpr = (string[])parameters[0];
+				if(byExpr.Length != 1)
+					return "usage: slider SCOPE by VARIABLE";
+				HashSet<int> indices = (HashSet<int>)parameters[1];
+				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
+				//bool isTemporal = (bool)parameters[2];
+				//IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[3];
+
+				indices_enum.MoveNext();
+				int index = indices_enum.Current;
+
+				if(Global.arguments != null)
+				{
+					CustomControlContainer.Slider slider = imageCloud.CreateSlider(Global.arguments[index].label + " slider", Global.arguments[index].values);
+
+					string warnings = "";
+					ImageTransform transform = CompiledTransform.CompileSliderSkipTransform(byExpr[0], true, ref warnings);
+					if(ActionManager.activeCmdString != null)
+						transform.description = ActionManager.activeCmdString;
+					
+					slider.CustomControlValueChanged += (controlIdx, value) => {
+						transform.SetTransformParameter(value);
+					};
+
+					OnTransformationAdded(transform, images);
+					return warnings;
+				}
+				return null;
+			});
 
 			ActionManager.CreateAction<IEnumerable<TransformedImage>>("Spread images randomly", "rspread", delegate(object[] parameters) {
 				IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[0];
@@ -399,7 +448,7 @@ namespace csharp_viewer
 					Random rand = new Random();
 					image_render_mutex.WaitOne();
 					foreach(TransformedImage image in scope)
-						image.pos += new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)0.0f);
+						image.Position += new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)0.0f);
 					image_render_mutex.ReleaseMutex();
 
 					imageCloud.InvalidateOverallBounds();
@@ -423,7 +472,7 @@ namespace csharp_viewer
 					Random rand = new Random();
 					image_render_mutex.WaitOne();
 					foreach(TransformedImage image in scope)
-						image.pos += new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext);
+						image.Position += new Vector3((float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext, (float)rand.NextDouble() * ext - halfext);
 					image_render_mutex.ReleaseMutex();
 
 					imageCloud.InvalidateOverallBounds();
@@ -921,6 +970,7 @@ namespace csharp_viewer
 					cimg.strValues = imagestrvalues;
 					cimg.args = newargs;
 					cimg.globalargindices = newargindices;
+					cimg.metaFilename = image_dir + store.GetMetaPath(argidx);
 
 					foreach(Cinema.CinemaStore.LayerDescription layerdesc in store.iterateLayers(argidx))
 					{
@@ -929,6 +979,7 @@ namespace csharp_viewer
 							image_dir + layerdesc.imagepath,
 							layerdesc.imageDepthPath == null ? null : image_dir + layerdesc.imageDepthPath,
 							layerdesc.imageLumPath == null ? null : image_dir + layerdesc.imageLumPath,
+							cimg.FirstLayer == null ? cimg.metaFilename : null,
 							useOnlyFloatImages || layerdesc.isFloatImage
 						);
 						//layer.filename = filename + layerdesc.imagepath;
@@ -945,7 +996,7 @@ namespace csharp_viewer
 					if(cimg.activelayers.Count + cimg.inactivelayers.Count == 0)
 						throw new Exception();
 
-					//Cinema.ParseImageDescriptor(imagepath.Substring(0, imagepath.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
+					//Cinema.ParseImageDescriptor(cimg.FirstLayer.filename.Substring(0, cimg.FirstLayer.filename.Length - "png".Length) + "json", out cimg.meta, out cimg.invview);
 					cimg.invview = Matrix4.Identity;
 
 					cimg.key = argidx;
@@ -1332,7 +1383,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		}
 		private bool AddArgumentsToImage(TransformedImage image, GLTextureStream.ImageMetaData[] meta)
 		{
-			if(!image_render_mutex.WaitOne(500)) // Without this timeout image_render_mutex and addImageMutex can deadlock when this function is called during database unload
+			if(!image_render_mutex.WaitOne(3000)) // Without this timeout image_render_mutex and addImageMutex can deadlock when this function is called during database unload
 				return false;
 
 			Cinema.CinemaArgument[] newargs = new Cinema.CinemaArgument[image.args.Length + meta.Length];
@@ -1353,6 +1404,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 			int oldargslen = image.args.Length;
 			Array.Resize(ref image.args, image.args.Length + meta.Length);
+			Array.Resize(ref image.key, image.key.Length + meta.Length);
 			Array.Resize(ref image.values, image.values.Length + meta.Length);
 			Array.Resize(ref image.strValues, image.strValues.Length + meta.Length);
 
@@ -1362,6 +1414,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				if(globalargindices[i] >= oldargslen)
 				{
 					image.args[globalargindices[i]] = newargs[globalargindices[i]];
+					image.key[globalargindices[i]] = globalargindices[i];
 					float value = image.values[globalargindices[i]] = meta[globalargindices[i] - oldargslen].value;
 					string strValue = image.strValues[globalargindices[i]] = meta[globalargindices[i] - oldargslen].strValue;
 					if(Array.IndexOf<float>(arg.values, value) == -1)
@@ -1380,7 +1433,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			image.InvalidateLocation();
 
 			//try {
-				imageCloud.Load(new TransformedImage[0], valuerange, new Size(100, 100), image_pixel_format != null && image_pixel_format.Equals("I24"), depth_name_pattern != null);
+				imageCloud.Load(new TransformedImage[0], valuerange, new Size(100, 100), false, depth_name_pattern != null);
 			//} catch(Exception ex) {
 			//	MessageBox.Show(ex.Message, ex.TargetSite.ToString());
 			//	throw ex;
@@ -1569,7 +1622,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				return "usage: thetaPhi SCOPE by THETA, PHI, RADIUS";
 
 			string warnings = "";
-			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr[0], byExpr[1], byExpr[2], byExpr_isTemporal, ref warnings);
+			ImageTransform transform = CompiledTransform.CompilePolarTransform(byExpr[0], byExpr[1], byExpr[2], GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 			if( ActionManager.activeCmdString != null)
 				transform.description = ActionManager.activeCmdString;
 
@@ -1635,6 +1688,19 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			
 			string warnings = "";
 			ImageTransform transform = CompiledTransform.CompileSkipTransform(byExpr[0], byExpr_isTemporal, ref warnings);
+			if( ActionManager.activeCmdString != null)
+				transform.description = ActionManager.activeCmdString;
+
+			OnTransformationAdded(transform, images);
+			return warnings;
+		}
+		private string CreateTransformPlot(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		{
+			if(byExpr.Length != 3)
+				return "usage: plot SCOPE by X, Z, VALUE";
+
+			string warnings = "";
+			ImageTransform transform = CompiledTransform.CompilePlotTransform(byExpr[0], byExpr[1], byExpr[2], GetSkipImageExpr(byExpr_usedArgumentIndices), byExpr_isTemporal, ref warnings);
 			if( ActionManager.activeCmdString != null)
 				transform.description = ActionManager.activeCmdString;
 
@@ -1727,7 +1793,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			browser.OnLoad();
 
 			// Start timer
-			timer = new System.Diagnostics.Stopwatch();
+			System.Diagnostics.Stopwatch timer = new System.Diagnostics.Stopwatch();
 			timer.Start();
 
 			float averageDt = 0.0f;
@@ -1735,8 +1801,33 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			Size glImageCloud_Size = Size.Empty;
 			while(!form_closing)
 			{
-				if (image_render_mutex.WaitOne(1) == false)
-					continue;
+				if(frame_request_event == null)
+				{
+					// Continous rendering
+					if(image_render_mutex.WaitOne(1) == false) // Check render mutex (non-blocking)
+						continue; // Can't render at the moment
+				}
+				else
+				{
+					// Event triggered rendering
+
+					if(frame_request_event.WaitOne(1) == false) // Check frame request event (non-blocking)
+						continue; // No frame requested
+					while(image_render_mutex.WaitOne(1) == false) // While unable to render (non-blocking):
+						// Continue waiting for render mutex as long as the application doesn't shut down
+						if(form_closing)
+							break;
+
+					if(!requestRender) // If rendering wasn't requested
+					{
+						// Only process input events
+						InputDevices.Update();
+						imageCloud.ProcessInputEvents(false);
+						image_render_mutex.ReleaseMutex();
+						continue;
+					}
+					requestRender = false;
+				}
 
 				if(glImageCloud.Size != glImageCloud_Size)
 				{
@@ -1745,12 +1836,11 @@ foreach(ImageTransform transform in imageCloud.transforms)
 					imageCloud.OnSizeChanged(glImageCloud.Size);
 				}
 
-				InputDevices.Update();
-
-				float dt = (float)timer.Elapsed.TotalSeconds;
+				float realDt = (float)timer.Elapsed.TotalSeconds;
 				timer.Restart();
+				float dt = realDt;
 
-				//dt = Math.Min(0.1f, dt); // Avoid high dt during lags
+				//Global.dt = Math.Min(0.1f, Global.dt); // Avoid high dt during lags
 
 				if(dt < 1.0f)
 				{
@@ -1765,6 +1855,9 @@ foreach(ImageTransform transform in imageCloud.transforms)
 
 				actMgr.Update(ref dt);
 
+				InputDevices.Update();
+				imageCloud.ProcessInputEvents();
+
 				glImageCloud.Render(dt);
 
 				image_render_mutex.ReleaseMutex();
@@ -1774,6 +1867,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				actMgr.PostRender(glImageCloud, Global.cle as ScriptingConsole);
 
 				Global.time += dt;
+				Global.realTime += realDt;
 			}
 			renderThread_finished = true;
 		}
@@ -1854,7 +1948,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				this.ClientSize = new Size(1920, 1200);
 				this_SizeChanged(null, null);
 
-				actMgr.CaptureFrames(20.0);
+				actMgr.CaptureFrames(25.0);
 				break;
 			case Keys.X:
 				actMgr.Clear();

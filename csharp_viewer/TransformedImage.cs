@@ -14,8 +14,8 @@ namespace csharp_viewer
 		public class ImageLayer : GLTextureStream.ImageReference
 		{
 			public TransformedImage _image;
-			public ImageLayer(TransformedImage image, string filename, string depth_filename = null, string lum_filename = null, bool isFloatImage = false)
-				: base(filename, depth_filename, lum_filename, isFloatImage)
+			public ImageLayer(TransformedImage image, string filename, string depth_filename = null, string lum_filename = null, string meta_filename = null, bool isFloatImage = false)
+				: base(filename, depth_filename, lum_filename, meta_filename, isFloatImage)
 			{
 				this._image = image;
 			}
@@ -444,9 +444,35 @@ namespace csharp_viewer
 		//public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
 		public int[] key;
 
-		public bool selected = false;
-		public Vector3 pos, scl; //TODO: Make publicly readonly
-		public Quaternion rot; //TODO: Make publicly readonly
+		private bool selected = false;
+		public bool Selected
+		{
+			get {
+				return selected;
+			}
+			set {
+				if(selected != value)
+				{
+					selected = value;
+					Viewer.RequestFrame();
+				}
+			}
+		}
+		private Vector3 pos, scl; //TODO: Make publicly readonly
+		public Vector3 Position
+		{
+			get {
+				return pos;
+			}
+			set {
+				if(pos != value)
+				{
+					pos = value;
+					Viewer.RequestFrame();
+				}
+			}
+		}
+		private Quaternion rot; //TODO: Make publicly readonly
 		private Vector3 animatedPos = new Vector3(float.NaN);
 		public void skipPosAnimation() { animatedPos = pos; }
 		private bool locationInvalid = false;
@@ -491,7 +517,10 @@ namespace csharp_viewer
 
 		public void Update(float dt)
 		{
+			Vector3 oldAnimatedPos = animatedPos;
 			Common.AnimateTransition(ref animatedPos, pos, dt);
+			if(oldAnimatedPos != animatedPos)
+				Viewer.RequestFrame();
 		}
 
 		public void PrepareRender()
@@ -789,6 +818,8 @@ namespace csharp_viewer
 
 			// Update transform bounds
 			transform.OnAddTransform(key, this);
+
+			Viewer.RequestFrame();
 		}
 		public void RemoveTransform(ImageTransform transform)
 		{
@@ -802,6 +833,8 @@ namespace csharp_viewer
 					visible_static &= !t.SkipImage(key, this);
 
 			ComputeLocation();
+
+			Viewer.RequestFrame();
 		}
 		public void ClearTransforms()
 		{
@@ -811,11 +844,13 @@ namespace csharp_viewer
 			visible_static = visible_manual;
 
 			ComputeLocation();
+
+			Viewer.RequestFrame();
 		}
 
 		public void ComputeLocation()
 		{
-			locationInvalid = false;
+			//locationInvalid = false;
 			pos = Vector3.Zero;
 			rot = Quaternion.Identity;
 			scl = Vector3.One;
@@ -825,21 +860,39 @@ namespace csharp_viewer
 			for(int t = 0; t < transforms.Count - 1; ++t)
 			{
 				transforms[t].LocationTransform(key, this, out transformpos, ref rot, ref scl);
+				if(float.IsNaN(transformpos.X) || float.IsInfinity(transformpos.X))
+					transformpos.X = 0.0f;
+				if(float.IsNaN(transformpos.Y) || float.IsInfinity(transformpos.Y))
+					transformpos.Y = 0.0f;
+				if(float.IsNaN(transformpos.Z) || float.IsInfinity(transformpos.Z))
+					transformpos.Z = 0.0f;
+				//if(!float.IsNaN(transformpos.X) && !float.IsNaN(transformpos.Y) && !float.IsNaN(transformpos.Z) &&
+				//   !float.IsInfinity(transformpos.X) && !float.IsInfinity(transformpos.Y) && !float.IsInfinity(transformpos.Z))
 				pos += Vector3.TransformPosition(transformpos, transformmatrix);
 				//transformmatrix *= transforms[t].GetTransformBounds(this).GetTransform();
 			}
 			if(transforms.Count > 0)
 			{
 				transforms[transforms.Count - 1].LocationTransform(key, this, out transformpos, ref rot, ref scl);
+				if(float.IsNaN(transformpos.X) || float.IsInfinity(transformpos.X))
+					transformpos.X = 0.0f;
+				if(float.IsNaN(transformpos.Y) || float.IsInfinity(transformpos.Y))
+					transformpos.Y = 0.0f;
+				if(float.IsNaN(transformpos.Z) || float.IsInfinity(transformpos.Z))
+					transformpos.Z = 0.0f;
+				//if(!float.IsNaN(transformpos.X) && !float.IsNaN(transformpos.Y) && !float.IsNaN(transformpos.Z) &&
+				//   !float.IsInfinity(transformpos.X) && !float.IsInfinity(transformpos.Y) && !float.IsInfinity(transformpos.Z))
 				pos += Vector3.TransformPosition(transformpos, transformmatrix);
 			}
 
 			// Do not animate towards initial position
-			if(float.IsNaN(animatedPos.X))
+			if(float.IsNaN(animatedPos.X) || locationInvalid)
 				skipPosAnimation();
 
 			if(LocationChanged != null)
 				LocationChanged();
+
+			locationInvalid = false;
 		}
 
 		public AABB GetBounds()

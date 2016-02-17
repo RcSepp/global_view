@@ -5,6 +5,9 @@ using System.IO;
 
 using ExifLib;
 
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
 namespace csharp_viewer
 {
 	public static class ImageLoader
@@ -227,6 +230,37 @@ namespace csharp_viewer
 				return null;
 			}
 			//return (Bitmap)Bitmap.FromFile(filename);
+		}
+
+		public static void LoadJsonMeta(string filename, ref List<GLTextureStream.ImageMetaData> meta)
+		{
+			if(!File.Exists(filename))
+				return;
+
+			StreamReader sr = new StreamReader(new FileStream(filename, FileMode.Open, FileAccess.Read));
+			var json = JsonConvert.DeserializeObject<Dictionary<string, object>>(sr.ReadToEnd());
+			sr.Close();
+			if(json == null)
+				return;
+			
+			foreach(KeyValuePair<string, object> metaobj in json)
+			{
+				GLTextureStream.ImageMetaData m;
+				if(metaobj.Value is string)
+					m = new GLTextureStream.ImageMetaData(metaobj.Key, 0.0f, (string)metaobj.Value);
+				else if(metaobj.Value is Array)
+					continue; // Skip arrays
+				else
+				{
+					try {
+						float fValue = (float)(dynamic)metaobj.Value;
+						m = new GLTextureStream.ImageMetaData(metaobj.Key, fValue, metaobj.Value.ToString());
+					} catch {
+						continue;
+					}
+				}
+				meta.Add(m);
+			}
 		}
 	}
 

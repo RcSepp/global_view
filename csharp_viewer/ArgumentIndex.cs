@@ -207,8 +207,8 @@ namespace csharp_viewer
 			foreach(Cinema.CinemaArgument argument in arguments)
 			{
 				++argidx;
-				if(argument.values.Length <= 1)
-					continue;
+				/*if(argument.values.Length <= 1)
+					continue;*/
 
 				TrackBar newtrackbar = new TrackBar(argument, argidx, meshBorders, meshTick, meshSelection);
 				newtrackbar.label = argument.label;
@@ -332,10 +332,10 @@ selection.AddGroup(newConstraintGroup);*/
 		{
 			if(capturedTick.HasValue)
 			{
-				Rectangle bounds = new Rectangle(backbufferSize.Width - 330, 10, 300, 16);
+				//Rectangle bounds = new Rectangle(backbufferSize.Width - 330, 10, 300, 16);
 				int y = capturedTick.Value.Y;
 				Cinema.CinemaArgument argument = arguments[y];
-				int x = (int)Math.Round((float)(e.Location.X - bounds.X) * (float)(argument.values.Length + 1) / (float)bounds.Width) - 1;
+				int x = (int)Math.Round((float)(e.Location.X - Bounds.X) * (float)(argument.values.Length + 1) / (float)Bounds.Width) - 1;
 				if(x < 0)
 					x = 0;
 				else if(x >= argument.values.Length)

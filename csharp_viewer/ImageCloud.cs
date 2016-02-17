@@ -2,6 +2,7 @@
 //#define USE_GS_QUAD
 #define USE_ARG_IDX
 #define USE_PARAM_IDX
+#define USE_CUSTOM_CONTROLS
 
 using System;
 using System.Windows.Forms;
@@ -481,6 +482,8 @@ else // Pass != 0
 				viewfrustum.pfar.c = _viewprojmatrix.M34 - _viewprojmatrix.M33;
 				viewfrustum.pfar.d = _viewprojmatrix.M44 - _viewprojmatrix.M43;
 				viewfrustum.pfar.Normalize();
+
+				Viewer.RequestFrame();
 			}
 
 			public bool DoFrustumCulling(Matrix4 worldmatrix, Matrix4 scalingmatrix, Matrix4 rotationmatrix, Vector3 center, Vector3 radius)
@@ -534,6 +537,9 @@ else // Pass != 0
 		#if USE_PARAM_IDX
 			ParameterIndex paramIndex = new ParameterIndex();
 		#endif
+		#if USE_CUSTOM_CONTROLS
+		CustomControlContainer ccContainer = new CustomControlContainer();
+		#endif
 
 		GLTextureStream texstream;
 		CoordinateSystem coordsys;
@@ -544,6 +550,9 @@ else // Pass != 0
 			ContextMenu.Show(cm, glcontrol.PointToClient(Control.MousePosition), backbuffersize);
 		}
 		int fragmentcounter;
+
+		int framecounter = 0, fpstime = 0;
+		string fps = "";
 
 		// Options
 
@@ -581,6 +590,35 @@ else // Pass != 0
 #if USE_PARAM_IDX
 				paramIndex.Visible = value;
 #endif
+			}
+		}
+		public bool showCustomControlContainer
+		{
+			get
+			{
+				#if USE_CUSTOM_CONTROLS
+				return ccContainer.Visible;
+				#else
+				return false;
+				#endif
+			}
+			set
+			{
+				#if USE_CUSTOM_CONTROLS
+				ccContainer.Visible = value;
+				#endif
+			}
+		}
+		public bool showColormap
+		{
+			get
+			{
+				return colorTableMgr == null ? false : colorTableMgr.Visible;
+			}
+			set
+			{
+				if(colorTableMgr != null)
+					colorTableMgr.Visible = value;
 			}
 		}
 
@@ -647,6 +685,16 @@ else // Pass != 0
 			this.Controls.Add(paramIndex);
 			#endif
 
+			#if USE_CUSTOM_CONTROLS
+			ccContainer.Bounds = new Rectangle(250, 10, Width - 300, 16);
+			ccContainer.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+			ccContainer.Init();
+			/*ccContainer.CustomControlValueChanged += (int controlIdx, float value) => {
+				//EDIT
+			};*/
+			this.Controls.Add(ccContainer);
+			#endif
+
 			colorTableMgr = new ColorTableManager(glcontrol);
 			colorTableMgr.Visible = false;
 			this.Controls.Add(colorTableMgr);
@@ -657,6 +705,8 @@ else // Pass != 0
 			ContextMenu = new ImageContextMenu();
 
 			fragmentcounter = GL.GenQuery();
+
+//ccContainer.CreateSlider("testSlider", new float[] { 0.0f, 0.5f, 1.0f });
 		}
 
 		public void Load(IEnumerable<TransformedImage> newimages, Dictionary<string, HashSet<object>> valuerange, Size imageSize, bool floatimages = false, bool depthimages = false)
@@ -785,6 +835,9 @@ else // Pass != 0
 			#if USE_PARAM_IDX
 				paramIndex.Unload();
 			#endif
+			#if USE_CUSTOM_CONTROLS
+				ccContainer.Unload();
+			#endif
 		}
 
 		public void Free()
@@ -822,6 +875,15 @@ else // Pass != 0
 			texstream.RemoveImages(images);
 		}
 		public bool forceOriginalImageSize { get { return texstream.forceOriginalSize; } set { texstream.forceOriginalSize = value; } }
+
+		public CustomControlContainer.Slider CreateSlider(string label, float[] values)
+		{
+			#if USE_CUSTOM_CONTROLS
+			return ccContainer.CreateSlider(label, values);
+			#else
+			return null;
+			#endif
+		}
 
 		private void FocusAABB(AABB aabb, bool animate)
 		{
@@ -899,11 +961,11 @@ else // Pass != 0
 
 			// Unselect all images
 			foreach(TransformedImage image in images.Values)
-				image.selected = false;
+				image.Selected = false;
 
 			// Select images
 			foreach(TransformedImage selectedimage in selection)
-				selectedimage.selected = true;
+				selectedimage.Selected = true;
 
 			OnSelectionMoved();
 		}
@@ -940,20 +1002,37 @@ else // Pass != 0
 				colorTableMgr.OnSizeChanged(backbuffersize);
 		}
 
-		struct TransformedImageAndMatrix
-		{
-			public TransformedImage image;
-			public Matrix4 transform;
-
-			public TransformedImageAndMatrix(TransformedImage image, Matrix4 transform)
-			{
-				this.image = image;
-				this.transform = transform;
-			}
-		}
+		private System.Diagnostics.Stopwatch inputEventTimer = null;
+		private float inputEventAverageDt = 0.0f;
+		private int inputEventFrameCounter = 0;
 		private Point oldmousepos = Control.MousePosition;
-		protected override void Draw(float dt, Matrix4 _transform)
+		public void ProcessInputEvents(bool dtValid = true) // Should be called either once per frame or whenever a mouse or keyboard event is fired
 		{
+			if(inputEventTimer == null)
+			{
+				inputEventTimer = new System.Diagnostics.Stopwatch();
+				inputEventTimer.Start();
+				return;
+			}
+			float dt = (float)inputEventTimer.Elapsed.TotalSeconds;
+			//if(dt < 0.01f)
+			//	return; // Ignore events less than 0.01 seconds appart
+			inputEventTimer.Restart();
+
+			//Global.dt = Math.Min(0.1f, Global.dt); // Avoid high dt during lags
+
+			if(dt < 1.0f && dtValid)
+			{
+				inputEventAverageDt = dt + (float)inputEventFrameCounter * inputEventAverageDt;
+				inputEventAverageDt /= (float)++inputEventFrameCounter;
+			}
+			else
+			{
+				dt = inputEventAverageDt;
+				++inputEventFrameCounter;
+			}
+
+
 			if(overallAabb_invalid)
 			{
 				if(images != null)
@@ -987,7 +1066,7 @@ else // Pass != 0
 			{
 				bool viewChanged = false;
 				float mdx, mdy, mdz;
-				if(colorTableMgr != null && colorTableMgr.InsideMouseWheelArea(glcontrol.PointToClient(Control.MousePosition)))
+				if(colorTableMgr != null && colorTableMgr.Visible && colorTableMgr.InsideMouseWheelArea(glcontrol.PointToClient(Control.MousePosition)))
 					mdx = mdy = mdz = 0.0f;
 				else
 				{
@@ -1026,15 +1105,15 @@ else // Pass != 0
 				else
 				{
 					Vector3 freeViewTranslation = new Vector3((InputDevices.kbstate.IsKeyDown(Key.A) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.D) ? 1.0f : 0.0f),
-						                             (InputDevices.kbstate.IsKeyDown(Key.Space) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.LShift) ? 1.0f : 0.0f),
-						                             (InputDevices.kbstate.IsKeyDown(Key.W) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.S) ? 1.0f : 0.0f));
+						(InputDevices.kbstate.IsKeyDown(Key.Space) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.LShift) ? 1.0f : 0.0f),
+						(InputDevices.kbstate.IsKeyDown(Key.W) ? 1.0f : 0.0f) - (InputDevices.kbstate.IsKeyDown(Key.S) ? 1.0f : 0.0f));
 					freeViewTranslation.Z += mdz;
 					if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
 					{
 						freeview.Translate(Vector3.Multiply(freeViewTranslation, camera_speed * dt));
 						viewChanged = true;
 					}
-					if(dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) | InputDevices.mstate.IsButtonDown(MouseButton.Right)))
+					if(dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) | InputDevices.mstate.IsButtonDown(MouseButton.Right)) && (mdx != 0.0f || mdy != 0.0f))
 					{
 						if(viewControl == ViewControl.ViewCentric)
 							freeview.Rotate(new Vector2(0.01f * mdy, 0.01f * mdx));
@@ -1042,7 +1121,7 @@ else // Pass != 0
 						{
 							if(viewControl == ViewControl.CoordinateSystemCentric)
 								viewRotationCenter = selectionAabb != null ? (selectionAabb.min + selectionAabb.max) / 2.0f : Vector3.Zero;
-							
+
 							freeview.RotateAround(new Vector2(0.01f * mdy, 0.01f * mdx), viewRotationCenter);
 						}
 						viewChanged = true;
@@ -1055,8 +1134,35 @@ else // Pass != 0
 			}
 			else
 				freeview.Update(0.5f * camera_speed * dt);
+		}
 
-			maxdist = 1.0f;
+		struct TransformedImageAndMatrix
+		{
+			public TransformedImage image;
+			public Matrix4 transform;
+
+			public TransformedImageAndMatrix(TransformedImage image, Matrix4 transform)
+			{
+				this.image = image;
+				this.transform = transform;
+			}
+		}
+		protected override void Draw(float dt, Matrix4 _transform)
+		{
+			if(overallAabb_invalid)
+			{
+				if(images != null)
+				{
+					overallAabb_invalid = false;
+					overallAabb = new AABB();
+					foreach(TransformedImage image in images.Values)
+						overallAabb.Include(image.GetBounds());
+				}
+				else
+					overallAabb = new AABB(Vector3.Zero, Vector3.Zero);
+			}
+
+			float maxdist = 1.0f;
 			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.min.Y, overallAabb.min.Z) - freeview.viewpos).Length);
 			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.min.Y, overallAabb.max.Z) - freeview.viewpos).Length);
 			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.min.X, overallAabb.max.Y, overallAabb.min.Z) - freeview.viewpos).Length);
@@ -1065,7 +1171,8 @@ else // Pass != 0
 			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.min.Y, overallAabb.max.Z) - freeview.viewpos).Length);
 			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.max.Y, overallAabb.min.Z) - freeview.viewpos).Length);
 			maxdist = Math.Max(maxdist, (new Vector3(overallAabb.max.X, overallAabb.max.Y, overallAabb.max.Z) - freeview.viewpos).Length);
-			maxdist *= 1.1f;
+			//maxdist *= 1.1f;
+			maxdist *= 2.0f;
 			freeview.SetZRange(maxdist / 10000.0f, maxdist);
 
 			// >>> Render
@@ -1127,12 +1234,15 @@ else // Pass != 0
 					iter.PrefetchRenderPriority(freeview, invvieworient, backbuffersize);
 				Global.time = _time;
 
-				foreach(TransformedImage iter in Viewer.visible)
+				foreach(TransformedImage iter in Viewer.images)
 				{
 					// >>> Update image transforms
 
 					iter.Update(dt);
+				}
 
+				foreach(TransformedImage iter in Viewer.visible)
+				{
 					Matrix4 transform;
 					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out transform))
 					{
@@ -1148,16 +1258,10 @@ else // Pass != 0
 #else
 						// >>> Render visible images
 
-						if(depthRenderingEnabled_fade > 0.0 && iter.Value.HasDepthInfo)
-						{
-							sdr3D.Bind();
-							iter.Value.Render(mesh3D, sdr3D, depthRenderingEnabled_fade, freeview, transform);
-						}
+						if(depthRenderingEnabled_fade > 0.0 && iter.FirstLayer.HasDepthInfo)
+							iter.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr3D_assemble, invNumBackbufferPixels, depthRenderingEnabled_fade, freeview, transform, fragmentcounter);
 						else
-						{
-							sdr2D.Bind();
-							iter.Value.Render(mesh2D, sdr2D, 0.0f, freeview, transform);
-						}
+							iter.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assemble, invNumBackbufferPixels, 0.0f, freeview, iter.Selected ? transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : transform, fragmentcounter);
 #endif
 					}
 				}
@@ -1168,10 +1272,10 @@ else // Pass != 0
 				{
 					// >>> Render image
 
-					if(false)//if(depthRenderingEnabled_fade > 0.0 && iter.image.HasDepthInfo)
+					if(depthRenderingEnabled_fade > 0.0 && iter.image.FirstLayer.HasDepthInfo)
 						iter.image.Render(mesh3D, sdr3D_default, sdr3D_cm, sdr3D_assemble, invNumBackbufferPixels, depthRenderingEnabled_fade, freeview, iter.transform, fragmentcounter);
 					else
-						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assemble, invNumBackbufferPixels, 0.0f, freeview, iter.image.selected ? iter.transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : iter.transform, fragmentcounter);
+						iter.image.Render(mesh2D, sdr2D_default, sdr2D_cm, sdr2D_assemble, invNumBackbufferPixels, 0.0f, freeview, iter.image.Selected ? iter.transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.001f) : iter.transform, fragmentcounter);
 				}
 
 				// >>> Draw frame around selected images
@@ -1179,7 +1283,7 @@ else // Pass != 0
 				GL.LineWidth(2.5f);
 				Common.meshLineQuad.Bind(sdrAabb);
 				foreach(TransformedImageAndMatrix iter in renderlist)
-					if(iter.image.selected)
+					if(iter.image.Selected)
 					{
 						Matrix4 transform = Matrix4.CreateScale(0.5f, 0.5f, 1.0f) * iter.transform * Matrix4.CreateTranslation(0.0f, 0.0f, -0.002f);
 						sdrAabb.Bind(transform);
@@ -1200,7 +1304,7 @@ else // Pass != 0
 
 			GL.Disable(EnableCap.DepthTest);
 
-			//Common.fontText.DrawString(0.0f, 0.0f, camera_speed.ToString(), backbuffersize);
+			/*//Common.fontText.DrawString(0.0f, 0.0f, camera_speed.ToString(), backbuffersize);
 			//Common.fontText.DrawString(200.0f, 0.0f, freeview.zfar.ToString(), backbuffersize);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
@@ -1210,13 +1314,26 @@ else // Pass != 0
 				Common.fontText.DrawString(0.0f, 80.0f, GLTexture.allocatedTextureCounter.ToString(), backbuffersize);
 
 			if(texstream != null)
-				texstream.DrawDebugInfo(backbuffersize);
+				texstream.DrawDebugInfo(backbuffersize);*/
 
 			if(status_timer > 0.0f)
 			{
 				status_timer -= dt;
 				Common.fontText.DrawString(10.0f, backbuffersize.Height - 30.0f, status_str, backbuffersize);
 			}
+
+			++framecounter;
+			if((int)Global.realTime != fpstime)
+			{
+				if((int)Global.realTime - fpstime == 1)
+					fps = framecounter.ToString() + " FPS";
+				else
+					fps = "1/" + ((int)Global.realTime - fpstime).ToString() + " FPS";
+				fpstime = (int)Global.realTime;
+				framecounter = 0;
+			}
+			//Common.fontText.DrawString(10.0f, backbuffersize.Height - 60.0f, fps, backbuffersize);
+			//Common.fontText.DrawString(100.0f, backbuffersize.Height - 60.0f, inputEventFrameCounter.ToString(), backbuffersize);
 
 			if(colorTableMgr.Visible)
 				colorTableMgr.Draw(dt);
@@ -1253,7 +1370,7 @@ else // Pass != 0
 		private Plane dragImagePlane;
 		private Vector2 mouseDownPos;
 		private Point mouseDownLocation;
-		private bool mouseDownInsideImageCloud = false, mouseDownInsideArgIndex = false, mouseDownInsideParamIndex = false;
+		private bool mouseDownInsideImageCloud = false, mouseDownInsideArgIndex = false, mouseDownInsideParamIndex = false, mouseDownInsideCcContainer = false;
 		public void MouseDown(object sender, System.Windows.Forms.MouseEventArgs e)
 		{
 			if(!glcontrol.Focused)
@@ -1268,7 +1385,7 @@ else // Pass != 0
 				return;
 
 			#if USE_ARG_IDX
-			if(argIndex.MouseDown(Size, e))
+			if(argIndex.Visible && argIndex.MouseDown(Size, e))
 			{
 				mouseDownInsideArgIndex = true;
 				return;
@@ -1276,12 +1393,22 @@ else // Pass != 0
 			#endif
 
 			#if USE_PARAM_IDX
-			if(paramIndex.MouseDown(Size, e))
+			if(paramIndex.Visible && paramIndex.MouseDown(Size, e))
 			{
 				mouseDownInsideParamIndex = true;
 				return;
 			}
 			#endif
+
+			#if USE_CUSTOM_CONTROLS
+			if(ccContainer.Visible && ccContainer.MouseDown(Size, e))
+			{
+				mouseDownInsideCcContainer = true;
+				return;
+			}
+			#endif
+
+			Viewer.RequestInputProcessing();
 
 			if(images == null)
 				return;
@@ -1329,7 +1456,7 @@ else // Pass != 0
 				if(enableDrag)
 				{
 					dragImage = closest_image;
-					dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
+					dragImageOffset = closest_image.Position - (vnear + vdir * closest_dist);
 
 					// dragImagePlane = plane parallel to screen, going through point of intersection
 					Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
@@ -1352,15 +1479,23 @@ else // Pass != 0
 
 			#if USE_ARG_IDX
 			mouseDownInsideArgIndex = false;
-			if(argIndex.MouseUp(Size, e))
+			if(argIndex.Visible && argIndex.MouseUp(Size, e))
 				return;
 			#endif
 
 			#if USE_PARAM_IDX
 			mouseDownInsideParamIndex = false;
-			if(paramIndex.MouseUp(Size, e))
+			if(paramIndex.Visible && paramIndex.MouseUp(Size, e))
 				return;
 			#endif
+
+			#if USE_CUSTOM_CONTROLS
+			mouseDownInsideCcContainer = false;
+			if(ccContainer.Visible && ccContainer.MouseUp(Size, e))
+				return;
+			#endif
+
+			Viewer.RequestInputProcessing();
 
 			if(Math.Abs(mouseDownLocation.X - e.Location.X) + Math.Abs(mouseDownLocation.Y - e.Location.Y) < 2)
 			{
@@ -1380,7 +1515,7 @@ else // Pass != 0
 		{
 			foreach(TransformedImage image in images)
 			{
-				image.pos += deltapos;
+				image.Position += deltapos;
 				image.skipPosAnimation();
 			}
 			SelectionMoved();
@@ -1392,12 +1527,17 @@ else // Pass != 0
 				return;
 
 			#if USE_ARG_IDX
-			if(argIndex.MouseMove(Size, e) || mouseDownInsideArgIndex)
+			if(argIndex.Visible && argIndex.MouseMove(Size, e) || mouseDownInsideArgIndex)
 				return;
 			#endif
 
 			#if USE_PARAM_IDX
-			if(paramIndex.MouseMove(Size, e) || mouseDownInsideParamIndex)
+			if(paramIndex.Visible && paramIndex.MouseMove(Size, e) || mouseDownInsideParamIndex)
+				return;
+			#endif
+
+			#if USE_CUSTOM_CONTROLS
+			if(ccContainer.Visible && ccContainer.MouseMove(Size, e) || mouseDownInsideCcContainer)
 				return;
 			#endif
 
@@ -1411,6 +1551,8 @@ else // Pass != 0
 
 				return;
 			}
+
+			Viewer.RequestInputProcessing();
 
 			if(images == null)
 				return;
@@ -1447,7 +1589,7 @@ else // Pass != 0
 				// Set newpos to intersection of mouse ray and dragImagePlane
 				Vector3 newpos;
 				dragImagePlane.IntersectLine(vnear, vdir, out newpos);
-				Viewer.browser.OnImageDrag(dragImage, newpos - dragImage.pos + dragImageOffset);
+				Viewer.browser.OnImageDrag(dragImage, newpos - dragImage.Position + dragImageOffset);
 				//ActionManager.Do(MoveAction, newpos - dragImage.pos + dragImageOffset, selection);
 
 				InvalidateOverallBounds();
@@ -1533,6 +1675,8 @@ else // Pass != 0
 		}
 		public void DoubleClick(object sender, Point mousepos)
 		{
+			Viewer.RequestInputProcessing();
+
 			Matrix4 invvieworient = freeview.viewmatrix;
 			invvieworient.M41 = invvieworient.M42 = invvieworient.M43 = 0.0f;
 			invvieworient.Transpose();
@@ -1558,7 +1702,7 @@ else // Pass != 0
 			if(closest_dist < float.MaxValue)
 			{
 				dragImage = mouseDownImage = closest_image;
-				dragImageOffset = closest_image.pos - (vnear + vdir * closest_dist);
+				dragImageOffset = closest_image.Position - (vnear + vdir * closest_dist);
 
 				// dragImagePlane = plane parallel to screen, going through point of intersection
 				Vector3 vsnear = Vector3.TransformPerspective(new Vector3(0.0f, 0.0f, 0.0f), invviewprojmatrix);
@@ -1580,7 +1724,7 @@ else // Pass != 0
 				return;
 			}
 
-
+			Viewer.RequestInputProcessing();
 		}
 
 		public void KeyDown(object sender, KeyEventArgs e)
@@ -1618,6 +1762,8 @@ else // Pass != 0
 				saveAssembledImage = true;
 				break;
 			}
+
+			Viewer.RequestInputProcessing();
 		}
 
 		public Bitmap BackbufferToBitmap()
@@ -1672,9 +1818,9 @@ else // Pass != 0
 		{
 			float tanY = (float)Math.Tan(FOV_Y / 2.0f), tanX = tanY * aspectRatio;
 			Vector3 pos = Vector3.Transform(new Vector3(0.0f, 0.0f, -Math.Max(0.5f / tanY, 0.5f * image.FirstLayer.originalAspectRatio / tanX)), freeview.viewmatrix.Inverted());
-			image.pos = pos;
+			image.Position = pos;
 
-			if(image.selected)
+			if(image.Selected)
 				SelectionMoved();
 		}
 

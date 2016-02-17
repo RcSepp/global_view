@@ -578,41 +578,7 @@ namespace csharp_viewer
 				GL.Enable(EnableCap.ScissorTest);
 				GL.Scissor(Bounds.Left, BackbufferSize.Height - Bounds.Bottom, Bounds.Width + 1, Bounds.Height + 1);
 
-				if(colormapUpdateEnd >= colormapUpdateStart)
-				{
-					// Create colormap from sections
-					List<Section>.Enumerator sectionEnum = sections.GetEnumerator();
-					if(sectionEnum.MoveNext())
-					{
-						byte[] colormapBytes = colormapTexture.Lock();
-						for(int x = Math.Max(0, (int)Math.Floor(colormapUpdateStart * colormapTexture.width)), end = Math.Min(colormapTexture.width, (int)Math.Ceiling(colormapUpdateEnd * colormapTexture.width)); x < end; ++x)
-						{
-							float xr = ((float)x + 0.5f) / (float)colormapTexture.width;
-
-							//if(xr >= sectionEnum.Current.end.pos && !sectionEnum.MoveNext())
-							//break;
-							sectionEnum = sections.GetEnumerator();
-							sectionEnum.MoveNext();
-							while(xr < sectionEnum.Current.start.pos || xr >= sectionEnum.Current.end.pos)
-								if(!sectionEnum.MoveNext())
-									goto endColormapCreation;
-
-							xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
-							if(sectionEnum.Current.flipped)
-								xr = 1.0f - xr;
-							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 4 + 0], out colormapBytes[x * 4 + 1], out colormapBytes[x * 4 + 2], out colormapBytes[x * 4 + 3]);
-							//colormapBytes[x * 4 + 3] = (byte)(xr*xr * 255.0f);
-							//colormapBytes[x * 4 + 3] = (byte)(((float)colormapBytes[x * 4 + 0] + (float)colormapBytes[x * 4 + 1] + (float)colormapBytes[x * 4 + 2]) * 255.0f / 3.0f);//(byte)(xr * 255.0f);
-							//colormapBytes[x * 4 + 3] /= 2;
-						}
-						endColormapCreation:
-						colormapTexture.Unlock();
-					}
-
-					// Reset colormap update region
-					colormapUpdateStart = float.MaxValue;
-					colormapUpdateEnd = float.MinValue;
-				}
+				UpdateColormap();
 
 				Matrix4 trans;
 				trans = Matrix4.CreateScale(2.0f * Bounds.Width / BackbufferSize.Width, (2.0f * Bounds.Height * 0.1f - 4.0f) / BackbufferSize.Height, 1.0f);
@@ -663,6 +629,49 @@ namespace csharp_viewer
 				}
 
 				GL.Disable(EnableCap.ScissorTest);
+			}
+
+			public void UpdateColormap()
+			{
+				if(colormapUpdateEnd >= colormapUpdateStart)
+				{
+					// Create colormap from sections
+					List<Section>.Enumerator sectionEnum = sections.GetEnumerator();
+					if(sectionEnum.MoveNext())
+					{
+						byte[] colormapBytes = colormapTexture.Lock();
+						for(int x = Math.Max(0, (int)Math.Floor(colormapUpdateStart * colormapTexture.width)), end = Math.Min(colormapTexture.width, (int)Math.Ceiling(colormapUpdateEnd * colormapTexture.width)); x < end; ++x)
+						{
+							float xr = ((float)x + 0.5f) / (float)colormapTexture.width;
+
+							//if(xr >= sectionEnum.Current.end.pos && !sectionEnum.MoveNext())
+							//break;
+							sectionEnum = sections.GetEnumerator();
+							sectionEnum.MoveNext();
+							while(xr < sectionEnum.Current.start.pos || xr >= sectionEnum.Current.end.pos)
+								if(!sectionEnum.MoveNext())
+									goto endColormapCreation;
+
+							xr = (xr - sectionEnum.Current.start.pos) / (sectionEnum.Current.end.pos - sectionEnum.Current.start.pos);
+							if(sectionEnum.Current.flipped)
+								xr = 1.0f - xr;
+							sectionEnum.Current.colorMap.tex.Interpolate(xr, out colormapBytes[x * 4 + 0], out colormapBytes[x * 4 + 1], out colormapBytes[x * 4 + 2], out colormapBytes[x * 4 + 3]);
+							//colormapBytes[x * 4 + 3] = (byte)(xr*xr * 255.0f);
+							//colormapBytes[x * 4 + 3] = (byte)(((float)colormapBytes[x * 4 + 0] + (float)colormapBytes[x * 4 + 1] + (float)colormapBytes[x * 4 + 2]) * 255.0f / 3.0f);//(byte)(xr * 255.0f);
+							//colormapBytes[x * 4 + 3] /= 2;
+
+							colormapBytes[x * 4 + 0] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 0] / 255.0, 1.5));
+							colormapBytes[x * 4 + 1] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 1] / 255.0, 1.5));
+							colormapBytes[x * 4 + 2] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 2] / 255.0, 1.5));
+						}
+						endColormapCreation:
+						colormapTexture.Unlock();
+					}
+
+					// Reset colormap update region
+					colormapUpdateStart = float.MaxValue;
+					colormapUpdateEnd = float.MinValue;
+				}
 			}
 
 			private void drawSplitter(float pos, GLTexture2D tex) // pos = 0.0f ... 1.0f
@@ -1289,8 +1298,13 @@ namespace csharp_viewer
 			AddColormaps(ColorTableFromXml(Global.EXE_DIR + "ColorMaps.xml"));
 			//AddColormap(NamedColorTable.None);
 
+// Overwrite default //EDIT: DELETE
+colormaps.Remove("_default"); //EDIT: DELETE
+colormaps.Add("_default", colormaps["COOL/WARM"]); //EDIT: DELETE
+
 			ActionManager.Do(HideColormapPickerAction);
 			Reset();
+			input.UpdateColormap();
 
 			// Create buttons
 			buttons = new GLButton[5];

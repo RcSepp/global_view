@@ -17,6 +17,8 @@ namespace csharp_viewer
 		{
 			public float[] values;
 			public string[] strValues;
+			public string[] types;
+			public string depthValue, lumValue;
 
 			public void AddValue(float value, string strValue)
 			{
@@ -68,6 +70,7 @@ namespace csharp_viewer
 			public CinemaArgument[] args;
 			public int[] globalargindices;
 
+			public string metaFilename;
 			public Dictionary<string, object> meta;
 
 			public OpenTK.Matrix4 invview; // Required to recreate 3D pixel locations from depth image
@@ -130,10 +133,7 @@ namespace csharp_viewer
 				//public string label;
 				//public string[] values;
 				public string type;
-				public string[] types;
 				public bool[] isChecked;
-
-				public string depthValue, lumValue;
 
 				public override string ToString()
 				{
@@ -259,12 +259,6 @@ namespace csharp_viewer
 						parameter.isField = (string)argumentMeta.Value["isfield"] == "yes" ? true : false;
 						parameter.isLayer = (string)argumentMeta.Value["islayer"] == "yes" ? true : false;
 						parameter.type = (string)argumentMeta.Value["type"];
-						try { parameter.types = (string[])argumentMeta.Value["types"].ToObject<string[]>(); } catch {}
-						if(parameter.types != null && parameter.types.Length != carg.strValues.Length)
-						{
-							Global.cle.PrintOutput(string.Format("Error parsing info.json: Types field of argument '{0}' contains a different number of elements than values field (# values = {1}, # types = {2})", argumentMeta.Key, carg.strValues.Length, parameter.types.Length));
-							return null;
-						}
 						parameter.isChecked = new bool[parameter.strValues.Length];
 
 						if(type == "option")
@@ -285,27 +279,36 @@ namespace csharp_viewer
 						return null;
 					}
 
-					object[] values = argumentMeta.Value["values"].ToObject<object[]>();
-					if(parameter != null && parameter.types != null)
+					try { carg.types = (string[])argumentMeta.Value["types"].ToObject<string[]>(); } catch {}
+					if(carg.types != null && carg.types.Length != carg.strValues.Length)
 					{
-						int depthIdx = Array.IndexOf<string>(parameter.types, "depth");
+						Global.cle.PrintOutput(string.Format("Error parsing info.json: Types field of argument '{0}' contains a different number of elements than values field (# values = {1}, # types = {2})", argumentMeta.Key, carg.strValues.Length, carg.types.Length));
+						return null;
+					}
+
+					object[] values = argumentMeta.Value["values"].ToObject<object[]>();
+					if(carg.types != null)
+					{
+						int depthIdx = Array.IndexOf<string>(carg.types, "depth");
 						if(depthIdx != -1)
 						{
-							parameter.depthValue = parameter.strValues[depthIdx];
+							carg.depthValue = carg.strValues[depthIdx];
 							values = values.RemoveAt(depthIdx);
-							parameter.strValues = parameter.strValues.RemoveAt(depthIdx);
-							parameter.types = parameter.types.RemoveAt(depthIdx);
-							parameter.isChecked = parameter.isChecked.RemoveAt(depthIdx);
+							carg.strValues = carg.strValues.RemoveAt(depthIdx);
+							carg.types = carg.types.RemoveAt(depthIdx);
+							if(parameter != null)
+								parameter.isChecked = parameter.isChecked.RemoveAt(depthIdx);
 						}
 
-						int lumIdx = Array.IndexOf<string>(parameter.types, "luminance");
+						int lumIdx = Array.IndexOf<string>(carg.types, "luminance");
 						if(lumIdx != -1)
 						{
-							parameter.lumValue = parameter.strValues[lumIdx];
+							carg.lumValue = carg.strValues[lumIdx];
 							values = values.RemoveAt(lumIdx);
-							parameter.strValues = parameter.strValues.RemoveAt(lumIdx);
-							parameter.types = parameter.types.RemoveAt(lumIdx);
-							parameter.isChecked = parameter.isChecked.RemoveAt(lumIdx);
+							carg.strValues = carg.strValues.RemoveAt(lumIdx);
+							carg.types = carg.types.RemoveAt(lumIdx);
+							if(parameter != null)
+								parameter.isChecked = parameter.isChecked.RemoveAt(lumIdx);
 						}
 					}
 					object defaultValue = argumentMeta.Value["default"].ToObject<object>();
@@ -560,6 +563,11 @@ namespace csharp_viewer
 							string dependentArgumentStrValue = dependentArgument.strValues[argidx[dependentArgumentIndex]];
 							if(Array.IndexOf(dependency.Value, dependentArgumentStrValue) == -1)
 								return false;
+
+							if(dependentArgument.depthValue != null && Array.IndexOf(dependency.Value, dependentArgument.depthValue) == -1)
+								depthValid = false;
+							if(dependentArgument.lumValue != null && Array.IndexOf(dependency.Value, dependentArgument.lumValue) == -1)
+								lumValid = false;
 						}
 					}
 					return true;*/
@@ -592,6 +600,11 @@ namespace csharp_viewer
 							string dependentArgumentStrValue = dependentArgument.strValues[argidx[dependentArgumentIndex]];
 							if(Array.IndexOf(dependency.Value, dependentArgumentStrValue) == -1)
 								continue;
+
+							if(dependentArgument.depthValue != null && Array.IndexOf(dependency.Value, dependentArgument.depthValue) == -1)
+								depthValid = false;
+							if(dependentArgument.lumValue != null && Array.IndexOf(dependency.Value, dependentArgument.lumValue) == -1)
+								lumValid = false;
 						}
 
 						return true;
@@ -616,6 +629,14 @@ namespace csharp_viewer
 
 					// Up to this point depth-path == luminance-path == image-path
 					layer.imageDepthPath = layer.imageLumPath = layer.imagepath;
+
+					string depthExt = ext;
+					if(store.depthNamePattern != null)
+					{
+						layer.imageDepthPath = store.depthNamePattern;
+						depthExt = Path.GetExtension(layer.imageDepthPath);
+						layer.imageDepthPath = layer.imageDepthPath.Substring(0, layer.imageDepthPath.Length - ext.Length);
+					}
 
 					// Iterate dependent parameter combinations
 					int[] paramidx = new int[store.parameters.Length];
@@ -642,7 +663,7 @@ namespace csharp_viewer
 						}
 
 						// Append dependent parameters
-						bool hasDepth = false, hasLum = false;
+						bool hasDepth = store.depthNamePattern != null, hasLum = false;
 						_layer.isFloatImage = false;
 						int p = 0;
 						foreach(Parameter parameter in store.parameters)
@@ -701,35 +722,44 @@ namespace csharp_viewer
 						// Insert argument names
 						for(int i = 0; i < store.arguments.Length; ++i)
 						{
-							string argStr = "{" + store.arguments[i].name + "}";
+							CinemaArgument argument = store.arguments[i];
+							string argStr = "{" + argument.name + "}";
 
 							DependencyMap dependencyMap;
 							bool depthValid = true, lumValid = true;
-							if(store.associations.TryGetValue(store.arguments[i], out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid, out depthValid, out lumValid))
+							if(store.associations.TryGetValue(argument, out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid, out depthValid, out lumValid))
 							{
-								// Dependencies not satisfied for store.arguments[i]
+								// Dependencies not satisfied for argument
 								if(_layer.imagepath.Contains(argStr))
 								{
-									_layer.imagepath = _layer.imagepath.Replace(argStr, store.arguments[i].defaultStrValue);
-									_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, store.arguments[i].defaultStrValue);
-									_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, store.arguments[i].defaultStrValue);
+									_layer.imagepath = _layer.imagepath.Replace(argStr, argument.defaultStrValue);
+									_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, argument.defaultStrValue);
+									_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, argument.defaultStrValue);
 								}
 								continue;
 							}
 
 							if(_layer.imagepath.Contains(argStr))
 							{
-								_layer.imagepath = _layer.imagepath.Replace(argStr, store.arguments[i].strValues[argidx[i]]);
-								_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, depthValid ? store.arguments[i].strValues[argidx[i]] : store.arguments[i].defaultStrValue);
-								_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, lumValid ? store.arguments[i].strValues[argidx[i]] : store.arguments[i].defaultStrValue);
+								_layer.imagepath = _layer.imagepath.Replace(argStr, argument.strValues[argidx[i]]);
+								_layer.imageDepthPath = _layer.imageDepthPath.Replace(argStr, depthValid ? (argument.depthValue != null ? argument.depthValue : argument.strValues[argidx[i]]) : argument.defaultStrValue);
+								_layer.imageLumPath = _layer.imageLumPath.Replace(argStr, lumValid ? (argument.lumValue != null ? argument.lumValue : argument.strValues[argidx[i]]) : argument.defaultStrValue);
 							}
 							else
 							{
-								pathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
+								if(argument.types != null && argument.types[argidx[i]] == "value")
+									_layer.isFloatImage = true;
+								pathAdditions.Add(argument.name + "=" + argument.strValues[argidx[i]]);
+
+								if(argument.depthValue != null)
+									hasDepth = true;
 								if(depthValid)
-									depthPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
+									depthPathAdditions.Add(argument.name + "=" + (argument.depthValue != null ? argument.depthValue : argument.strValues[argidx[i]]));
+
+								if(argument.lumValue != null)
+									hasLum = true;
 								if(lumValid)
-									lumPathAdditions.Add(store.arguments[i].name + "=" + store.arguments[i].strValues[argidx[i]]);
+									lumPathAdditions.Add(argument.name + "=" + (argument.lumValue != null ? argument.lumValue : argument.strValues[argidx[i]]));
 							}
 						}
 
@@ -739,7 +769,7 @@ namespace csharp_viewer
 
 						// Assemble final paths (relative to Cinema database directory)
 						_layer.imagepath = _layer.imagepath + (pathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), pathAdditions) : "") + ext;
-						_layer.imageDepthPath = hasDepth ? _layer.imageDepthPath + (depthPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), depthPathAdditions) : "") + ".im" : null;
+						_layer.imageDepthPath = hasDepth ? _layer.imageDepthPath + (depthPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), depthPathAdditions) : "") + depthExt : null;
 						_layer.imageLumPath = hasLum ? _layer.imageLumPath + (lumPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), lumPathAdditions) : "") + ext : null;
 						_layer.paramidx = new int[paramidx.Length];
 						Array.Copy(paramidx, _layer.paramidx, paramidx.Length);
@@ -768,6 +798,55 @@ namespace csharp_viewer
 			public LayerCollection iterateLayers(int[] argidx)
 			{
 				return new LayerCollection(this, argidx);
+			}
+
+			public string GetMetaPath(int[] argidx)
+			{
+				// >>> Compute meta path
+
+				// Start with name pattern
+				string metapath = namePattern;
+
+				// Split path and extension
+				string ext = Path.GetExtension(metapath);
+				metapath = metapath.Substring(0, metapath.Length - ext.Length);
+
+				List<string> metaPathAdditions = new List<string>();
+
+				// Insert default values for parameters
+				int p = 0;
+				foreach(Parameter parameter in parameters)
+				{
+					if(metapath.Contains("{" + parameter.name + "}"))
+						metapath = metapath.Replace("{" + parameter.name + "}", parameter.defaultStrValue);
+					++p;
+				}
+
+				// Insert argument names
+				for(int i = 0; i < arguments.Length; ++i)
+				{
+					CinemaArgument argument = arguments[i];
+					string argStr = "{" + argument.name + "}";
+
+					/*DependencyMap dependencyMap;
+					if(associations.TryGetValue(argument, out dependencyMap) && !ValidateAssociation(dependencyMap, argidx, paramidx, paramvalid, out depthValid, out lumValid))
+					{
+						// Dependencies not satisfied for argument
+						if(metapath.Contains(argStr))
+							metapath = metapath.Replace(argStr, argument.defaultStrValue);
+						continue;
+					}*/
+
+					if(metapath.Contains(argStr))
+						metapath = metapath.Replace(argStr, argument.strValues[argidx[i]]);
+					else
+						metaPathAdditions.Add(argument.name + "=" + argument.strValues[argidx[i]]);
+				}
+
+				metaPathAdditions.Sort();
+
+				// Assemble final path (relative to Cinema database directory)
+				return metapath + (metaPathAdditions.Count != 0 ? Path.DirectorySeparatorChar + string.Join(new string(Path.DirectorySeparatorChar, 1), metaPathAdditions) : "") + ".json";
 			}
 
 			public float[] GetImageValues(int[] argidx)

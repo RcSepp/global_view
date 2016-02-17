@@ -1,1 +1,2 @@
-/Users/sklaassen/Desktop/ffmpeg/ffmpeg -i frames/frame%05d.png -c:v libx264 -vf fps=20 -pix_fmt yuv420p movie.mp4
+#/Users/sklaassen/Desktop/ffmpeg/ffmpeg -start_number 200 -i frames/frame%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p movie.mp4
+/Users/sklaassen/Desktop/ffmpeg/ffmpeg -i frames/frame%05d.png -c:v libx264 -vf fps=25 -pix_fmt yuv420p movie.mp4

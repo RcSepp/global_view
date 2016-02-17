@@ -20,7 +20,7 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
     <ConsolePause>False</ConsolePause>
-    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/eddy2/RV_15km_18_10_3_1_2048x2048/info.json</Commandlineparameters>
+    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/mpas2</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
     <Optimize>True</Optimize>
@@ -30,7 +30,7 @@
     <ConsolePause>False</ConsolePause>
     <PlatformTarget>x64</PlatformTarget>
     <DebugType>none</DebugType>
-    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/eddy2/RV_15km_18_10_3_1_2048x2048/info.json</Commandlineparameters>
+    <Commandlineparameters>/Users/sklaassen/Desktop/work/db/mpas2</Commandlineparameters>
   </PropertyGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>
@@ -48,9 +48,6 @@
     <Compile Include="GLFont.cs" />
     <Compile Include="InputDevices.cs" />
     <Compile Include="Common.cs" />
-    <Compile Include="TransformedImage.cs">
-      <DependentUpon>Common.cs</DependentUpon>
-    </Compile>
     <Compile Include="Selection.cs" />
     <Compile Include="GLTextureStream.cs" />
     <Compile Include="GLTexture2D.cs" />
@@ -63,6 +60,8 @@
     <Compile Include="ScriptingConsole.cs" />
     <Compile Include="Console.cs" />
     <Compile Include="StdConsole.cs" />
+    <Compile Include="TransformedImage.cs">
+    </Compile>
     <Compile Include="GLControls.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -73,6 +72,7 @@
     <Compile Include="LineGrid.cs" />
     <Compile Include="ImageLoader.cs" />
     <Compile Include="ParameterIndex.cs" />
+    <Compile Include="CustomControlContainer.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />

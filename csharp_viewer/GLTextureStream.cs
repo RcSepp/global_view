@@ -43,13 +43,14 @@ namespace csharp_viewer
 			public virtual void OnTextureUnloaded() {}
 			public virtual void OnOrignalDimensionsUpdated() {}
 
-			public readonly string filename, depth_filename, lum_filename;
+			public readonly string filename, depth_filename, lum_filename, meta_filename;
 			public readonly bool isFloatImage;
-			public ImageReference(string filename, string depth_filename = null, string lum_filename = null, bool isFloatImage = false)
+			public ImageReference(string filename, string depth_filename = null, string lum_filename = null, string meta_filename = null, bool isFloatImage = false)
 			{
 				this.filename = filename;
 				this.depth_filename = depth_filename;
 				this.lum_filename = lum_filename;
+				this.meta_filename = meta_filename;
 				this.isFloatImage = isFloatImage;
 			}
 
@@ -153,13 +154,14 @@ namespace csharp_viewer
 
 			public class Image : IComparable<Image> //EDIT: Make private
 			{
-				public readonly string filename, depth_filename, lum_filename;
+				public readonly string filename, depth_filename, lum_filename, meta_filename;
 				public readonly bool isFloatImage;
-				public Image(string filename, string depth_filename = null, string lum_filename = null, bool isFloatImage = false)
+				public Image(string filename, string depth_filename = null, string lum_filename = null, string meta_filename = null, bool isFloatImage = false)
 				{
 					this.filename = filename;
 					this.depth_filename = depth_filename;
 					this.lum_filename = lum_filename;
+					this.meta_filename = meta_filename;
 					this.isFloatImage = isFloatImage;
 
 					#if ENABLE_SIZE_PRIORISATION
@@ -528,6 +530,8 @@ namespace csharp_viewer
 								if(lum_filename != null)
 									bmp_lum.Downscale(width, height, System.Drawing.Drawing2D.InterpolationMode.Bilinear);
 
+								Viewer.RequestFrame();
+
 								renderMutex.ReleaseMutex();
 
 								#if ENABLE_SIZE_PRIORISATION
@@ -559,6 +563,9 @@ namespace csharp_viewer
 							texIsStatic = true;
 							return memory = 0;
 						}
+
+						if(meta_filename != null)
+							ImageLoader.LoadJsonMeta(meta_filename, ref meta);
 
 						if(meta.Count != 0)
 						{
@@ -727,6 +734,8 @@ namespace csharp_viewer
 						foreach(ImageReference reference in references)
 							reference.OnOrignalDimensionsUpdated();
 
+					Viewer.RequestFrame();
+
 					renderMutex.ReleaseMutex();
 
 					#if ENABLE_SIZE_PRIORISATION
@@ -850,7 +859,7 @@ namespace csharp_viewer
 					string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
 					if(!imageMap.TryGetValue(key, out image))
 					{
-						image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+						image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.meta_filename, layer.isFloatImage);
 						imageMap.Add(key, image);
 						prioritySortedImages.Add(image);
 					}
@@ -861,7 +870,7 @@ namespace csharp_viewer
 					string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
 					if(!imageMap.TryGetValue(key, out image))
 					{
-						image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+						image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.meta_filename, layer.isFloatImage);
 						imageMap.Add(key, image);
 						prioritySortedImages.Add(image);
 					}
@@ -880,7 +889,7 @@ namespace csharp_viewer
 						string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
 						if(!imageMap.TryGetValue(key, out image))
 						{
-							image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+							image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.meta_filename, layer.isFloatImage);
 							imageMap.Add(key, image);
 							prioritySortedImages.Add(image);
 						}
@@ -891,7 +900,7 @@ namespace csharp_viewer
 						string key = string.Format("{0}|{1}|{2}", layer.filename, layer.depth_filename != null ? layer.depth_filename : "", layer.lum_filename != null ? layer.lum_filename : "");
 						if(!imageMap.TryGetValue(key, out image))
 						{
-							image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.isFloatImage);
+							image = new Image(layer.filename, layer.depth_filename, layer.lum_filename, layer.meta_filename, layer.isFloatImage);
 							imageMap.Add(key, image);
 							prioritySortedImages.Add(image);
 						}

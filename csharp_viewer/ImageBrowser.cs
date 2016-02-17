@@ -28,7 +28,7 @@ namespace csharp_viewer
 		// Options
 		protected enum Option
 		{
-			BackColor, ViewControl, ViewRotationCenter, ShowCoordinateSystem, ShowLineGrid, ShowArgumentIndex, ShowParameterIndex, ShowConsole, EnableMouseRect, FullScreen, ForceOriginalImageSize
+			BackColor, ViewControl, ViewRotationCenter, ShowCoordinateSystem, ShowLineGrid, ShowArgumentIndex, ShowParameterIndex, ShowColormap, ShowConsole, EnableMouseRect, FullScreen, ForceOriginalImageSize
 		}
 		protected void SetOption(Option option, object value)
 		{
@@ -55,6 +55,9 @@ namespace csharp_viewer
 				break;
 			case Option.ShowParameterIndex:
 				imageCloud.showParameterIndex = (bool)value;
+				break;
+			case Option.ShowColormap:
+				imageCloud.showColormap = (bool)value;
 				break;
 			case Option.ShowConsole:
 				viewer.ConsoleVisible = (bool)value;
@@ -173,10 +176,10 @@ namespace csharp_viewer
 			bool selectionmoved = false;
 			foreach(TransformedImage image in images)
 			{
-				image.pos += deltapos;
+				image.Position += deltapos;
 				image.skipPosAnimation();
 
-				if(image.selected)
+				if(image.Selected)
 					selectionmoved = true;
 			}
 			if(selectionmoved)
@@ -188,10 +191,10 @@ namespace csharp_viewer
 		}
 		private void DoMoveImage(TransformedImage image, Vector3 deltapos)
 		{
-			image.pos += deltapos;
+			image.Position += deltapos;
 			image.skipPosAnimation();
 
-			if(image.selected)
+			if(image.Selected)
 				SelectionMoved();
 		}
 		public void MoveSelection(Vector3 deltapos)
@@ -202,7 +205,7 @@ namespace csharp_viewer
 		{
 			foreach(TransformedImage image in Viewer.selection)
 			{
-				image.pos += deltapos;
+				image.Position += deltapos;
 				image.skipPosAnimation();
 			}
 			SelectionMoved();
@@ -301,11 +304,13 @@ namespace csharp_viewer
 		Color4 bgcolor = Color4.DarkSlateGray;
 		public override void OnLoad()
 		{
-			//SetOption(Option.BackColor, new Color4(102, 101, 96, 255));
-			SetOption(Option.BackColor, bgcolor);
+			SetOption(Option.BackColor, new Color4(102, 101, 96, 255));
+			//SetOption(Option.BackColor, bgcolor);
 			//SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			//SetOption(Option.ShowCoordinateSystem, false);
 			//SetOption(Option.ShowLineGrid, false);
+			SetOption(Option.ShowColormap, false);
+			SetOption(Option.ShowArgumentIndex, false);
 
 			//SetOption(Option.ForceOriginalImageSize, true);
 
@@ -415,7 +420,7 @@ namespace csharp_viewer
 		{
 			enableDrag = false;
 
-			if(button != MouseButtons.Left || image.selected == true)
+			if(button != MouseButtons.Left || image.Selected == true)
 				return;
 
 			int timeidx = Array.IndexOf(image.args[0].values, image.values[0]);

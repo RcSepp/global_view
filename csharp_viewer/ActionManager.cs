@@ -157,7 +157,10 @@ namespace csharp_viewer
 					bmp = bmpGL;
 
 				if(screenshot_filename != null)
+				{
 					bmp.Save(screenshot_filename);
+					screenshot_filename = null;
+				}
 				if(playing && playing_captureframes)
 				{
 					string framestr = playback_framecounter.ToString();

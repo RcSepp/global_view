@@ -51,7 +51,7 @@ namespace csharp_viewer
 
 			pos = new Vector3(x * 2.1f, y[(imagekey[idx[0]] + arguments[idx[0]].values.Length * imagekey[idx[1]]) % 1024], z * 2.1f);
 		}
-		/*public override void RenderImage(int[] imagekey, TransformedImage image, ImageCloud.FreeView freeview)
+		public override void RenderImage(int[] imagekey, TransformedImage image, ImageCloud.FreeView freeview)
 		{
 			float x = (float)imagekey[idx[0]];
 			float z = (float)imagekey[idx[1]];
@@ -61,7 +61,7 @@ namespace csharp_viewer
 			Common.sdrSolidColor.Bind(worldmatrix * freeview.viewprojmatrix);
 			meshValueLine.Bind(Common.sdrSolidColor, null);
 			meshValueLine.Draw();
-		}*/
+		}
 	}
 }
 

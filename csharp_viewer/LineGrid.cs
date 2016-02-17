@@ -212,8 +212,8 @@ namespace csharp_viewer
 					opacity += (float)Math.Pow(lbldist / LABEL_CAM_DISTANCE, LABEL_CAM_DISTANCE_FADE);
 
 					Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f - opacity);
-					Vector3 offset = (freeview.viewpos - lblpos).Normalized() * 1.0f;
-					Common.fontText2.DrawStringAt(lblpos + offset, viewprojmatrix, ((decimal)t * (decimal)axis_dist[d]).ToString(), backbuffersize, clr);
+					//Vector3 offset = (freeview.viewpos - lblpos).Normalized() * 1.0f;
+					Common.fontText2.DrawStringAt(lblpos /*+ offset*/, viewprojmatrix, ((decimal)t * (decimal)axis_dist[d]).ToString(), backbuffersize, clr);
 				}
 				for(int t = floor_viewpos[d] - LABEL_CAM_DISTANCE; t < floor_viewpos[d]; ++t)
 				{
@@ -229,8 +229,8 @@ namespace csharp_viewer
 					opacity += (float)Math.Pow(lbldist / LABEL_CAM_DISTANCE, LABEL_CAM_DISTANCE_FADE);
 
 					Color4 clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f - opacity);
-					Vector3 offset = (freeview.viewpos - lblpos).Normalized() * 1.0f;
-					Common.fontText2.DrawStringAt(lblpos + offset, viewprojmatrix, ((decimal)t * (decimal)axis_dist[d]).ToString(), backbuffersize, clr);
+					//Vector3 offset = (freeview.viewpos - lblpos).Normalized() * 1.0f;
+					Common.fontText2.DrawStringAt(lblpos /*+ offset*/, viewprojmatrix, ((decimal)t * (decimal)axis_dist[d]).ToString(), backbuffersize, clr);
 				}
 			}
 
