@@ -114,7 +114,7 @@ namespace csharp_viewer
 		public const string FS = @"
 			varying vec2 uv;
 			uniform sampler2D Texture, Texture2;
-			uniform vec4 Color;
+			uniform vec4 ColorMul, ColorAdd;
 			uniform int HasTexture, HasLuminance;
 			varying float alpha;
 
@@ -125,7 +125,7 @@ namespace csharp_viewer
 				if(HasTexture != 0)
 				{
 					vec3 lum = HasLuminance != 0 ? texture2D(Texture2, uv).rgb : vec3(1.0, 1.0, 1.0);
-					gl_FragColor = Color * shade(Texture, uv) * vec4(lum, alpha);
+					gl_FragColor = (ColorMul * shade(Texture, uv) + ColorAdd) * vec4(lum, alpha);
 				}
 				else
 					gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
@@ -283,22 +283,24 @@ else // Pass != 0
 
 		public class RenderShader : GLShader
 		{
-			int colorParam, hastex, haslum, depthScale, imageViewInv;
+			int clrmul, clradd, hastex, haslum, depthScale, imageViewInv;
 
 			public RenderShader(string[] vs, string[] fs, string[] gs = null)
 				: base (vs, fs, gs)
 			{
-				colorParam = GetUniformLocation("Color");
+				clrmul = GetUniformLocation("ColorMul");
+				clradd = GetUniformLocation("ColorAdd");
 				hastex = GetUniformLocation("HasTexture");
 				haslum = GetUniformLocation("HasLuminance");
 				depthScale = GetUniformLocation("DepthScale");
 				imageViewInv = GetUniformLocation("ImageViewInv");
 			}
 
-			public void Bind(Matrix4 transform, Color4 clr, bool texloaded, bool haslum, float depthscale = 0.0f, Matrix4 invview = default(Matrix4))
+			public void Bind(Matrix4 transform, Color4 clrmul, Color4 clradd, bool texloaded, bool haslum, float depthscale = 0.0f, Matrix4 invview = default(Matrix4))
 			{
 				Bind(transform);
-				GL.Uniform4(colorParam, clr);
+				GL.Uniform4(this.clrmul, clrmul);
+				GL.Uniform4(this.clradd, clradd);
 				GL.Uniform1(hastex, texloaded ? (int)1 : (int)0);
 				GL.Uniform1(this.haslum, haslum ? (int)1 : (int)0);
 				if(imageViewInv != -1)
@@ -805,8 +807,8 @@ else // Pass != 0
 			// Enable depth rendering by default whenever a new scene is loaded
 			depthRenderingEnabled = true;
 			depthRenderingEnabled_fade = 1.0f;
-//depthRenderingEnabled = false;
-//depthRenderingEnabled_fade = 0.0f;
+depthRenderingEnabled = false;
+depthRenderingEnabled_fade = 0.0f;
 		}
 
 		public void Unload()
@@ -1291,6 +1293,13 @@ else // Pass != 0
 					}
 				GL.LineWidth(1.0f);
 #endif
+			}
+
+			foreach(ImageTransform transform in transforms)
+			{
+				// >>> Reset transform triggers
+
+				transform.locationTransformTriggered = transform.skipImageTriggered = transform.colorTransformTriggered = false;
 			}
 
 			if(showLineGrid)

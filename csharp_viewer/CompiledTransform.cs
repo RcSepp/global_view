@@ -113,7 +113,7 @@ namespace csharp_viewer
 		public SkipTransform()
 		{{
 			locationTransformInterval = UpdateInterval.Never;
-			SkipImageInterval = UpdateInterval.{1};
+			skipImageInterval = UpdateInterval.{1};
 		}}
 
 		public override bool SkipImage(int[] imagekey, TransformedImage image)
@@ -143,8 +143,7 @@ namespace csharp_viewer
 		
 		public SliderSkipTransform()
 		{{
-			locationTransformInterval = UpdateInterval.Never;
-			SkipImageInterval = UpdateInterval.{1};
+			skipImageInterval = UpdateInterval.{1};
 		}}
 
 		public override bool SkipImage(int[] imagekey, TransformedImage image)
@@ -156,11 +155,51 @@ namespace csharp_viewer
 		{{
 			currentValue = (float)tparam;
 			//System.Console.WriteLine(currentValue.ToString());
+			skipImageTriggered = true;
 		}}
 	}}
-}}", skip, useTime ? "Temporal" : "Static");
+}}", skip, useTime ? "Temporal" : "Triggered");
 
 			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "SliderSkipTransform", ref warnings);
+		}
+
+		public static ImageTransform CompileSliderAlphaTransform(string skip, bool useTime, ref string warnings)
+		{
+			string source = string.Format(@"
+using System;
+using System.Collections;
+using System.Collections.Generic;
+
+using OpenTK;
+using OpenTK.Graphics;
+
+namespace csharp_viewer
+{{
+	public class SliderAlphaTransform : ImageTransform
+	{{
+		private float currentValue = 0.0f;
+		
+		public SliderAlphaTransform()
+		{{
+			colorTransformInterval = UpdateInterval.{1};
+		}}
+
+		public override void ColorTransform(int[] imagekey, TransformedImage image, out Color4 mul, out Color4 add)
+		{{
+			mul = new Color4(1.0f, 1.0f, 1.0f, ((float){0} == currentValue) ? 1.0f : 0.2f);
+			add = new Color4(0.0f, 0.0f, 0.0f, 0.0f);
+		}}
+		
+		public override void SetTransformParameter(object tparam)
+		{{
+			currentValue = (float)tparam;
+			//System.Console.WriteLine(currentValue.ToString());
+			colorTransformTriggered = true;
+		}}
+	}}
+}}", skip, useTime ? "Temporal" : "Triggered");
+
+			return (ImageTransform)ISQL.Compiler.CompileCSharpClass(source, "csharp_viewer", "SliderAlphaTransform", ref warnings);
 		}
 
 		public static ImageTransform CompilePlotTransform(string xExpr, string zExpr, string valueExpr, string skip, bool useTime, ref string warnings)
@@ -206,10 +245,6 @@ namespace csharp_viewer
 		
 		public override void OnRender(float dt, ImageCloud.FreeView freeview)
 		{{
-			//Common.sdrSolidColor.Bind(freeview.viewprojmatrix);
-			//Common.meshLineCube.Bind(Common.sdrSolidColor, null);
-			//Common.meshLineCube.Draw();
-
 			if(meshValueLine == null)
 			{{
 				Vector3[] positions = new Vector3[] {{
@@ -219,9 +254,6 @@ namespace csharp_viewer
 				}};
 				meshValueLine = new GLMesh(positions, null, null, null, null, null, OpenTK.Graphics.OpenGL.PrimitiveType.Lines);
 			}}
-
-			//meshValueLine.Bind(Common.sdrSolidColor, null);
-			//meshValueLine.Draw();
 		}}
 		
 		public override void RenderImage(int[] imagekey, TransformedImage image, ImageCloud.FreeView freeview)
@@ -259,7 +291,7 @@ namespace csharp_viewer
 	{{
 		public LookAtTransform()
 		{{
-			SkipImageInterval = UpdateInterval.{3};
+			skipImageInterval = UpdateInterval.{3};
 		}}
 
 		public override void OnArgumentsChanged()
@@ -385,7 +417,7 @@ namespace csharp_viewer
 	{{
 		public SphericalViewTransform()
 		{{
-			SkipImageInterval = UpdateInterval.{3};
+			skipImageInterval = UpdateInterval.{3};
 
 			rotateViewAction = ActionManager.CreateAction<Id, float, float>(""Rotate view of spherical view transform"", ""RotateView_"" + Guid.NewGuid().ToString(), delegate(object[] parameters) {{
 				dynamic transform = GetTransformById((Id)parameters[0]);

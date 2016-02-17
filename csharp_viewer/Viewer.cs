@@ -292,6 +292,7 @@ namespace csharp_viewer
 					if(transform.id == transformId)
 					{
 						imageCloud.RemoveTransform(transform);
+						transform.Dispose();
 						image_render_mutex.ReleaseMutex();
 						return null;
 					}
@@ -412,7 +413,7 @@ namespace csharp_viewer
 					return "usage: slider SCOPE by VARIABLE";
 				HashSet<int> indices = (HashSet<int>)parameters[1];
 				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
-				//bool isTemporal = (bool)parameters[2];
+				bool isTemporal = (bool)parameters[2];
 				//IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[3];
 
 				indices_enum.MoveNext();
@@ -423,7 +424,7 @@ namespace csharp_viewer
 					CustomControlContainer.Slider slider = imageCloud.CreateSlider(Global.arguments[index].label + " slider", Global.arguments[index].values);
 
 					string warnings = "";
-					ImageTransform transform = CompiledTransform.CompileSliderSkipTransform(byExpr[0], true, ref warnings);
+					ImageTransform transform = CompiledTransform.CompileSliderAlphaTransform(byExpr[0], isTemporal, ref warnings);
 					if(ActionManager.activeCmdString != null)
 						transform.description = ActionManager.activeCmdString;
 					
@@ -1551,17 +1552,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			CallSelectionChangedHandlers();
 		}
 
-		private void dimMapper_TransformRemoved(ImageTransform transform)
-		{
-			imageCloud.RemoveTransform(transform);
-
-			foreach(TransformedImage selectedimage in selection)
-				selectedimage.RemoveTransform(transform);
-
-			// Update selection (bounds may have changed due to removed transform)
-			CallSelectionChangedHandlers();
-		}
-
 		public static string GetSkipImageExpr(HashSet<int> byExpr_usedArgumentIndices)
 		{
 			string skipImageExpr = "";
@@ -1718,6 +1708,9 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				image.ClearTransforms();
 				image.skipPosAnimation();
 			}
+
+			foreach(ImageTransform transform in imageCloud.transforms)
+				transform.Dispose();
 			image_render_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to removed transforms)

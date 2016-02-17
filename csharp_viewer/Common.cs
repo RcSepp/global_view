@@ -253,6 +253,21 @@ namespace csharp_viewer
 			vfrom.Z = -vfrom.Z;
 			return Matrix4.CreateFromAxisAngle(vcross, (float)Math.Acos(Vector3.Dot(vfrom, vto)));
 		}
+
+		public static void Color4_Mul(ref OpenTK.Graphics.Color4 src, OpenTK.Graphics.Color4 mul)
+		{
+			src.R *= mul.R;
+			src.G *= mul.G;
+			src.B *= mul.B;
+			src.A *= mul.A;
+		}
+		public static void Color4_Add(ref OpenTK.Graphics.Color4 src, OpenTK.Graphics.Color4 add)
+		{
+			src.R += add.R;
+			src.G += add.G;
+			src.B += add.B;
+			src.A += add.A;
+		}
 	}
 
 	public class AABB
@@ -495,6 +510,19 @@ namespace csharp_viewer
 			Common.meshD4.Draw();
 		}
 	}
+
+	/*public struct Color4 : OpenTK.Graphics.Color4
+	{
+		public static Color4 One = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
+		public static Color4 Zero = new Color4(0.0f, 0.0f, 0.0f, 0.0f);
+
+		public Color4(float r, float g, float b, float a) : base(r, g, b, a) {}
+		public Color4(Color4 clr) : base(clr) {}
+		public static Color4 operator +(Color4 clr0, Color4 clr1)
+		{
+			return new Color4(clr0 + clr1);
+		}
+	}*/
 
 	class SortedList<Value> : System.Collections.Generic.IEnumerable<Value>
 	{

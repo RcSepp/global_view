@@ -495,28 +495,80 @@ namespace csharp_viewer
 			set {
 				if((visible_static = visible_manual = value) == true)
 					foreach(ImageTransform t in transforms)
-						if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
+						if(t.skipImageInterval == ImageTransform.UpdateInterval.Static || t.skipImageInterval == ImageTransform.UpdateInterval.Triggered)
 							visible_static &= !t.SkipImage(key, this);
 			}
 		}
 
-		/*private bool color_manual = true; // Publicly controllable color
-		private bool color_static = true; // == color_manual + color for static image color-transforms
-		public bool Color
+		private Color4 clrmul_manual = new Color4(1.0f, 1.0f, 1.0f, 1.0f), clradd_manual = new Color4(0.0f, 0.0f, 0.0f, 0.0f); // Publicly controllable color
+		private Color4 clrmul_static = new Color4(1.0f, 1.0f, 1.0f, 1.0f), clradd_static = new Color4(0.0f, 0.0f, 0.0f, 0.0f); // == clr..._manual + color for static image color-transforms
+		public Color4 ColorMultiply
 		{
-			get { return color_manual; }
+			get { return clrmul_manual; }
 			set {
-				if((color_static = color_manual = value) == true)
-					foreach(ImageTransform t in transforms)
-						if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
-							color_static &= !t.SkipImage(key, this);
+				clrmul_static = clrmul_manual = value;
+				foreach(ImageTransform t in transforms)
+					if(t.colorTransformInterval == ImageTransform.UpdateInterval.Static || t.colorTransformInterval == ImageTransform.UpdateInterval.Triggered)
+					{
+						Color4 mul, add;
+						t.ColorTransform(key, this, out mul, out add);
+						Common.Color4_Mul(ref clrmul_static, mul);
+					}
 			}
-		}*/
+		}
+		public Color4 ColorAdd
+		{
+			get { return clradd_manual; }
+			set {
+				clradd_static = clradd_manual = value;
+				foreach(ImageTransform t in transforms)
+					if(t.colorTransformInterval == ImageTransform.UpdateInterval.Static || t.colorTransformInterval == ImageTransform.UpdateInterval.Triggered)
+					{
+						Color4 mul, add;
+						t.ColorTransform(key, this, out mul, out add);
+						Common.Color4_Add(ref clradd_static, add);
+					}
+			}
+		}
 
 		//public bool HasDepthInfo { get {return depth_filename != null;} }
 
 		public void Update(float dt)
 		{
+			// Check triggers
+			bool locationTransformTriggered = false, skipImageTriggered = false, colorTransformTriggered = false;
+			foreach(ImageTransform t in transforms)
+			{
+				locationTransformTriggered |= t.locationTransformTriggered && t.locationTransformInterval == ImageTransform.UpdateInterval.Triggered;
+				skipImageTriggered |= t.skipImageTriggered && t.skipImageInterval == ImageTransform.UpdateInterval.Triggered;
+				colorTransformTriggered |= t.colorTransformTriggered && t.colorTransformInterval == ImageTransform.UpdateInterval.Triggered;
+			}
+			if(locationTransformTriggered)
+				ComputeLocation();
+			if(skipImageTriggered)
+			{
+				// Evaluate static transform visibility
+				visible_static = visible_manual;
+				foreach(ImageTransform t in transforms)
+					if(t.skipImageInterval == ImageTransform.UpdateInterval.Triggered)
+						visible_static &= !t.SkipImage(key, this);
+			}
+			if(colorTransformTriggered)
+			{
+				// Evaluate static color transformation
+				clrmul_static = clrmul_manual;
+				clradd_static = clradd_manual;
+				foreach(ImageTransform t in transforms)
+					if(t.colorTransformInterval == ImageTransform.UpdateInterval.Triggered)
+					{
+						Color4 mul, add;
+						t.ColorTransform(key, this, out mul, out add);
+						Common.Color4_Mul(ref clrmul_static, mul);
+						Common.Color4_Add(ref clradd_static, add);
+					}
+			}
+
+			// Animate pos
 			Vector3 oldAnimatedPos = animatedPos;
 			Common.AnimateTransition(ref animatedPos, pos, dt);
 			if(oldAnimatedPos != animatedPos)
@@ -534,7 +586,7 @@ namespace csharp_viewer
 			// Compute dynamic visibility
 			bool visible_dynamic = visible_static;
 			foreach(ImageTransform t in transforms)
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
+				if(t.skipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.skipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
 			return visible_dynamic;
 		}
@@ -545,7 +597,7 @@ namespace csharp_viewer
 			bool hasDynamicLocationTransform = locationInvalid;
 			foreach(ImageTransform t in transforms)
 			{
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
+				if(t.skipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.skipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
 				if(t.locationTransformInterval == ImageTransform.UpdateInterval.Dynamic || t.locationTransformInterval == ImageTransform.UpdateInterval.Temporal)
 					hasDynamicLocationTransform = true;
@@ -608,9 +660,9 @@ namespace csharp_viewer
 			bool hasTemporalSkipTransform = false, hasTemporalLocationTransform = false;
 			foreach(ImageTransform t in this.transforms)
 			{
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
+				if(t.skipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.skipImageInterval == ImageTransform.UpdateInterval.Temporal)
 				{
-					if(t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
+					if(t.skipImageInterval == ImageTransform.UpdateInterval.Temporal)
 						hasTemporalSkipTransform = true;
 					visible_dynamic &= !t.SkipImage(key, this);
 				}
@@ -716,8 +768,21 @@ namespace csharp_viewer
 				sdr = activelayers[0].isFloatImage ? sdr_float : sdr_default;
 			}
 
-			Color4 _clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
-			sdr.Bind(transform: transform, clr: _clr, texloaded: tex != null, haslum: tex_lum != null, depthscale: depthscale);
+			//Color4 _clr = new Color4(1.0f, 1.0f, 1.0f, 1.0f);
+
+			// Compute dynamic visibility and check if dynamic location updates are required
+			Color4 clrmul_dynamic = clrmul_static;
+			Color4 clradd_dynamic = clradd_static;
+			foreach(ImageTransform t in transforms)
+				if(t.colorTransformInterval == ImageTransform.UpdateInterval.Dynamic || t.colorTransformInterval == ImageTransform.UpdateInterval.Temporal)
+				{
+					Color4 mul, add;
+					t.ColorTransform(key, this, out mul, out add);
+					Common.Color4_Mul(ref clrmul_dynamic, mul);
+					Common.Color4_Add(ref clradd_dynamic, add);
+				}
+
+			sdr.Bind(transform: transform, clrmul: clrmul_dynamic, clradd: clradd_dynamic, texloaded: tex != null, haslum: tex_lum != null, depthscale: depthscale);
 			mesh.Bind(sdr, tex, tex_lum);
 
 			GL.BeginQuery(QueryTarget.SamplesPassed, fragmentcounter);
@@ -766,7 +831,7 @@ namespace csharp_viewer
 			// Compute dynamic visibility
 			bool visible_dynamic = visible_static;
 			foreach(ImageTransform t in transforms)
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.SkipImageInterval == ImageTransform.UpdateInterval.Temporal)
+				if(t.skipImageInterval == ImageTransform.UpdateInterval.Dynamic || t.skipImageInterval == ImageTransform.UpdateInterval.Temporal)
 					visible_dynamic &= !t.SkipImage(key, this);
 			if(!visible_dynamic)
 			{
@@ -808,13 +873,35 @@ namespace csharp_viewer
 		{
 			transforms.Add(transform);
 
-			// Evaluate static transform visibility
+			/*// Evaluate static transform visibility
 			visible_static = visible_manual;
 			foreach(ImageTransform t in transforms)
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
-					visible_static &= !t.SkipImage(key, this);
+				if(t.skipImageInterval == ImageTransform.UpdateInterval.Static || t.skipImageInterval == ImageTransform.UpdateInterval.Triggered)
+					visible_static &= !t.SkipImage(key, this);*/
+			if(transform.skipImageInterval == ImageTransform.UpdateInterval.Static || transform.skipImageInterval == ImageTransform.UpdateInterval.Triggered)
+				visible_static &= !transform.SkipImage(key, this);
 
-			ComputeLocation();
+			/*// Evaluate static color transformation
+			clrmul_static = clrmul_manual;
+			clradd_static = clradd_manual;
+			foreach(ImageTransform t in transforms)
+				if(t.colorTransformInterval == ImageTransform.UpdateInterval.Static || t.colorTransformInterval == ImageTransform.UpdateInterval.Triggered)
+				{
+					Color4 mul, add;
+					t.ColorTransform(key, this, out mul, out add);
+					Common.Color4_Mul(ref clrmul_static, mul);
+					Common.Color4_Add(ref clradd_static, add);
+				}*/
+			if(transform.colorTransformInterval == ImageTransform.UpdateInterval.Static || transform.colorTransformInterval == ImageTransform.UpdateInterval.Triggered)
+			{
+				Color4 mul, add;
+				transform.ColorTransform(key, this, out mul, out add);
+				Common.Color4_Mul(ref clrmul_static, mul);
+				Common.Color4_Add(ref clradd_static, add);
+			}
+
+			if(transform.locationTransformInterval == ImageTransform.UpdateInterval.Static || transform.locationTransformInterval == ImageTransform.UpdateInterval.Triggered)
+				ComputeLocation();
 
 			// Update transform bounds
 			transform.OnAddTransform(key, this);
@@ -829,8 +916,20 @@ namespace csharp_viewer
 			// Evaluate static transform visibility
 			visible_static = visible_manual;
 			foreach(ImageTransform t in transforms)
-				if(t.SkipImageInterval == ImageTransform.UpdateInterval.Static)
+				if(t.skipImageInterval == ImageTransform.UpdateInterval.Static || t.skipImageInterval == ImageTransform.UpdateInterval.Triggered)
 					visible_static &= !t.SkipImage(key, this);
+
+			// Evaluate static color transformation
+			clrmul_static = clrmul_manual;
+			clradd_static = clradd_manual;
+			foreach(ImageTransform t in transforms)
+				if(t.colorTransformInterval == ImageTransform.UpdateInterval.Static || t.colorTransformInterval == ImageTransform.UpdateInterval.Triggered)
+				{
+					Color4 mul, add;
+					t.ColorTransform(key, this, out mul, out add);
+					Common.Color4_Mul(ref clrmul_static, mul);
+					Common.Color4_Add(ref clradd_static, add);
+				}
 
 			ComputeLocation();
 
@@ -842,6 +941,10 @@ namespace csharp_viewer
 
 			// Reset static visibility to manual visibility
 			visible_static = visible_manual;
+
+			// Reset static color transformation to manual color transformation
+			clrmul_static = clrmul_manual;
+			clradd_static = clradd_manual;
 
 			ComputeLocation();
 

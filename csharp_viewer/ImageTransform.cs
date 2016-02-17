@@ -114,17 +114,21 @@ namespace csharp_viewer
 
 		public virtual void PrepareImage(int[] imagekey, TransformedImage image) {}
 		public virtual void LocationTransform(int[] imagekey, TransformedImage image, out Vector3 pos, ref Quaternion rot, ref Vector3 scl) {pos = Vector3.Zero;}
+		public virtual void ColorTransform(int[] imagekey, TransformedImage image, out Color4 mul, out Color4 add) {mul = new Color4(1.0f, 1.0f, 1.0f, 1.0f); add = new Color4(0.0f, 0.0f, 0.0f, 0.0f);}
 		public virtual AABB GetImageBounds(int[] imagekey, TransformedImage image) {return new AABB();}
 		public virtual bool SkipImage(int[] imagekey, TransformedImage image) {return false;}
 		public virtual void RenderImage(int[] imagekey, TransformedImage image, ImageCloud.FreeView freeview) {}
 
 		public enum UpdateInterval
 		{
-			/// <summary> The behaviour isn't used </summary>
+			/// <summary> The behaviour isn't used (never checked) </summary>
 			Never,
 
-			/// <summary> The behaviour never changes </summary>
+			/// <summary> The behaviour never changes (checked only once) </summary>
 			Static,
+
+			/// <summary> The behaviour changes in user-defined intervals (checked when ...Triggered == true) </summary>
+			Triggered,
 
 			/// <summary> The behaviour changes every frame (not checked during temporal prefetching) </summary>
 			Dynamic,
@@ -132,7 +136,8 @@ namespace csharp_viewer
 			/// <summary> The behaviour changes with time (checked during temporal prefetching) </summary>
 			Temporal
 		};
-		public UpdateInterval locationTransformInterval, SkipImageInterval;
+		public UpdateInterval locationTransformInterval = UpdateInterval.Never, skipImageInterval = UpdateInterval.Never, colorTransformInterval = UpdateInterval.Never;
+		public bool locationTransformTriggered = false, skipImageTriggered = false, colorTransformTriggered = false; // Triggers for manually triggering behavior checks
 
 		public virtual void OnRender(float dt, ImageCloud.FreeView freeview) {}
 		public virtual void OnCameraMoved(ImageCloud.FreeView freeview) {}

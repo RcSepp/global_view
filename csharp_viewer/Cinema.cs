@@ -630,7 +630,7 @@ namespace csharp_viewer
 					// Up to this point depth-path == luminance-path == image-path
 					layer.imageDepthPath = layer.imageLumPath = layer.imagepath;
 
-					string depthExt = ext;
+					string depthExt = ".im";
 					if(store.depthNamePattern != null)
 					{
 						layer.imageDepthPath = store.depthNamePattern;

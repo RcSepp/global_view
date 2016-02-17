@@ -9,7 +9,7 @@ namespace csharp_viewer
 	{
 		public DisableTransform()
 		{
-			SkipImageInterval = UpdateInterval.Static;
+			skipImageInterval = UpdateInterval.Static;
 		}
 
 		public override bool SkipImage(int[] imagekey, TransformedImage image)
