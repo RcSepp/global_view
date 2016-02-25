@@ -176,7 +176,7 @@ namespace csharp_viewer
 					vec4 rgba = texture2D(sampler, uv);
 					int valueI = int(rgba.r * 255.0) * 0x10000 + int(rgba.g * 255.0) * 0x100 + int(rgba.b * 255.0);
 					if(valueI == 0)
-						return vec4(NanColor, alpha);
+						return vec4(/*0.19215686274509805, 0.4627450980392157, 0.18823529411764706*/NanColor, alpha);
 					float valueS = float(valueI - 0x1) / float(0xfffffe); // 0 is reserved as 'nothing'
 					valueS = clamp(valueS, 0.0, 1.0);
 
@@ -396,6 +396,15 @@ else // Pass != 0
 
 				ActionManager.Do(MoveAction, pos, rot);
 			}
+			public void ClearRotation()
+			{
+				if(rot.X != 0.0f || rot.Y != 0.0f)
+				{
+					rot.X = rot.Y = 0.0f;
+
+					ActionManager.Do(MoveAction, pos, rot);
+				}
+			}
 
 			public void RotateAround(Vector2 deltarot, Vector3 center)
 			{
@@ -547,9 +556,17 @@ else // Pass != 0
 		CoordinateSystem coordsys;
 		LineGrid grid;
 		ImageContextMenu ContextMenu;
+		public ImageContextMenu.MenuButton CreateContextMenuButton(string text, ImageContextMenu.MenuButtonClickDelegate onclick = null)
+		{
+			return ImageContextMenu.MenuButton.Create(ContextMenu, text, onclick);
+		}
+		public ImageContextMenu.MenuGroup CreateContextMenuGroup(string text)
+		{
+			return ImageContextMenu.MenuGroup.Create(ContextMenu, text);
+		}
 		public void ShowContextMenu(ImageContextMenu.MenuGroup cm)
 		{
-			ContextMenu.Show(cm, glcontrol.PointToClient(Control.MousePosition), backbuffersize);
+			cm.Show(glcontrol.PointToClient(Control.MousePosition), backbuffersize);
 		}
 		int fragmentcounter;
 
@@ -886,6 +903,12 @@ depthRenderingEnabled_fade = 0.0f;
 			return null;
 			#endif
 		}
+		public void RemoveSlider(CustomControlContainer.Slider slider)
+		{
+			#if USE_CUSTOM_CONTROLS
+			ccContainer.RemoveSlider(slider);
+			#endif
+		}
 
 		private void FocusAABB(AABB aabb, bool animate)
 		{
@@ -1078,9 +1101,11 @@ depthRenderingEnabled_fade = 0.0f;
 				}
 				if(viewControl == ViewControl.TwoDimensional)
 				{
+					freeview.ClearRotation();
+
 					Vector3 freeViewTranslation = Vector3.Zero;//new Vector3(0.0f, 0.0f, camera_speed * 10.0f * mdz); //mdz / dt);
 					if(mdz != 0)
-						freeViewTranslation.Z = freeview.viewpos.Z * 5.0f * mdz;
+						freeViewTranslation.Z = freeview.viewpos.Z * 2.0f * mdz;
 					//Vector3 freeViewTranslation = new Vector3(0.0f, 0.0f, 10.0f * camera_speed * mdz); //mdz / dt);
 
 					if(mouseDownInsideImageCloud && dragImage == null && (InputDevices.mstate.IsButtonDown(MouseButton.Middle) || InputDevices.mstate.IsButtonDown(MouseButton.Right)))
@@ -1100,7 +1125,10 @@ depthRenderingEnabled_fade = 0.0f;
 
 					if(freeViewTranslation.X != 0.0f || freeViewTranslation.Y != 0.0f || freeViewTranslation.Z != 0.0f)
 					{
-						freeview.Translate(Vector3.Multiply(freeViewTranslation, dt));
+						freeViewTranslation = Vector3.Multiply(freeViewTranslation, dt);
+						if(freeview.viewpos.Z - freeViewTranslation.Z < freeview.znear * 1.1f)
+							freeViewTranslation.Z = freeview.viewpos.Z - freeview.znear * 1.1f;
+						freeview.Translate(freeViewTranslation);
 						viewChanged = true;
 					}
 				}
@@ -1241,10 +1269,10 @@ depthRenderingEnabled_fade = 0.0f;
 					// >>> Update image transforms
 
 					iter.Update(dt);
-				}
+				/*}
 
-				foreach(TransformedImage iter in Viewer.visible)
-				{
+				foreach(TransformedImage iter in Viewer.visible) //EDIT: If only visible images get iterated here, render priority of invisible images will never be set to zero inside IsVisible()
+				{*/
 					Matrix4 transform;
 					if(iter.IsVisible(freeview, invvieworient, backbuffersize, out transform))
 					{
@@ -1313,7 +1341,7 @@ depthRenderingEnabled_fade = 0.0f;
 
 			GL.Disable(EnableCap.DepthTest);
 
-			/*//Common.fontText.DrawString(0.0f, 0.0f, camera_speed.ToString(), backbuffersize);
+			//Common.fontText.DrawString(0.0f, 0.0f, camera_speed.ToString(), backbuffersize);
 			//Common.fontText.DrawString(200.0f, 0.0f, freeview.zfar.ToString(), backbuffersize);
 
 			Common.fontText.DrawString(0.0f, 40.0f, GLTextureStream.foo.ToString(), backbuffersize);
@@ -1323,7 +1351,7 @@ depthRenderingEnabled_fade = 0.0f;
 				Common.fontText.DrawString(0.0f, 80.0f, GLTexture.allocatedTextureCounter.ToString(), backbuffersize);
 
 			if(texstream != null)
-				texstream.DrawDebugInfo(backbuffersize);*/
+				texstream.DrawDebugInfo(backbuffersize);
 
 			if(status_timer > 0.0f)
 			{
@@ -1758,6 +1786,10 @@ depthRenderingEnabled_fade = 0.0f;
 				GLTexture.PrintAllocatedTextureNames();
 				break;
 
+			case Keys.Y:
+				texstream.Refresh();
+				break;
+
 			/*case Keys.F:
 				//ActionManager.Do(FocusAction, selection);
 				Focus(selection);
@@ -1923,6 +1955,7 @@ depthRenderingEnabled_fade = 0.0f;
 				//image.skipPosAnimation();
 			}
 			transform.OnCameraMoved(freeview);
+			transform.Dispose();
 			return transform;
 		}
 		public ImageTransform RemoveTransform(ImageTransform transform, IEnumerable<TransformedImage> images)
@@ -1956,6 +1989,18 @@ depthRenderingEnabled_fade = 0.0f;
 				image.ClearTransforms();
 				//image.skipPosAnimation();
 			}
+
+			HashSet<ImageTransform> neededTransforms = new HashSet<ImageTransform>();
+			foreach(TransformedImage image in this.images)
+				foreach(ImageTransform transform in image.transforms)
+					neededTransforms.Add(transform);
+			for(int i = this.transforms.Count - 1; i >= 0; --i)
+				if(!neededTransforms.Contains(this.transforms[i]))
+				{
+					this.transforms[i].Dispose();
+					this.transforms.RemoveAt(i);
+				}
+			
 			SelectionChanged();
 			//EDIT: Call transforms.Remove(transform); for all transforms that aren't needed anymore
 		}

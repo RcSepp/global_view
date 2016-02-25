@@ -1,4 +1,4 @@
-﻿//#define ENABLE_PROFILING
+﻿#define ENABLE_PROFILING
 
 using System;
 

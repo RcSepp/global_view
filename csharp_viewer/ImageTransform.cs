@@ -8,6 +8,9 @@ namespace csharp_viewer
 	//[Serializable]
 	public abstract class ImageTransform
 	{
+		public delegate void OnDisposeDelegate();
+		public event OnDisposeDelegate OnDispose;
+
 		public enum MouseButtons
 		{
 			None = 0,
@@ -93,6 +96,9 @@ namespace csharp_viewer
 		}
 		public void Dispose()
 		{
+			if(OnDispose != null)
+				OnDispose();
+			
 			id.Remove();
 		}
 		public static ImageTransform GetTransformById(Id id)

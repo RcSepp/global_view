@@ -122,6 +122,14 @@ namespace csharp_viewer
 
 		// Control functions
 
+		protected ImageContextMenu.MenuButton CreateContextMenuButton(string text, ImageContextMenu.MenuButtonClickDelegate onclick = null)
+		{
+			return imageCloud.CreateContextMenuButton(text, onclick);
+		}
+		protected ImageContextMenu.MenuGroup CreateContextMenuGroup(string text)
+		{
+			return imageCloud.CreateContextMenuGroup(text);
+		}
 		protected void ShowContextMenu(ImageContextMenu.MenuGroup cm)
 		{
 			imageCloud.ShowContextMenu(cm);
@@ -291,6 +299,32 @@ namespace csharp_viewer
 			//SelectionMoved();
 		}
 
+		public void TakeScreenshot(string filename = "screenshot.png")
+		{
+			Viewer.image_render_mutex.WaitOne();
+			ActionManager.mgr.SaveScreenshot(filename);
+			ImageCloud.Status(string.Format("Screenshot saved as \"{0}\"", filename));
+			Viewer.image_render_mutex.ReleaseMutex();
+		}
+		public void ChangeResolution(int width, int height)
+		{
+			viewer.ChangeResolution(width, height);
+		}
+		public void Playback(double playback_speed = 1.0)
+		{
+			ActionManager.mgr.Play(playback_speed);
+		}
+		public void ClearPlayback()
+		{
+			ActionManager.mgr.Clear();
+		}
+		public void CapturePlayback(int width = 1920, int height = 1200, double fps = 25.0)
+		{
+			// Switch to video-friendly resolution
+			viewer.ChangeResolution(width, height);
+
+			ActionManager.mgr.CaptureFrames(fps);
+		}
 		public void Exit()
 		{
 			viewer.Close();
@@ -309,13 +343,89 @@ namespace csharp_viewer
 			//SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
 			//SetOption(Option.ShowCoordinateSystem, false);
 			//SetOption(Option.ShowLineGrid, false);
-			SetOption(Option.ShowColormap, false);
+			//SetOption(Option.ShowColormap, false);
 			SetOption(Option.ShowArgumentIndex, false);
 
 			//SetOption(Option.ForceOriginalImageSize, true);
 
-			cmImage = new ImageContextMenu.MenuGroup("");
-			cmImage.controls.Add(new ImageContextMenu.MenuButton("test"));
+			cmImage = CreateContextMenuGroup("");
+
+			ImageContextMenu.MenuGroup cmPlayback = CreateContextMenuGroup("Playback");
+			cmImage.AddControl(cmPlayback);
+			cmPlayback.AddControl(CreateContextMenuButton("TakeScreenShot", delegate(ImageContextMenu.MenuButton sender) {
+				cmImage.HideImmediately();
+
+				// Wait for the context menu to disappear
+				Viewer.image_render_mutex.ReleaseMutex();
+				System.Threading.Thread.Sleep(1000);
+				Viewer.image_render_mutex.WaitOne();
+
+				TakeScreenshot();
+			}));
+			cmPlayback.AddControl(CreateContextMenuButton("Play", delegate(ImageContextMenu.MenuButton sender) {
+				Playback(2.0f);
+			}));
+			cmPlayback.AddControl(CreateContextMenuButton("Clear", delegate(ImageContextMenu.MenuButton sender) {
+				ClearPlayback();
+			}));
+			cmPlayback.AddControl(CreateContextMenuButton("Record", delegate(ImageContextMenu.MenuButton sender) {
+				CapturePlayback();
+			}));
+
+			ImageContextMenu.MenuGroup cmShow = CreateContextMenuGroup("Show");
+			cmImage.AddControl(cmShow);
+			cmShow.AddControl(CreateContextMenuButton("Argument Index", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowArgumentIndex, true);
+			}));
+			cmShow.AddControl(CreateContextMenuButton("Parameter Index", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowParameterIndex, true);
+			}));
+			cmShow.AddControl(CreateContextMenuButton("Colormap", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowColormap, true);
+			}));
+			cmShow.AddControl(CreateContextMenuButton("Coordinate System", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowCoordinateSystem, true);
+			}));
+			cmShow.AddControl(CreateContextMenuButton("Line Grid", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowLineGrid, true);
+			}));
+			cmShow.AddControl(CreateContextMenuButton("Console", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowConsole, true);
+			}));
+
+			ImageContextMenu.MenuGroup cmHide = CreateContextMenuGroup("Hide");
+			cmImage.AddControl(cmHide);
+			cmHide.AddControl(CreateContextMenuButton("Argument Index", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowArgumentIndex, false);
+			}));
+			cmHide.AddControl(CreateContextMenuButton("Parameter Index", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowParameterIndex, false);
+			}));
+			cmHide.AddControl(CreateContextMenuButton("Colormap", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowColormap, false);
+			}));
+			cmHide.AddControl(CreateContextMenuButton("Coordinate System", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowCoordinateSystem, false);
+			}));
+			cmHide.AddControl(CreateContextMenuButton("Line Grid", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowLineGrid, false);
+			}));
+			cmHide.AddControl(CreateContextMenuButton("Console", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ShowConsole, false);
+			}));
+
+			ImageContextMenu.MenuGroup cmViewMode = CreateContextMenuGroup("View Control");
+			cmImage.AddControl(cmViewMode);
+			cmViewMode.AddControl(CreateContextMenuButton("View Centric", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ViewControl, ImageCloud.ViewControl.ViewCentric);
+			}));
+			cmViewMode.AddControl(CreateContextMenuButton("Coordinate System Centric", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ViewControl, ImageCloud.ViewControl.CoordinateSystemCentric);
+			}));
+			cmViewMode.AddControl(CreateContextMenuButton("Two Dimensional", delegate(ImageContextMenu.MenuButton sender) {
+				SetOption(Option.ViewControl, ImageCloud.ViewControl.TwoDimensional);
+			}));
+
 			cmImage.ComputeSize();
 
 			//ExecuteISQL(string.Format("x all BY #theta * 3.0f"));
@@ -390,6 +500,20 @@ namespace csharp_viewer
 				else
 					bgcolor = Color4.Red;
 				SetOption(Option.BackColor, bgcolor);*/
+				break;
+
+
+			case Keys.P:
+				Playback(2.0);
+				break;
+			case Keys.F12:
+				TakeScreenshot();
+				break;
+			case Keys.R:
+				CapturePlayback();
+				break;
+			case Keys.X:
+				ClearPlayback();
 				break;
 			}
 		}
@@ -599,6 +723,53 @@ namespace csharp_viewer
 					HideSelection();
 					break;
 			}
+		}
+	}
+
+	public class CinemaConverterBrowser : ImageBrowser
+	{
+		public override void OnLoad()
+		{
+			SetOption(Option.BackColor, Color4.DarkSlateBlue);
+
+			SetOption(Option.ShowCoordinateSystem, false);
+			SetOption(Option.ShowLineGrid, false);
+			SetOption(Option.ShowColormap, false);
+			SetOption(Option.ShowArgumentIndex, false);
+			SetOption(Option.ShowParameterIndex, false);
+
+			SetOption(Option.ForceOriginalImageSize, true);
+
+			Hide(Viewer.images);
+			//ExecuteISQL("rspread all");
+			//ExecuteISQL("z all by - #theta - 1.5f * #phi");
+			ExecuteISQL("z all by - #phi - #theta");
+			Focus(Viewer.images);
+			foreach(TransformedImage image in Viewer.images)
+			{
+				image.skipPosAnimation();
+
+				string filename = image.metaFilename;
+				filename = filename.Substring(0, filename.Length - ".meta".Length) + ".png";
+				if(!filename.Contains("RV_15km_18_10_3_1_2048x2048"))
+					throw new Exception();
+				filename = filename.Replace("RV_15km_18_10_3_1_2048x2048", "RV_15km_18_10_3_1_2048x2048_SpecA");
+				if(!filename.Contains("/mpas/"))
+					throw new Exception();
+				filename = filename.Replace("/mpas/", "/");
+				System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(filename));
+
+				image.SaveAssembledImageToFile(filename, OnImageSaved);
+			}
+			Show(Viewer.images);
+		}
+
+		private int imageIdx = 0;
+		private void OnImageSaved(TransformedImage sender)
+		{
+			Hide(sender);
+
+			System.Console.WriteLine(string.Format("{0} of {1} done", imageIdx++, Viewer.images.Count));
 		}
 	}
 }

@@ -208,6 +208,10 @@ namespace csharp_viewer
 			ActionManager.Do(CustomControlValueChangedAction, slider.controlIdx, slider.Value);
 			return slider;
 		}
+		public void RemoveSlider(Slider slider)
+		{
+			sliders.Remove(slider);
+		}
 
 		public void Unload()
 		{

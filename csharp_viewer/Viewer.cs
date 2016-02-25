@@ -57,6 +57,7 @@ namespace csharp_viewer
 		public static ImageBrowser browser = new SimpleBrowser();
 		//public static ImageBrowser browser = new MPASBrowser();
 		//public static ImageBrowser browser = new PhotoBrowser();
+		//public static ImageBrowser browser = new CinemaConverterBrowser();
 
 		private bool consoleVisible = true;
 		public bool ConsoleVisible
@@ -292,7 +293,6 @@ namespace csharp_viewer
 					if(transform.id == transformId)
 					{
 						imageCloud.RemoveTransform(transform);
-						transform.Dispose();
 						image_render_mutex.ReleaseMutex();
 						return null;
 					}
@@ -351,6 +351,8 @@ namespace csharp_viewer
 			ActionManager.CreateAction("Create transform that only shows the image whose view angle most closly matches a view angle modified by dragging with the mouse", "sphere", this, "CreateTransformSphericalView");
 			ActionManager.CreateAction("Create skip transform", "skip", this, "CreateTransformSkip");
 			ActionManager.CreateAction("Create plot transform", "plot", this, "CreateTransformPlot");
+			ActionManager.CreateAction("Control the given argument with a slider", "slider", this, "CreateTransformSkipSlider");
+			ActionManager.CreateAction("Control the given argument with a slider", "slider2", this, "CreateTransformAlphaSlider");
 
 			ActionManager.CreateAction("Clear selection", "none", delegate(object[] parameters) {
 				image_render_mutex.WaitOne();
@@ -401,36 +403,6 @@ namespace csharp_viewer
 					ImageTransform transform = CompiledTransform.CompileSkipTransform(string.Format("{0} != (int)(Global.time * {1}) % {2}", byExpr[0], byExpr[1], Global.arguments[index].values.Length), true, ref warnings);
 					if(ActionManager.activeCmdString != null)
 						transform.description = ActionManager.activeCmdString;
-
-					OnTransformationAdded(transform, images);
-					return warnings;
-				}
-				return null;
-			});
-			ActionManager.CreateAction<string[], HashSet<int>, bool, IEnumerable<TransformedImage>>("Control the given argument with a slider", "slider", delegate(object[] parameters) {
-				string[] byExpr = (string[])parameters[0];
-				if(byExpr.Length != 1)
-					return "usage: slider SCOPE by VARIABLE";
-				HashSet<int> indices = (HashSet<int>)parameters[1];
-				HashSet<int>.Enumerator indices_enum = indices.GetEnumerator();
-				bool isTemporal = (bool)parameters[2];
-				//IEnumerable<TransformedImage> scope = (IEnumerable<TransformedImage>)parameters[3];
-
-				indices_enum.MoveNext();
-				int index = indices_enum.Current;
-
-				if(Global.arguments != null)
-				{
-					CustomControlContainer.Slider slider = imageCloud.CreateSlider(Global.arguments[index].label + " slider", Global.arguments[index].values);
-
-					string warnings = "";
-					ImageTransform transform = CompiledTransform.CompileSliderAlphaTransform(byExpr[0], isTemporal, ref warnings);
-					if(ActionManager.activeCmdString != null)
-						transform.description = ActionManager.activeCmdString;
-					
-					slider.CustomControlValueChanged += (controlIdx, value) => {
-						transform.SetTransformParameter(value);
-					};
 
 					OnTransformationAdded(transform, images);
 					return warnings;
@@ -576,6 +548,12 @@ namespace csharp_viewer
 			Global.cle_Invoker = this;
 			Global.cle.Run();
 #endif
+		}
+
+		public void ChangeResolution(int width, int height)
+		{
+			this.ClientSize = new Size(width, height);
+			this_SizeChanged(null, null);
 		}
 
 		private void ResetAll()
@@ -1698,6 +1676,45 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			return warnings;
 		}
 
+		public string CreateTransformSkipSlider(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		{
+			return CreateTransformSlider(byExpr, byExpr_usedArgumentIndices, byExpr_isTemporal, images, false);
+		}
+		public string CreateTransformAlphaSlider(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images)
+		{
+			return CreateTransformSlider(byExpr, byExpr_usedArgumentIndices, byExpr_isTemporal, images, true);
+			}
+		public string CreateTransformSlider(string[] byExpr, HashSet<int> byExpr_usedArgumentIndices, bool byExpr_isTemporal, IEnumerable<TransformedImage> images, bool isAlphaSlider)
+		{
+			if(byExpr.Length != 1)
+				return "usage: slider SCOPE by VARIABLE";
+			HashSet<int>.Enumerator indices_enum = byExpr_usedArgumentIndices.GetEnumerator();
+
+			indices_enum.MoveNext();
+			int index = indices_enum.Current;
+
+			if(Global.arguments != null)
+			{
+				CustomControlContainer.Slider slider = imageCloud.CreateSlider(Global.arguments[index].label + " slider", Global.arguments[index].values);
+
+				string warnings = "";
+				ImageTransform transform = isAlphaSlider ? CompiledTransform.CompileSliderAlphaTransform(byExpr[0], byExpr_isTemporal, ref warnings) : CompiledTransform.CompileSliderSkipTransform(byExpr[0], byExpr_isTemporal, ref warnings);
+				if(ActionManager.activeCmdString != null)
+					transform.description = ActionManager.activeCmdString;
+
+				slider.CustomControlValueChanged += (controlIdx, value) => {
+					transform.SetTransformParameter(value);
+				};
+				transform.OnDispose += () => {
+					imageCloud.RemoveSlider(slider);
+				};
+
+				OnTransformationAdded(transform, images);
+				return warnings;
+			}
+			return null;
+		}
+
 		private void ClearTransforms()
 		{
 			image_render_mutex.WaitOne();
@@ -1709,8 +1726,6 @@ foreach(ImageTransform transform in imageCloud.transforms)
 				image.skipPosAnimation();
 			}
 
-			foreach(ImageTransform transform in imageCloud.transforms)
-				transform.Dispose();
 			image_render_mutex.ReleaseMutex();
 
 			// Update selection (bounds may have changed due to removed transforms)
@@ -1925,7 +1940,7 @@ foreach(ImageTransform transform in imageCloud.transforms)
 		private delegate void bar(object sender, EventArgs e);
 		private void glImageCloud_KeyDown(object sender, KeyEventArgs e)
 		{
-			switch(e.KeyCode)
+			/*switch(e.KeyCode)
 			{
 			case Keys.P:
 				actMgr.Play(2.0);
@@ -1946,13 +1961,13 @@ foreach(ImageTransform transform in imageCloud.transforms)
 			case Keys.X:
 				actMgr.Clear();
 				break;
-			default:
+			default:*/
 				image_render_mutex.WaitOne();
 				imageCloud.KeyDown(sender, e);
 				browser.OnKeyDown(e);
 				image_render_mutex.ReleaseMutex();
-				break;
-			}
+				/*break;
+			}*/
 		}
 		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
 		{

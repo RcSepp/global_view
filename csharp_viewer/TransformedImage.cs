@@ -298,6 +298,7 @@ namespace csharp_viewer
 					System.Runtime.InteropServices.Marshal.Copy(bytes, 0, bmpdata.Scan0, bytes.Length);
 					bmp.UnlockBits(bmpdata);
 					bmp.Save("layer" + pass.ToString() + ".png");
+					bmp.Dispose();
 				}
 			}
 
@@ -337,6 +338,21 @@ namespace csharp_viewer
 				System.Runtime.InteropServices.Marshal.Copy(bytes, 0, bmpdata.Scan0, bytes.Length);
 				bmp.UnlockBits(bmpdata);
 				bmp.Save("AssembledImageScreenshot.png");
+				bmp.Dispose();
+			}
+			if(saveAssembledImageFilename != null)
+			{
+				byte[] bytes = new byte[4 * framebufferWidth * framebufferHeight];
+				GL.ReadPixels(0, 0, framebufferWidth, framebufferHeight, PixelFormat.Bgra, PixelType.UnsignedByte, bytes);
+				System.Drawing.Bitmap bmp = new System.Drawing.Bitmap(framebufferWidth, framebufferHeight);
+				System.Drawing.Imaging.BitmapData bmpdata = bmp.LockBits(new System.Drawing.Rectangle(System.Drawing.Point.Empty, bmp.Size), System.Drawing.Imaging.ImageLockMode.WriteOnly, bmp.PixelFormat);
+				System.Runtime.InteropServices.Marshal.Copy(bytes, 0, bmpdata.Scan0, bytes.Length);
+				bmp.UnlockBits(bmpdata);
+				bmp.Save(saveAssembledImageFilename);
+				bmp.Dispose();
+				saveAssembledImageFilename = null;
+				if(onAssembledImageSavedDelegate != null)
+					onAssembledImageSavedDelegate(this);
 			}
 
 			#else
@@ -382,6 +398,7 @@ namespace csharp_viewer
 				System.Runtime.InteropServices.Marshal.Copy(bytes, 0, bmpdata.Scan0, bytes.Length);
 				bmp.UnlockBits(bmpdata);
 				bmp.Save("AssembledImageScreenshot.png");
+				bmp.Dispose();
 			}
 
 			#endif
@@ -441,9 +458,6 @@ namespace csharp_viewer
 			}
 		}
 
-		//public GLTexture2D tex = null, tex_depth = null, tex_lum = null;
-		public int[] key;
-
 		private bool selected = false;
 		public bool Selected
 		{
@@ -475,6 +489,7 @@ namespace csharp_viewer
 		private Quaternion rot; //TODO: Make publicly readonly
 		private Vector3 animatedPos = new Vector3(float.NaN);
 		public void skipPosAnimation() { animatedPos = pos; }
+		public int[] key;
 		private bool locationInvalid = false;
 		public void InvalidateLocation() { locationInvalid = true; }
 
@@ -532,6 +547,15 @@ namespace csharp_viewer
 		}
 
 		//public bool HasDepthInfo { get {return depth_filename != null;} }
+
+		public delegate void ImageSavedDelegate(TransformedImage sender);
+		private string saveAssembledImageFilename = null;
+		ImageSavedDelegate onAssembledImageSavedDelegate;
+		public void SaveAssembledImageToFile(string filename, ImageSavedDelegate onsaved = null)
+		{
+			onAssembledImageSavedDelegate = onsaved;
+			saveAssembledImageFilename = filename;
+		}
 
 		public void Update(float dt)
 		{

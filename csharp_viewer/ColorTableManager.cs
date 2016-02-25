@@ -660,9 +660,13 @@ namespace csharp_viewer
 							//colormapBytes[x * 4 + 3] = (byte)(((float)colormapBytes[x * 4 + 0] + (float)colormapBytes[x * 4 + 1] + (float)colormapBytes[x * 4 + 2]) * 255.0f / 3.0f);//(byte)(xr * 255.0f);
 							//colormapBytes[x * 4 + 3] /= 2;
 
-							colormapBytes[x * 4 + 0] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 0] / 255.0, 1.5));
-							colormapBytes[x * 4 + 1] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 1] / 255.0, 1.5));
-							colormapBytes[x * 4 + 2] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 2] / 255.0, 1.5));
+							//colormapBytes[x * 4 + 0] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 0] / 255.0, 1.5));
+							//colormapBytes[x * 4 + 1] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 1] / 255.0, 1.5));
+							//colormapBytes[x * 4 + 2] = (byte)Math.Min(255.0, 255.0 * Math.Pow((double)colormapBytes[x * 4 + 2] / 255.0, 1.5));
+
+							//colormapBytes[x * 4 + 0] = (byte)Math.Min(255.0, 50.0f + 255.0 * Math.Pow((double)colormapBytes[x * 4 + 0] / 255.0, 1.0));
+							//colormapBytes[x * 4 + 1] = (byte)Math.Min(255.0, 50.0f + 255.0 * Math.Pow((double)colormapBytes[x * 4 + 1] / 255.0, 1.0));
+							//colormapBytes[x * 4 + 2] = (byte)Math.Min(255.0, 50.0f + 255.0 * Math.Pow((double)colormapBytes[x * 4 + 2] / 255.0, 1.0));
 						}
 						endColormapCreation:
 						colormapTexture.Unlock();
@@ -1282,7 +1286,9 @@ namespace csharp_viewer
 			AddColormap(ColorTableFromSolidColor(Color4.Orange, Vector3.Zero, "Orange"));
 			AddColormap(ColorTableFromSolidColor(Color4.Yellow, Vector3.Zero, "Yellow"));
 			AddColormap(ColorTableFromSolidColor(Color4.Green, Vector3.Zero, "Green"));
+AddColormap(ColorTableFromSolidColor(new Color4(0.215686f, 0.278431f, 0.082353f, 1.0f), Vector3.Zero, "Green2"));
 			AddColormap(ColorTableFromSolidColor(Color4.Blue, Vector3.Zero, "Blue"));
+AddColormap(ColorTableFromSolidColor(new Color4(0.082353f, 0.133333f, 0.278431f, 1.0f), Vector3.Zero, "Blue2"));
 			AddColormap(ColorTableFromSolidColor(Color4.White, Vector3.Zero, "White"));
 			AddColormap(ColorTableFromSolidColor(Color4.Gray, Vector3.Zero, "Gray"));
 			AddColormap(ColorTableFromSolidColor(Color4.Black, Vector3.Zero, "Black"));
@@ -1299,8 +1305,8 @@ namespace csharp_viewer
 			//AddColormap(NamedColorTable.None);
 
 // Overwrite default //EDIT: DELETE
-colormaps.Remove("_default"); //EDIT: DELETE
-colormaps.Add("_default", colormaps["COOL/WARM"]); //EDIT: DELETE
+//colormaps.Remove("_default"); //EDIT: DELETE
+//colormaps.Add("_default", colormaps["KineticEnergy"]); //EDIT: DELETE
 
 			ActionManager.Do(HideColormapPickerAction);
 			Reset();

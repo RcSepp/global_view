@@ -172,16 +172,20 @@ namespace csharp_viewer
 				}
 
 				public System.Threading.Mutex renderMutex = new System.Threading.Mutex();
-				private float renderPriority = 0.0f; // == Maximum of render priorities of all references
+				public float renderPriority = 0.0f; // == Maximum of render priorities of all references //EDIT: Make private
 				public int renderWidth = 0, renderHeight = 0; // == Maximum of render dimensions of all references
 				private IBitmap oldbmp = null;
 				public void OnRenderPriorityDecreased()
 				{
+					//renderMutex.WaitOne();
 					renderPriority = 0.0f;
 					foreach(ImageReference reference in references)
 						renderPriority = Math.Max(reference.renderPriority, renderPriority);
 					if(renderPriority > 0.0f)
+					{
+						//renderMutex.ReleaseMutex();
 						return;
+					}
 
 					if(tex != null && !texIsStatic && (bmp == null || bmp != oldbmp)) // If a texture is loaded and either the image has been unloaded or changed
 					{
@@ -205,6 +209,7 @@ namespace csharp_viewer
 							reference.OnTextureUnloaded();
 					}
 					oldbmp = bmp;
+					//renderMutex.ReleaseMutex();
 				}
 				public void OnRenderWidthDecreased()
 				{
@@ -968,12 +973,61 @@ namespace csharp_viewer
 				addImageMutex.ReleaseMutex();
 			}
 
+			public void Refresh()
+			{
+				addImageMutex.WaitOne();
+
+				foreach(Image image in prioritySortedImages)
+				{
+					if(image.bmp != null)
+						availablememory += image.Unload();
+
+					image.renderMutex.WaitOne();
+
+					//image.renderPriority = 0;
+					//image.OnRenderPriorityDecreased();
+
+					if(image.tex != null)
+					{
+						// Unload texture
+						image.tex.Dispose();
+						image.tex = null;
+
+						if(image.tex_depth != null)
+						{
+							image.tex_depth.Dispose();
+							image.tex_depth = null;
+						}
+
+						if(image.tex_lum != null)
+						{
+							image.tex_lum.Dispose();
+							image.tex_lum = null;
+						}
+
+						foreach(ImageReference reference in image.references)
+							reference.OnTextureUnloaded();
+					}
+
+					image.renderMutex.ReleaseMutex();
+				}
+
+				Global.cle.PrintOutput(availablememory.ToString());
+				Global.cle.PrintOutput(memorysize.ToString());
+				availablememory = memorysize;
+
+				addImageMutex.ReleaseMutex();
+			}
+
 			private void LoaderThread()
 			{
 				while(!closeLoaderThread)
 				{
 					//Thread.Sleep(100);
 					Thread.Sleep(1);
+
+//if(GLTexture.allocatedTextureCounter >= 150) //EDIT: Memory leak workaround -> This is only a temporary solution!
+//	Refresh(); //EDIT: Memory leak workaround -> This is only a temporary solution!
 
 					addImageMutex.WaitOne();
 
@@ -1144,6 +1198,11 @@ namespace csharp_viewer
 		public void ClearImages()
 		{
 			loader.ClearImages();
+		}
+
+		public void Refresh()
+		{
+			loader.Refresh();
 		}
 
 		#if DEBUG_GLTEXTURESTREAM
